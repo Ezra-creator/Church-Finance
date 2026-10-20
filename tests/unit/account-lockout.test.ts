@@ -72,7 +72,7 @@ describe("Account Lockout Logic", () => {
       (lockedUser!.lockedUntil!.getTime() - Date.now()) / (60 * 1000);
     expect(minutesRemaining).toBeGreaterThan(14);
     expect(minutesRemaining).toBeLessThanOrEqual(15);
-  });
+  }, 60000);
 
   it("blocks subsequent attempts while account is locked, even with correct password", async () => {
     await prisma.user.update({

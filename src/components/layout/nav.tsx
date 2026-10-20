@@ -59,11 +59,10 @@ export function DesktopNav({ user, churchName = "PUCA Finance" }: NavProps) {
       badge: "Phase 3",
     },
     {
-      href: "/money",
-      label: "Money & Accounts",
+      href: "/money/momo",
+      label: "Mobile Money",
       icon: Coins,
       visible: true,
-      badge: "Phase 4",
     },
     {
       href: "/settings/users",
@@ -179,8 +178,8 @@ export function MobileNav({ user }: NavProps) {
       icon: Scale,
     },
     {
-      href: "/money",
-      label: "Money",
+      href: "/money/momo",
+      label: "MoMo",
       icon: Coins,
     },
   ];

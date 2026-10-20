@@ -31,6 +31,28 @@ enum ServiceStatus {
   LOCKED
 }
 
+enum StatementFileType {
+  CSV
+  XLSX
+}
+
+enum MomoTransactionDirection {
+  IN
+  OUT
+}
+
+enum MomoTransactionStatus {
+  AUTO
+  CONFIRMED
+  NEEDS_REVIEW
+  IGNORED
+}
+
+enum RuleMatchType {
+  CONTAINS_WORD
+  CONTAINS
+}
+
 model User {
   id                 String    @id @default(cuid())
   name               String
@@ -48,6 +70,11 @@ model User {
   auditLogs          AuditLog[]      @relation("ActorAuditLogs")
   countedServices    ServiceRecord[] @relation("CountedByServices")
   issuedReceipts     Receipt[]       @relation("IssuedReceipts")
+
+  uploadedMomoImports        MomoImport[]         @relation("UploadedMomoImports")
+  rolledBackMomoImports      MomoImport[]         @relation("RolledBackMomoImports")
+  reviewedMomoTransactions   MomoTransaction[]    @relation("ReviewedMomoTransactions")
+  createdClassificationRules ClassificationRule[] @relation("CreatedClassificationRules")
 
   @@map("users")
 }
@@ -82,14 +109,16 @@ model Denomination {
 }
 
 model GivingCategory {
-  id            String        @id @default(cuid())
-  code          String        @unique
-  name          String
-  sortOrder     Int
-  active        Boolean       @default(true)
+  id                  String               @id @default(cuid())
+  code                String               @unique
+  name                String
+  sortOrder           Int
+  active              Boolean              @default(true)
 
-  countSheets   CountSheet[]
-  givingEntries GivingEntry[]
+  countSheets         CountSheet[]
+  givingEntries       GivingEntry[]
+  momoTransactions    MomoTransaction[]
+  classificationRules ClassificationRule[]
 
   @@map("giving_categories")
 }
@@ -114,7 +143,8 @@ model Member {
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
 
-  givingEntries GivingEntry[]
+  givingEntries    GivingEntry[]
+  momoTransactions MomoTransaction[]
 
   @@map("members")
 }
@@ -203,4 +233,97 @@ model ReceiptSequence {
 
   @@map("receipt_sequences")
 }
+
+model ParserProfile {
+  id         String            @id @default(cuid())
+  name       String
+  fileType   StatementFileType
+  headerRow  Int               @default(1)
+  columnMap  Json
+  dateFormat String            @default("YYYY-MM-DD")
+  amountSign String            @default("POSITIVE_IN_NEGATIVE_OUT")
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+
+  imports    MomoImport[]
+
+  @@map("parser_profiles")
+}
+
+model MomoImport {
+  id              String        @id @default(cuid())
+  fileName        String
+  fileHash        String        @unique
+  parserProfileId String
+  parserProfile   ParserProfile @relation(fields: [parserProfileId], references: [id])
+  uploadedById    String
+  uploadedBy      User          @relation("UploadedMomoImports", fields: [uploadedById], references: [id])
+  rowsTotal       Int
+  rowsImported    Int
+  rowsDuplicate   Int
+  rowsSkipped     Int
+  periodStart     DateTime?
+  periodEnd       DateTime?
+  rolledBackAt    DateTime?
+  rolledBackById  String?
+  rolledBackBy    User?         @relation("RolledBackMomoImports", fields: [rolledBackById], references: [id])
+  createdAt       DateTime      @default(now())
+
+  transactions    MomoTransaction[]
+
+  @@map("momo_imports")
+}
+
+model MomoTransaction {
+  id                    String                   @id @default(cuid())
+  importId              String
+  import                MomoImport               @relation(fields: [importId], references: [id], onDelete: Cascade)
+  externalRef           String?
+  occurredAt            DateTime
+  direction             MomoTransactionDirection
+  amount                Decimal                  @db.Decimal(12, 2)
+  counterpartyName      String?
+  counterpartyPhone     String?
+  rawDescription        String                   @db.Text
+  normalizedDescription String                   @db.Text
+  categoryId            String?
+  category              GivingCategory?          @relation(fields: [categoryId], references: [id])
+  memberId              String?
+  member                Member?                  @relation(fields: [memberId], references: [id], onDelete: SetNull)
+  status                MomoTransactionStatus
+  matchedRuleId         String?
+  matchedRule           ClassificationRule?      @relation(fields: [matchedRuleId], references: [id], onDelete: SetNull)
+  reviewedById          String?
+  reviewedBy            User?                    @relation("ReviewedMomoTransactions", fields: [reviewedById], references: [id], onDelete: SetNull)
+  reviewedAt            DateTime?
+  rawRow                Json
+  duplicateHash         String?
+  createdAt             DateTime                 @default(now())
+  updatedAt             DateTime                 @updatedAt
+
+  @@index([status])
+  @@index([occurredAt])
+  @@index([externalRef])
+  @@index([duplicateHash])
+  @@map("momo_transactions")
+}
+
+model ClassificationRule {
+  id                  String            @id @default(cuid())
+  pattern             String
+  matchType           RuleMatchType
+  categoryId          String
+  category            GivingCategory    @relation(fields: [categoryId], references: [id])
+  priority            Int
+  active              Boolean           @default(true)
+  createdById         String
+  createdBy           User              @relation("CreatedClassificationRules", fields: [createdById], references: [id])
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
+  matchedTransactions MomoTransaction[]
+
+  @@map("classification_rules")
+}
+
 
