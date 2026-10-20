@@ -1,0 +1,58 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --paper: #F7F4EC;
+  --ink: #1C1B18;
+  --ink-soft: #5E5B52;
+  --rule: #D9D4C7;
+  --rule-strong: #B9B2A0;
+
+  --balanced: #2F6B4F;
+  --balanced-bg: #E3EFE7;
+
+  --variance: #A33B2E;
+  --variance-bg: #F6E3DF;
+
+  --attention: #8A6212;
+  --attention-bg: #F5EAD0;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  background-color: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-plex-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+}
+
+/* Focus indicator specification: 2px ink with 2px offset */
+*:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+/* Exact typography helpers */
+.font-ledger-title {
+  font-family: var(--font-fraunces), Georgia, serif;
+}
+
+.font-ledger-amount {
+  font-family: var(--font-plex-mono), monospace;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+/* Hairline borders */
+.rule-hairline {
+  border-color: var(--rule);
+}
+
+.rule-hairline-strong {
+  border-color: var(--rule-strong);
+}

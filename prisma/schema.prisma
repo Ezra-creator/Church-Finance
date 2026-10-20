@@ -1,0 +1,86 @@
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  FINANCE_SECRETARY
+  TREASURER
+  PRESBYTERY_VIEWER
+}
+
+enum DenominationKind {
+  NOTE
+  COIN
+}
+
+model User {
+  id                 String    @id @default(cuid())
+  name               String
+  email              String    @unique
+  passwordHash       String
+  role               Role
+  active             Boolean   @default(true)
+  mustChangePassword Boolean   @default(false)
+  failedLogins       Int       @default(0)
+  lockedUntil        DateTime?
+  lastLoginAt        DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  auditLogs          AuditLog[] @relation("ActorAuditLogs")
+
+  @@map("users")
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  actor      User?    @relation("ActorAuditLogs", fields: [actorId], references: [id], onDelete: SetNull)
+  action     String
+  entityType String
+  entityId   String
+  before     Json?
+  after      Json?
+  reason     String?
+  createdAt  DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+model Denomination {
+  id        String           @id @default(cuid())
+  value     Decimal          @unique @db.Decimal(6, 2)
+  kind      DenominationKind
+  sortOrder Int
+  active    Boolean          @default(true)
+
+  @@map("denominations")
+}
+
+model GivingCategory {
+  id        String  @id @default(cuid())
+  code      String  @unique
+  name      String
+  sortOrder Int
+  active    Boolean @default(true)
+
+  @@map("giving_categories")
+}
+
+model ChurchSettings {
+  id             String   @id @default("singleton")
+  churchName     String
+  presbyteryName String
+  weekEndsOn     Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@map("church_settings")
+}
