@@ -473,6 +473,14 @@ export async function rollbackImport(
     throw new AppError("CONFLICT", "This statement import has already been rolled back.");
   }
 
+  const hasLocked = momoImport.transactions.some((tx) => tx.locked);
+  if (hasLocked) {
+    throw new AppError(
+      "LOCKED_RECORD",
+      "Cannot roll back this statement import because one or more transactions belong to a submitted reconciliation period."
+    );
+  }
+
   return withAudit(async (tx) => {
     // Delete transactions associated with this import
     await tx.momoTransaction.deleteMany({
@@ -523,6 +531,13 @@ export async function classifySingleTransaction(
     throw new AppError("NOT_FOUND", "Transaction not found.");
   }
 
+  if (transaction.locked) {
+    throw new AppError(
+      "LOCKED_RECORD",
+      "This transaction belongs to a submitted reconciliation period and cannot be reclassified without an unlock."
+    );
+  }
+
   return withAudit(async (tx) => {
     let newRuleId: string | null = null;
 
@@ -530,9 +545,10 @@ export async function classifySingleTransaction(
       const cleanPattern = input.rulePattern.trim();
       const existingRules = await tx.classificationRule.findMany();
 
+      const ruleMatchType = input.matchType ?? RuleMatchType.CONTAINS_WORD;
       const conflicts = detectRuleConflicts(
         cleanPattern,
-        input.matchType,
+        ruleMatchType,
         input.categoryId,
         existingRules
       );
@@ -550,7 +566,7 @@ export async function classifySingleTransaction(
       const createdRule = await tx.classificationRule.create({
         data: {
           pattern: cleanPattern,
-          matchType: input.matchType,
+          matchType: ruleMatchType,
           categoryId: input.categoryId,
           priority: maxPriority + 1,
           active: true,
@@ -600,6 +616,20 @@ export async function bulkClassifyTransactions(
   input: BulkClassifyTransactionsInput,
   actorId: string
 ): Promise<{ count: number }> {
+  const lockedCount = await prisma.momoTransaction.count({
+    where: {
+      id: { in: input.transactionIds },
+      locked: true,
+    },
+  });
+
+  if (lockedCount > 0) {
+    throw new AppError(
+      "LOCKED_RECORD",
+      "One or more selected transactions belong to a submitted reconciliation period and cannot be reclassified without an unlock."
+    );
+  }
+
   return withAudit(async (tx) => {
     const updateResult = await tx.momoTransaction.updateMany({
       where: {

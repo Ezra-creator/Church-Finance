@@ -353,7 +353,7 @@ export function MomoTransactionList({
                             </span>
                             <span>•</span>
                             <span className="truncate max-w-[280px] sm:max-w-md italic">
-                              "{tx.rawDescription}"
+                              {`"${tx.rawDescription}"`}
                             </span>
                           </div>
                         </div>

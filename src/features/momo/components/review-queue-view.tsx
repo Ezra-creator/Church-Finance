@@ -259,7 +259,7 @@ export function ReviewQueueView({
                     Statement Narration
                   </span>
                   <div className="p-3 bg-ink/[0.02] border border-rule rounded-[2px] text-sm text-ink italic leading-relaxed">
-                    "{currentItem.rawDescription}"
+                    {`"${currentItem.rawDescription}"`}
                   </div>
                 </div>
 
@@ -420,7 +420,7 @@ export function ReviewQueueView({
                             )}
                           </div>
                           <p className="text-xs text-ink-soft truncate italic max-w-sm">
-                            "{item.rawDescription}"
+                            {`"${item.rawDescription}"`}
                           </p>
                           <p className="text-[10px] font-mono text-ink-soft">
                             {formatAccraDate(new Date(item.occurredAt), { day: "numeric", month: "short" })},{" "}
@@ -484,7 +484,7 @@ export function ReviewQueueView({
                       Statement Narration
                     </span>
                     <div className="p-3 bg-ink/[0.02] border border-rule rounded-[2px] text-xs text-ink italic leading-relaxed">
-                      "{currentItem.rawDescription}"
+                      {`"${currentItem.rawDescription}"`}
                     </div>
                   </div>
 

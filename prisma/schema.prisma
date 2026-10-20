@@ -53,6 +53,12 @@ enum RuleMatchType {
   CONTAINS
 }
 
+enum ReconciliationStatus {
+  DRAFT
+  READY
+  SUBMITTED
+}
+
 model User {
   id                 String    @id @default(cuid())
   name               String
@@ -75,6 +81,8 @@ model User {
   rolledBackMomoImports      MomoImport[]         @relation("RolledBackMomoImports")
   reviewedMomoTransactions   MomoTransaction[]    @relation("ReviewedMomoTransactions")
   createdClassificationRules ClassificationRule[] @relation("CreatedClassificationRules")
+  submittedPeriods           ReconciliationPeriod[] @relation("SubmittedPeriods")
+  unlockedPeriods            PeriodUnlock[]         @relation("UnlockedPeriods")
 
   @@map("users")
 }
@@ -124,12 +132,13 @@ model GivingCategory {
 }
 
 model ChurchSettings {
-  id             String   @id @default("singleton")
-  churchName     String
-  presbyteryName String
-  weekEndsOn     Int      @default(0)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id                String   @id @default("singleton")
+  churchName        String
+  presbyteryName    String
+  weekEndsOn        Int      @default(0)
+  parallelRunActive Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   @@map("church_settings")
 }
@@ -150,17 +159,19 @@ model Member {
 }
 
 model ServiceRecord {
-  id          String        @id @default(cuid())
-  serviceDate DateTime      @db.Date
+  id          String                @id @default(cuid())
+  serviceDate DateTime              @db.Date
   serviceType ServiceType
   title       String?
-  status      ServiceStatus @default(OPEN)
+  status      ServiceStatus         @default(OPEN)
   countedById String?
-  countedBy   User?         @relation("CountedByServices", fields: [countedById], references: [id], onDelete: SetNull)
+  countedBy   User?                 @relation("CountedByServices", fields: [countedById], references: [id], onDelete: SetNull)
   witnessName String?
-  notes       String?       @db.Text
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  notes       String?               @db.Text
+  periodId    String?
+  period      ReconciliationPeriod? @relation(fields: [periodId], references: [id], onDelete: SetNull)
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
 
   countSheets   CountSheet[]
   givingEntries GivingEntry[]
@@ -296,6 +307,9 @@ model MomoTransaction {
   reviewedById          String?
   reviewedBy            User?                    @relation("ReviewedMomoTransactions", fields: [reviewedById], references: [id], onDelete: SetNull)
   reviewedAt            DateTime?
+  periodId              String?
+  period                ReconciliationPeriod?    @relation(fields: [periodId], references: [id], onDelete: SetNull)
+  locked                Boolean                  @default(false)
   rawRow                Json
   duplicateHash         String?
   createdAt             DateTime                 @default(now())
@@ -305,6 +319,7 @@ model MomoTransaction {
   @@index([occurredAt])
   @@index([externalRef])
   @@index([duplicateHash])
+  @@index([periodId])
   @@map("momo_transactions")
 }
 
@@ -324,6 +339,39 @@ model ClassificationRule {
   matchedTransactions MomoTransaction[]
 
   @@map("classification_rules")
+}
+
+model ReconciliationPeriod {
+  id             String               @id @default(cuid())
+  weekEnding     DateTime             @unique @db.Date
+  status         ReconciliationStatus @default(DRAFT)
+  bookTotal      Decimal?             @db.Decimal(12, 2)
+  varianceReason String?              @db.Text
+  submittedAt    DateTime?
+  submittedById  String?
+  submittedBy    User?                @relation("SubmittedPeriods", fields: [submittedById], references: [id], onDelete: SetNull)
+  reportVersion  Int                  @default(0)
+  snapshot       Json?
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+
+  unlocks          PeriodUnlock[]
+  serviceRecords   ServiceRecord[]
+  momoTransactions MomoTransaction[]
+
+  @@map("reconciliation_periods")
+}
+
+model PeriodUnlock {
+  id           String               @id @default(cuid())
+  periodId     String
+  period       ReconciliationPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
+  unlockedById String
+  unlockedBy   User                 @relation("UnlockedPeriods", fields: [unlockedById], references: [id])
+  reason       String               @db.Text
+  createdAt    DateTime             @default(now())
+
+  @@map("period_unlocks")
 }
 
 

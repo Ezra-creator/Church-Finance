@@ -38,7 +38,13 @@ export function DesktopNav({ user, churchName = "PUCA Finance" }: NavProps) {
   const isTreasurer = user.role === Role.TREASURER;
   const isViewer = user.role === Role.PRESBYTERY_VIEWER;
 
-  const links = [
+  const links: Array<{
+    href: string;
+    label: string;
+    icon: any;
+    visible: boolean;
+    badge?: string;
+  }> = [
     {
       href: "/today",
       label: "Today",
@@ -55,8 +61,7 @@ export function DesktopNav({ user, churchName = "PUCA Finance" }: NavProps) {
       href: "/reconcile",
       label: "Reconcile",
       icon: Scale,
-      visible: !isViewer, // Viewers see read-only screens only
-      badge: "Phase 3",
+      visible: true,
     },
     {
       href: "/money/momo",

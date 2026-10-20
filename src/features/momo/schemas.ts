@@ -28,6 +28,7 @@ export const parserProfileSchema = z.object({
     .default("POSITIVE_IN_NEGATIVE_OUT"),
 });
 
+export const createParserProfileSchema = parserProfileSchema;
 export type CreateParserProfileInput = z.infer<typeof parserProfileSchema>;
 
 export const classifySingleTransactionSchema = z.object({
@@ -35,10 +36,13 @@ export const classifySingleTransactionSchema = z.object({
   categoryId: z.string().min(1, "Category is required"),
   rememberRule: z.boolean().default(false),
   rulePattern: z.string().trim().optional(),
-  matchType: z.nativeEnum(RuleMatchType).default(RuleMatchType.CONTAINS_WORD),
+  matchType: z
+    .nativeEnum(RuleMatchType)
+    .optional()
+    .default(RuleMatchType.CONTAINS_WORD),
 });
 
-export type ClassifySingleTransactionInput = z.infer<
+export type ClassifySingleTransactionInput = z.input<
   typeof classifySingleTransactionSchema
 >;
 

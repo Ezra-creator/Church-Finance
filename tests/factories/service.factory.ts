@@ -15,6 +15,7 @@ export function buildServiceRecordFixture(
     countedById: overrides.countedById || null,
     witnessName: overrides.witnessName || null,
     notes: overrides.notes || null,
+    periodId: overrides.periodId || null,
     createdAt: overrides.createdAt || now,
     updatedAt: overrides.updatedAt || now,
   };

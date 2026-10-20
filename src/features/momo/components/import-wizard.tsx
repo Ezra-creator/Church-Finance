@@ -816,7 +816,7 @@ export function ImportWizard({ savedProfiles }: ImportWizardProps) {
                         <td className="py-2 px-3 text-ink truncate max-w-[140px]">{r.date}</td>
                         <td className="py-2 px-3 text-ink font-semibold tabular-nums">{r.amount}</td>
                         <td className="py-2 px-3 text-ink truncate max-w-[120px]">{r.sender}</td>
-                        <td className="py-2 px-3 text-ink-soft truncate max-w-[200px]">"{r.desc}"</td>
+                        <td className="py-2 px-3 text-ink-soft truncate max-w-[200px]">{`"${r.desc}"`}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -993,7 +993,7 @@ export function ImportWizard({ savedProfiles }: ImportWizardProps) {
                           {row.matchedMember?.fullName || row.counterpartyName || row.counterpartyPhone || "—"}
                         </td>
                         <td className="py-2 px-3 text-ink-soft truncate max-w-[180px]">
-                          "{row.rawDescription}"
+                          {`"${row.rawDescription}"`}
                         </td>
                         <td className="py-2 px-3">
                           {isDup ? (

@@ -2,7 +2,7 @@
 
 import React, { useState, useTransition, useMemo } from "react";
 import Link from "next/link";
-import { Role, RuleMatchType } from "@prisma/client";
+import { Role, RuleMatchType, MomoTransactionDirection } from "@prisma/client";
 import {
   Plus,
   ArrowUp,
@@ -92,8 +92,8 @@ export function RulesManagerView({
 
     const activeRules = rules.filter((r) => r.active);
     const result = classifyTransaction(
+      MomoTransactionDirection.IN,
       testPhrase,
-      "IN",
       activeRules
     );
 
@@ -329,7 +329,7 @@ export function RulesManagerView({
               <div className="flex items-center gap-2 text-balanced">
                 <CheckCircle2 className="w-4 h-4" />
                 <span>
-                  Matches <strong>{testResult.categoryName}</strong> via Rule #{testResult.rule?.priority} ("{testResult.rule?.pattern}")
+                  Matches <strong>{testResult.categoryName}</strong> via Rule #{testResult.rule?.priority} (&ldquo;{testResult.rule?.pattern}&rdquo;)
                 </span>
               </div>
             )}
@@ -345,7 +345,7 @@ export function RulesManagerView({
               <div className="flex items-center gap-2 text-ink-soft">
                 <HelpCircle className="w-4 h-4" />
                 <span>
-                  No active rule matched this phrase. Would be sent to "Needs a label" review queue.
+                  No active rule matched this phrase. Would be sent to &ldquo;Needs a label&rdquo; review queue.
                 </span>
               </div>
             )}
@@ -387,7 +387,7 @@ export function RulesManagerView({
                   <div className="space-y-0.5 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-sm font-semibold font-mono text-ink truncate">
-                        "{rule.pattern}"
+                        {`"${rule.pattern}"`}
                       </span>
                       <span className="text-[10px] font-mono px-1 py-0.2 bg-ink/5 text-ink-soft rounded-[1px]">
                         {rule.matchType === "CONTAINS_WORD" ? "Word match" : "Contains substring"}
@@ -542,7 +542,7 @@ export function RulesManagerView({
                 <span>Rule Conflict Warning</span>
               </div>
               <p className="leading-relaxed">
-                This pattern overlaps with existing Rule #{formConflicts[0].priority} ("{formConflicts[0].pattern}") assigned to a different category. If a transaction matches both, it will require manual review.
+                This pattern overlaps with existing Rule #{formConflicts[0].priority} (&ldquo;{formConflicts[0].pattern}&rdquo;) assigned to a different category. If a transaction matches both, it will require manual review.
               </p>
             </div>
           )}

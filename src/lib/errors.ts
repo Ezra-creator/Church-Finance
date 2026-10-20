@@ -9,6 +9,7 @@ export type ErrorCode =
   | "LAST_SECRETARY_PROTECTED"
   | "SELF_DEACTIVATION_FORBIDDEN"
   | "CONFLICT"
+  | "LOCKED_RECORD"
   | "INTERNAL_ERROR";
 
 export class AppError extends Error {
