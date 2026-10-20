@@ -4,6 +4,8 @@ import React, { createContext, useContext, useState, useCallback } from "react";
 import { clsx } from "clsx";
 import { StatusTone } from "./status-mark";
 
+export type ToastTone = StatusTone | "success" | "error";
+
 export interface ToastMessage {
   id: string;
   message: string;
@@ -12,6 +14,7 @@ export interface ToastMessage {
 
 interface ToastContextValue {
   showToast: (message: string, tone?: StatusTone) => void;
+  addToast: (tone: ToastTone, message: string) => void;
 }
 
 const ToastContext = createContext<ToastContextValue | undefined>(undefined);
@@ -28,6 +31,14 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     }, 4500);
   }, []);
 
+  const addToast = useCallback((tone: ToastTone, message: string) => {
+    const resolvedTone: StatusTone =
+      tone === "success" ? "balanced" : tone === "error" ? "variance" : tone;
+    showToast(message, resolvedTone);
+  }, [showToast]);
+
+
+
   const toneDot = {
     balanced: "bg-balanced",
     variance: "bg-variance",
@@ -36,7 +47,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <ToastContext.Provider value={{ showToast }}>
+    <ToastContext.Provider value={{ showToast, addToast }}>
       {children}
       <div
         aria-live="polite"

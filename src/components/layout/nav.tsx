@@ -46,6 +46,12 @@ export function DesktopNav({ user, churchName = "PUCA Finance" }: NavProps) {
       visible: true,
     },
     {
+      href: "/members",
+      label: "Members",
+      icon: Users,
+      visible: true,
+    },
+    {
       href: "/reconcile",
       label: "Reconcile",
       icon: Scale,
@@ -57,12 +63,12 @@ export function DesktopNav({ user, churchName = "PUCA Finance" }: NavProps) {
       label: "Money & Accounts",
       icon: Coins,
       visible: true,
-      badge: "Phase 2",
+      badge: "Phase 4",
     },
     {
       href: "/settings/users",
       label: "Users & Access",
-      icon: Users,
+      icon: ShieldAlert,
       visible: isSecretary, // Only Finance Secretary can manage users
     },
     {
@@ -211,7 +217,7 @@ export function MobileNav({ user }: NavProps) {
           onClick={() => setIsMoreOpen(true)}
           className={clsx(
             "flex flex-col items-center justify-center flex-1 h-full min-h-[44px] gap-1 text-xs transition-colors",
-            isMoreOpen || pathname.startsWith("/settings")
+            isMoreOpen || pathname.startsWith("/settings") || pathname.startsWith("/members")
               ? "text-ink font-semibold"
               : "text-ink-soft hover:text-ink"
           )}
@@ -225,17 +231,31 @@ export function MobileNav({ user }: NavProps) {
       <Sheet
         isOpen={isMoreOpen}
         onClose={() => setIsMoreOpen(false)}
-        title="Settings & Overview"
+        title="Settings & Directory"
         description={`${user.name || user.email} (${formatRole(user.role)})`}
       >
         <div className="space-y-1 py-2">
+          <Link
+            href="/members"
+            onClick={() => setIsMoreOpen(false)}
+            className="flex items-center gap-3 px-3 py-3 rounded-[2px] text-sm text-ink hover:bg-ink/[0.04] border-b border-rule"
+          >
+            <Users className="w-4 h-4 text-ink-soft" />
+            <div>
+              <p className="font-medium">Parish Members</p>
+              <p className="text-xs text-ink-soft">
+                Directory and tithe member registry
+              </p>
+            </div>
+          </Link>
+
           {isSecretary && (
             <Link
               href="/settings/users"
               onClick={() => setIsMoreOpen(false)}
               className="flex items-center gap-3 px-3 py-3 rounded-[2px] text-sm text-ink hover:bg-ink/[0.04] border-b border-rule"
             >
-              <Users className="w-4 h-4 text-ink-soft" />
+              <ShieldAlert className="w-4 h-4 text-ink-soft" />
               <div>
                 <p className="font-medium">Users & Access</p>
                 <p className="text-xs text-ink-soft">

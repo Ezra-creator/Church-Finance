@@ -7,11 +7,14 @@ export interface TextFieldProps
   label?: string;
   error?: string;
   hint?: string;
+  detail?: string;
 }
 
 export const TextField = React.forwardRef<HTMLInputElement, TextFieldProps>(
-  ({ className, label, error, hint, id, ...props }, ref) => {
+  ({ className, label, error, hint, detail, id, ...props }, ref) => {
     const inputId = id || (label ? label.toLowerCase().replace(/\s+/g, "-") : undefined);
+    const helperText = detail || hint;
+
 
     return (
       <div className="flex flex-col gap-1.5 w-full">
@@ -36,8 +39,8 @@ export const TextField = React.forwardRef<HTMLInputElement, TextFieldProps>(
           )}
           {...props}
         />
-        {hint && !error && (
-          <p className="text-xs text-ink-soft">{hint}</p>
+        {helperText && !error && (
+          <p className="text-xs text-ink-soft">{helperText}</p>
         )}
         {error && (
           <p className="text-xs text-variance font-medium" role="alert">

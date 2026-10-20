@@ -62,6 +62,9 @@ export function toServiceDateString(date: Date = new Date()): string {
   return `${year}-${month}-${day}`;
 }
 
+export const toAccraDateString = toServiceDateString;
+
+
 /**
  * Parses a YYYY-MM-DD service date string into a Date object at UTC midnight.
  */

@@ -2,7 +2,7 @@
 
 PUCA Finance is a finance management web application for a local church designed to replace paper record books with calm, exact, and verifiable accounting records.
 
-This repository represents **Phase 1 of 7: Project Foundation**.
+This repository implements **Phase 1 (Project Foundation)** and **Phase 2 (Collection Entry & Tithe Register)** of 7 phases.
 
 ---
 
@@ -206,6 +206,31 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 - **Last Secretary Protection**: The system prevents demoting or deactivating the last active `FINANCE_SECRETARY`.
 - **Self-Deactivation Guard**: Users cannot deactivate their own active accounts.
 - **Role Isolation**:
-  - `FINANCE_SECRETARY`: Enter cash counts, initiate reconciliations, manage officers, configure church settings.
-  - `TREASURER`: Verify counts, reconcile bankings, sign off on ledger rows.
+  - `FINANCE_SECRETARY`: Enter cash counts, initiate reconciliations, manage officers, configure church settings, reopen counted services with audit reason.
+  - `TREASURER`: Verify counts, reconcile bankings, enter tithe payments and counts.
   - `PRESBYTERY_VIEWER`: Read-only access to final reports, audits, and statements.
+
+---
+
+## Phase 2: Collection Entry & Tithe Register
+
+### Cash Count Verification
+- Physical notes (`GH₵ 200, 100, 50, 20, 10, 5, 2, 1`) and coins (`GH₵ 0.50, 0.20, 0.10, 0.05, 0.01`) are entered with 44px thumb-friendly steppers.
+- Server recomputes each line total and category total strictly from active denomination database values; client calculations are never trusted.
+- When marked as counted, a witness name is mandatory, and all active giving categories must have verified sheets.
+
+### Tithe Register & Unattributed Meter
+- Individual tithe payments are recorded against registered members or visitors.
+- **Unattributed Meter**: Tithe entries may total less than or equal to the counted tithe total. Any remaining amount is explicitly tracked as *Unattributed Remainder*. Entries totaling more than the counted amount are strictly rejected.
+- **Audited Edits**: Once a service record is marked `COUNTED`, adding, editing, or deleting giving entries requires a mandatory audit reason.
+
+### Atomic Receipt Sequencing (`SELECT ... FOR UPDATE`)
+- Every tithe entry automatically issues an official receipt formatted as `R-YYYY-0001`.
+- The sequence is acquired inside the interactive database transaction using a row-level lock (`SELECT last FROM receipt_sequences WHERE year = ? FOR UPDATE`).
+- Receipt numbers never repeat or skip under high-concurrency requests.
+
+### Print-Friendly Receipts
+- Route: `/receipts/[id]`
+- Formats amounts in figures and formal English words (e.g. `GH₵ 125.50` -> *"One Hundred and Twenty-Five Ghana Cedis, Fifty Pesewas only"*).
+- Includes full `@media print` CSS hiding navigation rails, buttons, and app shells for sharp physical printer output.
+

@@ -5,7 +5,8 @@ import { Button } from "./button";
 
 export interface ConfirmDialogProps {
   isOpen: boolean;
-  onClose: () => void;
+  onClose?: () => void;
+  onCancel?: () => void;
   onConfirm: () => void;
   title: string;
   description: string;
@@ -13,11 +14,14 @@ export interface ConfirmDialogProps {
   cancelLabel?: string;
   isDestructive?: boolean;
   isLoading?: boolean;
+  isPending?: boolean;
+  tone?: "variance" | "balanced" | "neutral" | "attention" | string;
 }
 
 export function ConfirmDialog({
   isOpen,
   onClose,
+  onCancel,
   onConfirm,
   title,
   description,
@@ -25,11 +29,17 @@ export function ConfirmDialog({
   cancelLabel = "Cancel",
   isDestructive = false,
   isLoading = false,
+  isPending = false,
+  tone,
 }: ConfirmDialogProps) {
+  const handleClose = onCancel || onClose || (() => {});
+  const loading = isLoading || isPending;
+  const destructive = isDestructive || tone === "variance";
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && isOpen && !isLoading) {
-        onClose();
+      if (e.key === "Escape" && isOpen && !loading) {
+        handleClose();
       }
     };
 
@@ -44,7 +54,7 @@ export function ConfirmDialog({
       document.body.style.overflow = "";
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [isOpen, isLoading, onClose]);
+  }, [isOpen, loading, handleClose]);
 
   if (!isOpen) return null;
 
@@ -53,7 +63,7 @@ export function ConfirmDialog({
       {/* Backdrop */}
       <div
         className="fixed inset-0 bg-ink/30 backdrop-blur-[1px]"
-        onClick={() => !isLoading && onClose()}
+        onClick={() => !loading && handleClose()}
         aria-hidden="true"
       />
 
@@ -81,15 +91,15 @@ export function ConfirmDialog({
         <div className="flex items-center justify-end gap-3 mt-6 pt-4 border-t border-rule">
           <Button
             variant="secondary"
-            onClick={onClose}
-            disabled={isLoading}
+            onClick={handleClose}
+            disabled={loading}
           >
             {cancelLabel}
           </Button>
           <Button
-            variant={isDestructive ? "destructive" : "primary"}
+            variant={destructive ? "destructive" : "primary"}
             onClick={onConfirm}
-            isLoading={isLoading}
+            isLoading={loading}
           >
             {confirmLabel}
           </Button>
