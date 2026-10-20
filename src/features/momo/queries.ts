@@ -1,5 +1,14 @@
 import { prisma } from "@/server/db";
-import { MomoTransactionStatus, StatementFileType } from "@prisma/client";
+import { Prisma, MomoTransactionStatus, StatementFileType } from "@prisma/client";
+
+export type ClassificationRuleWithRelations = Prisma.ClassificationRuleGetPayload<{
+  include: {
+    category: true;
+    createdBy: {
+      select: { id: true; name: true; email: true };
+    };
+  };
+}>;
 
 export interface ListMomoTransactionsOptions {
   status?: MomoTransactionStatus;
@@ -65,7 +74,7 @@ export async function listParserProfiles() {
   });
 }
 
-export async function listClassificationRules() {
+export async function listClassificationRules(): Promise<ClassificationRuleWithRelations[]> {
   return prisma.classificationRule.findMany({
     orderBy: { priority: "asc" },
     include: {

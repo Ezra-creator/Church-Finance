@@ -1,6 +1,10 @@
 import React from "react";
 import { requireUser } from "@/server/guards";
-import { listClassificationRules, listGivingCategories } from "@/features/momo/queries";
+import {
+  listClassificationRules,
+  listGivingCategories,
+  ClassificationRuleWithRelations,
+} from "@/features/momo/queries";
 import { RulesManagerView } from "@/features/momo/components/rules-manager-view";
 
 export const metadata = {
@@ -15,7 +19,7 @@ export default async function MomoRulesPage() {
     listGivingCategories(),
   ]);
 
-  const formattedRules = rulesData.map((rule) => ({
+  const formattedRules = rulesData.map((rule: ClassificationRuleWithRelations) => ({
     id: rule.id,
     pattern: rule.pattern,
     matchType: rule.matchType,
