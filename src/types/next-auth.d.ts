@@ -6,6 +6,7 @@ declare module "next-auth" {
     id: string;
     role: Role;
     mustChangePassword: boolean;
+    tokenVersion?: number;
   }
 
   interface Session {
@@ -22,5 +23,6 @@ declare module "next-auth/jwt" {
     id: string;
     role: Role;
     mustChangePassword: boolean;
+    tokenVersion?: number;
   }
 }

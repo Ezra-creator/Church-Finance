@@ -64,9 +64,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async jwt({ token, user, trigger, session }) {
       if (user) {
         token.id = user.id;
-        token.role = (user as unknown as { role: Role }).role;
-        token.mustChangePassword = (user as unknown as { mustChangePassword: boolean }).mustChangePassword;
-        token.tokenVersion = (user as unknown as { tokenVersion: number }).tokenVersion;
+        token.role = user.role;
+        token.mustChangePassword = user.mustChangePassword;
+        token.tokenVersion = user.tokenVersion;
       }
 
       // Live verification of active user and tokenVersion
