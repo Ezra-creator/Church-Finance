@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { Role } from "@prisma/client";
 import { requireRole } from "@/server/guards";
 import { handleActionError, successResult, Result } from "@/lib/errors";
+import { withAudit } from "@/features/audit/service";
 import {
   createServiceRecordSchema,
   markCountedSchema,
@@ -73,3 +74,32 @@ export async function reopenServiceRecordAction(
     return handleActionError(error);
   }
 }
+
+export async function markBackupDoneAction(): Promise<Result<{ success: true }>> {
+  try {
+    const user = await requireRole(Role.FINANCE_SECRETARY);
+
+    await withAudit(async () => {
+      return {
+        result: true,
+        audit: {
+          actorId: user.id,
+          action: "DATABASE_BACKUP_MANUALLY_RECORDED",
+          entityType: "DATABASE",
+          entityId: "manual_external_backup",
+          reason: "Finance Secretary confirmed database backup was completed outside the application",
+          after: {
+            timestamp: new Date().toISOString(),
+            method: "Manual External Backup",
+          },
+        },
+      };
+    });
+
+    revalidatePath("/today");
+    return successResult({ success: true });
+  } catch (error) {
+    return handleActionError(error);
+  }
+}
+

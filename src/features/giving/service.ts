@@ -1,6 +1,10 @@
-import { GivingEntry, Prisma, ServiceStatus } from "@prisma/client";
+import { GivingEntry, Prisma, Role, ServiceStatus } from "@prisma/client";
 import { prisma } from "@/server/db";
 import { withAudit } from "@/features/audit/service";
+import {
+  checkIdempotentRequest,
+  saveIdempotentResponse,
+} from "@/features/idempotency/service";
 import { AppError } from "@/lib/errors";
 import { parseCedi, sumCedi } from "@/lib/money";
 import {
@@ -46,6 +50,28 @@ export async function addGivingEntry(
   input: AddGivingEntryInput,
   actorId: string
 ): Promise<GivingEntry> {
+  // Service-level authorization check
+  const actor = await prisma.user.findUnique({ where: { id: actorId } });
+  if (!actor || !actor.active) {
+    throw new AppError("UNAUTHENTICATED", "Active user account required.");
+  }
+  if (actor.role !== Role.FINANCE_SECRETARY && actor.role !== Role.TREASURER) {
+    throw new AppError(
+      "FORBIDDEN",
+      "Only Finance Secretary or Treasurer may record giving entries."
+    );
+  }
+
+  // Idempotency check: return cached result if already processed
+  if (input.idempotencyKey) {
+    const cached = await checkIdempotentRequest<GivingEntry>(
+      input.idempotencyKey,
+      actorId,
+      "GIVING_ENTRY_ADD"
+    );
+    if (cached) return cached;
+  }
+
   const amount = parseCedi(input.amount);
   if (amount.lessThanOrEqualTo(0)) {
     throw new AppError("VALIDATION_ERROR", "Entry amount must be greater than zero.");
@@ -157,6 +183,16 @@ export async function addGivingEntry(
       },
     });
 
+    if (input.idempotencyKey) {
+      await saveIdempotentResponse(
+        tx,
+        input.idempotencyKey,
+        actorId,
+        "GIVING_ENTRY_ADD",
+        entry
+      );
+    }
+
     return {
       result: entry,
       audit: {
@@ -183,6 +219,28 @@ export async function updateGivingEntry(
   input: UpdateGivingEntryInput,
   actorId: string
 ): Promise<GivingEntry> {
+  // Service-level authorization check
+  const actor = await prisma.user.findUnique({ where: { id: actorId } });
+  if (!actor || !actor.active) {
+    throw new AppError("UNAUTHENTICATED", "Active user account required.");
+  }
+  if (actor.role !== Role.FINANCE_SECRETARY && actor.role !== Role.TREASURER) {
+    throw new AppError(
+      "FORBIDDEN",
+      "Only Finance Secretary or Treasurer may update giving entries."
+    );
+  }
+
+  // Idempotency check
+  if (input.idempotencyKey) {
+    const cached = await checkIdempotentRequest<GivingEntry>(
+      input.idempotencyKey,
+      actorId,
+      "GIVING_ENTRY_UPDATE"
+    );
+    if (cached) return cached;
+  }
+
   const newAmount = parseCedi(input.amount);
   if (newAmount.lessThanOrEqualTo(0)) {
     throw new AppError("VALIDATION_ERROR", "Entry amount must be greater than zero.");
@@ -266,6 +324,16 @@ export async function updateGivingEntry(
       },
     });
 
+    if (input.idempotencyKey) {
+      await saveIdempotentResponse(
+        tx,
+        input.idempotencyKey,
+        actorId,
+        "GIVING_ENTRY_UPDATE",
+        updated
+      );
+    }
+
     return {
       result: updated,
       audit: {
@@ -293,6 +361,28 @@ export async function deleteGivingEntry(
   input: DeleteGivingEntryInput,
   actorId: string
 ): Promise<GivingEntry> {
+  // Service-level authorization check
+  const actor = await prisma.user.findUnique({ where: { id: actorId } });
+  if (!actor || !actor.active) {
+    throw new AppError("UNAUTHENTICATED", "Active user account required.");
+  }
+  if (actor.role !== Role.FINANCE_SECRETARY && actor.role !== Role.TREASURER) {
+    throw new AppError(
+      "FORBIDDEN",
+      "Only Finance Secretary or Treasurer may delete giving entries."
+    );
+  }
+
+  // Idempotency check
+  if (input.idempotencyKey) {
+    const cached = await checkIdempotentRequest<GivingEntry>(
+      input.idempotencyKey,
+      actorId,
+      "GIVING_ENTRY_DELETE"
+    );
+    if (cached) return cached;
+  }
+
   const existing = await prisma.givingEntry.findUnique({
     where: { id: input.id },
     include: {
@@ -330,6 +420,16 @@ export async function deleteGivingEntry(
       await tx.receipt.delete({
         where: { id: existing.receiptId },
       });
+    }
+
+    if (input.idempotencyKey) {
+      await saveIdempotentResponse(
+        tx,
+        input.idempotencyKey,
+        actorId,
+        "GIVING_ENTRY_DELETE",
+        deleted
+      );
     }
 
     return {

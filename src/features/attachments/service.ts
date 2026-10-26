@@ -1,7 +1,8 @@
 import path from "path";
-import { AttachmentEntityType } from "@prisma/client";
+import { AttachmentEntityType, Role } from "@prisma/client";
 import { prisma } from "@/server/db";
 import { AppError } from "@/lib/errors";
+import { assertRateLimit } from "@/lib/rate-limiter";
 import {
   generateStorageKey,
   createPresignedUploadUrl,
@@ -14,6 +15,21 @@ export async function createAttachmentUpload(
   input: RequestUploadUrlInput,
   userId: string
 ) {
+  // Service-level authorization check
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user || !user.active) {
+    throw new AppError("UNAUTHENTICATED", "Active user account required.");
+  }
+  if (user.role !== Role.FINANCE_SECRETARY && user.role !== Role.TREASURER) {
+    throw new AppError(
+      "FORBIDDEN",
+      "Only Finance Secretary or Treasurer may request upload URLs."
+    );
+  }
+
+  // Rate limiting: max 20 upload requests per 60 seconds per user
+  await assertRateLimit(`upload-url:${userId}`, 20, 60, "receipt upload");
+
   validateUploadFile(input.contentType, input.sizeBytes);
 
   const prefix = input.entityType === AttachmentEntityType.EXPENSE ? "expenses" : "deposits";

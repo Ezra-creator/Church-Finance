@@ -29,3 +29,11 @@ pnpm-debug.log*
 # OS Files
 .DS_Store
 Thumbs.db
+
+# Backups
+backups/
+*.sql
+
+# Playwright
+test-results/
+playwright-report/

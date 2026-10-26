@@ -4,7 +4,7 @@ import React, { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Role, ServiceType } from "@prisma/client";
-import { Plus, Calendar, ArrowRight, ShieldAlert, Landmark, Building2, Coins } from "lucide-react";
+import { Plus, Calendar, ArrowRight, ShieldAlert, Landmark, Building2, Coins, Database } from "lucide-react";
 import { RuleHeading } from "@/components/ui/rule-heading";
 import { Button } from "@/components/ui/button";
 import { StatusMark } from "@/components/ui/status-mark";
@@ -15,7 +15,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { useToast } from "@/components/ui/toast";
 import { formatAccraDate } from "@/lib/dates";
 import { formatCedi } from "@/lib/money";
-import { createServiceRecordAction } from "../actions";
+import { createServiceRecordAction, markBackupDoneAction } from "../actions";
 import { ServiceSummaryItem } from "../queries";
 
 interface TodayServiceListProps {
@@ -25,6 +25,8 @@ interface TodayServiceListProps {
   heldAmount?: { toString(): string } | number;
   districtOutstandingAmount?: { toString(): string } | number;
   unreviewedMomoCount?: number;
+  needsBackupReminder?: boolean;
+  lastBackupDate?: string | null;
 }
 
 export function TodayServiceList({
@@ -34,6 +36,8 @@ export function TodayServiceList({
   heldAmount,
   districtOutstandingAmount,
   unreviewedMomoCount = 0,
+  needsBackupReminder = false,
+  lastBackupDate = null,
 }: TodayServiceListProps) {
   const router = useRouter();
   const [isStartCountOpen, setIsStartCountOpen] = useState(false);
@@ -48,6 +52,18 @@ export function TodayServiceList({
 
   const canStartCount =
     userRole === Role.FINANCE_SECRETARY || userRole === Role.TREASURER;
+
+  const handleMarkBackupDone = () => {
+    startTransition(async () => {
+      const res = await markBackupDoneAction();
+      if (!res.success) {
+        addToast("error", res.error.message);
+        return;
+      }
+      addToast("success", "Database backup status recorded in the audit log");
+      router.refresh();
+    });
+  };
 
   const handleStartCount = (e: React.FormEvent) => {
     e.preventDefault();
@@ -97,10 +113,36 @@ export function TodayServiceList({
         const showDistrict = districtNum > 0;
         const showMomo = unreviewedMomoCount > 0;
 
-        if (!showHeld && !showDistrict && !showMomo) return null;
+        const showBackup = needsBackupReminder && userRole === Role.FINANCE_SECRETARY;
+
+        if (!showHeld && !showDistrict && !showMomo && !showBackup) return null;
 
         return (
           <div className="border border-rule rounded-[2px] bg-paper divide-y divide-rule font-mono text-xs">
+            {showBackup && (
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 bg-variance/[0.04] text-xs">
+                <div className="flex items-center gap-2.5 text-variance font-medium">
+                  <Database className="w-4 h-4 text-variance flex-shrink-0" />
+                  <span>
+                    {lastBackupDate
+                      ? `No database backup recorded in the last 7 days (last: ${formatAccraDate(new Date(lastBackupDate), { day: "numeric", month: "short" })})`
+                      : "No database backup has been recorded in the system"}
+                  </span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Button
+                    variant="quiet"
+                    size="sm"
+                    disabled={isPending}
+                    onClick={handleMarkBackupDone}
+                    className="text-ink hover:text-variance text-xs underline cursor-pointer p-0 h-auto"
+                  >
+                    Mark backup done
+                  </Button>
+                </div>
+              </div>
+            )}
+
             {showHeld && (
               <Link
                 href="/money"
@@ -216,7 +258,7 @@ export function TodayServiceList({
               <div className="flex items-center gap-4 self-end sm:self-auto">
                 <div className="text-right">
                   <span className="font-mono text-base sm:text-lg font-semibold tabular-nums text-ink">
-                    GH₵ {srv.grandTotal.toFixed(2)}
+                    GH₵ {parseFloat(String(srv.grandTotal || 0)).toFixed(2)}
                   </span>
                   <span className="block text-[10px] uppercase font-mono text-ink-soft">
                     {srv.categoryTotals.length} categories

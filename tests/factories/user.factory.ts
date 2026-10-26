@@ -12,6 +12,7 @@ export function buildUserFixture(overrides: Partial<User> = {}): User {
     role: overrides.role || Role.FINANCE_SECRETARY,
     active: overrides.active ?? true,
     mustChangePassword: overrides.mustChangePassword ?? false,
+    tokenVersion: overrides.tokenVersion ?? 1,
     failedLogins: overrides.failedLogins ?? 0,
     lockedUntil: overrides.lockedUntil ?? null,
     lastLoginAt: overrides.lastLoginAt ?? null,

@@ -103,7 +103,10 @@ export async function changeUserRole(
 
     const updated = await tx.user.update({
       where: { id: input.userId },
-      data: { role: input.role },
+      data: {
+        role: input.role,
+        tokenVersion: { increment: 1 },
+      },
     });
 
     return {
@@ -163,7 +166,10 @@ export async function deactivateUser(
 
     const updated = await tx.user.update({
       where: { id: targetUserId },
-      data: { active: false },
+      data: {
+        active: false,
+        tokenVersion: { increment: 1 },
+      },
     });
 
     return {
@@ -239,6 +245,7 @@ export async function resetUserPassword(
         mustChangePassword: true,
         failedLogins: 0,
         lockedUntil: null,
+        tokenVersion: { increment: 1 },
       },
     });
 

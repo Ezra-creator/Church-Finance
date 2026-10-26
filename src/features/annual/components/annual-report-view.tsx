@@ -154,15 +154,18 @@ export function AnnualReportView({
                   <td className="py-2 px-3 text-ink font-sans font-medium">
                     {cat.categoryName}
                   </td>
-                  {cat.monthlyAmounts.map((amt, idx) => (
-                    <td key={idx} className="py-2 px-1.5 text-right tabular-nums text-ink">
-                      {amt.isZero() ? (
-                        <span className="text-ink-soft/40">-</span>
-                      ) : (
-                        amt.toFixed(0)
-                      )}
-                    </td>
-                  ))}
+                  {cat.monthlyAmounts.map((amt, idx) => {
+                    const num = parseFloat(String(amt ?? 0));
+                    return (
+                      <td key={idx} className="py-2 px-1.5 text-right tabular-nums text-ink">
+                        {num === 0 ? (
+                          <span className="text-ink-soft/40">-</span>
+                        ) : (
+                          num.toFixed(0)
+                        )}
+                      </td>
+                    );
+                  })}
                   <td className="py-2 px-3 text-right tabular-nums font-semibold text-ink">
                     {formatCedi(cat.rowTotal)}
                   </td>
@@ -172,11 +175,14 @@ export function AnnualReportView({
             <tfoot className="border-t-2 border-rule font-mono font-bold text-ink text-xs bg-ink/[0.02]">
               <tr>
                 <td className="py-3 px-3 font-sans">TOTAL INCOME</td>
-                {data.income.monthlyTotals.map((amt, idx) => (
-                  <td key={idx} className="py-3 px-1.5 text-right tabular-nums">
-                    {amt.isZero() ? "-" : amt.toFixed(0)}
-                  </td>
-                ))}
+                {data.income.monthlyTotals.map((amt, idx) => {
+                  const num = parseFloat(String(amt ?? 0));
+                  return (
+                    <td key={idx} className="py-3 px-1.5 text-right tabular-nums">
+                      {num === 0 ? "-" : num.toFixed(0)}
+                    </td>
+                  );
+                })}
                 <td className="py-3 px-3 text-right tabular-nums text-sm">
                   {formatCedi(data.income.grandTotal)}
                 </td>

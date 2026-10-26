@@ -2,6 +2,7 @@ import bcrypt from "bcryptjs";
 import { User, ChurchSettings } from "@prisma/client";
 import { prisma } from "@/server/db";
 import { withAudit } from "@/features/audit/service";
+import { assertRateLimit } from "@/lib/rate-limiter";
 import { AppError } from "@/lib/errors";
 import { ChangePasswordInput, ChurchSetupInput } from "./schemas";
 
@@ -10,7 +11,7 @@ export const LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 minutes
 
 /**
  * Validates credentials against the database.
- * Enforces account lockout for 15 minutes after 5 consecutive failed attempts.
+ * Enforces database-backed rate limiting and account lockout after failed attempts.
  * Returns the authenticated user on success.
  */
 export async function verifyCredentials(
@@ -18,6 +19,10 @@ export async function verifyCredentials(
   plainPassword: string
 ): Promise<User> {
   const normalizedEmail = email.toLowerCase().trim();
+
+  // Enforce rate limit: max 10 login attempts per 60 seconds per email
+  await assertRateLimit(`login:${normalizedEmail}`, 10, 60, "login");
+
   const user = await prisma.user.findUnique({
     where: { email: normalizedEmail },
   });
@@ -129,6 +134,7 @@ export async function changePassword(
       data: {
         passwordHash: newHash,
         mustChangePassword: false,
+        tokenVersion: { increment: 1 },
       },
     });
 

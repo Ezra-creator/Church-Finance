@@ -1,10 +1,12 @@
 import NextAuth, { type DefaultSession } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { verifyCredentials } from "@/features/auth/service";
+import { prisma } from "@/server/db";
 import { AppError } from "@/lib/errors";
 import { Role } from "@prisma/client";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  trustHost: true,
   providers: [
     Credentials({
       name: "Credentials",
@@ -29,6 +31,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             email: user.email,
             role: user.role,
             mustChangePassword: user.mustChangePassword,
+            tokenVersion: user.tokenVersion,
           };
         } catch (error) {
           if (error instanceof AppError) {
@@ -43,12 +46,43 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     strategy: "jwt",
     maxAge: 8 * 60 * 60, // 8-hour JWT session
   },
+  cookies: {
+    sessionToken: {
+      name:
+        process.env.NODE_ENV === "production"
+          ? "__Secure-authjs.session-token"
+          : "authjs.session-token",
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: process.env.NODE_ENV === "production",
+      },
+    },
+  },
   callbacks: {
     async jwt({ token, user, trigger, session }) {
       if (user) {
         token.id = user.id;
         token.role = (user as unknown as { role: Role }).role;
         token.mustChangePassword = (user as unknown as { mustChangePassword: boolean }).mustChangePassword;
+        token.tokenVersion = (user as unknown as { tokenVersion: number }).tokenVersion;
+      }
+
+      // Live verification of active user and tokenVersion
+      if (token.id) {
+        const dbUser = await prisma.user.findUnique({
+          where: { id: token.id as string },
+          select: { active: true, tokenVersion: true, role: true, mustChangePassword: true },
+        });
+
+        if (!dbUser || !dbUser.active || dbUser.tokenVersion !== token.tokenVersion) {
+          // Token invalidated due to deactivation or password/role change
+          return null as any;
+        }
+
+        token.role = dbUser.role;
+        token.mustChangePassword = dbUser.mustChangePassword;
       }
 
       if (trigger === "update" && session) {
@@ -63,7 +97,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       return token;
     },
     async session({ session, token }) {
-      if (token && session.user) {
+      if (!token || !token.id) {
+        return null as any;
+      }
+
+      if (session.user) {
         session.user.id = token.id as string;
         session.user.role = token.role as Role;
         session.user.mustChangePassword = token.mustChangePassword as boolean;

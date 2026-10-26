@@ -20,6 +20,7 @@ import {
   Printer,
   AlertTriangle,
   Scale,
+  Clock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { RuleHeading } from "@/components/ui/rule-heading";
@@ -33,6 +34,8 @@ import { useToast } from "@/components/ui/toast";
 import { formatAccraDate } from "@/lib/dates";
 import { DenominationStepper } from "./denomination-stepper";
 import { MemberCombobox } from "@/features/giving/components/member-combobox";
+import { OfflineStatusBanner } from "./offline-status-banner";
+import { useOfflineSync } from "@/lib/offline/use-offline-sync";
 import { saveCountAction } from "@/features/counting/actions";
 import {
   markCountedAction,
@@ -176,6 +179,25 @@ export function ServiceCountView({
   const [isPending, startTransition] = useTransition();
   const { addToast } = useToast();
 
+  const {
+    isOnline,
+    pendingItems,
+    conflictItems,
+    isSyncing,
+    queueSaveCount,
+    queueAddGiving,
+    replayOutbox,
+    resolveConflict,
+    isCategoryPending,
+    isGivingPending,
+  } = useOfflineSync({
+    serviceRecordId: serviceRecord.id,
+    onSyncSuccess: () => {
+      // Re-trigger view refresh or calculations
+    },
+    onToast: (variant, msg) => addToast(variant, msg),
+  });
+
   const isLocked = recordStatus === ServiceStatus.LOCKED;
   const isCounted = recordStatus === ServiceStatus.COUNTED;
   const isViewer = userRole === Role.PRESBYTERY_VIEWER;
@@ -265,31 +287,46 @@ export function ServiceCountView({
     }));
 
     startTransition(async () => {
-      const res = await saveCountAction({
-        serviceRecordId: serviceRecord.id,
-        categoryId: activeCategoryId,
-        lines: currentLines,
-      });
+      const res = await queueSaveCount(
+        {
+          serviceRecordId: serviceRecord.id,
+          categoryId: activeCategoryId,
+          lines: currentLines,
+        },
+        activeCategory?.name || "Offering"
+      );
 
       if (!res.success) {
-        addToast("error", res.error.message);
+        addToast("error", res.error || "Failed to save count");
         return;
       }
 
-      const newTotal = parseFloat(res.data.total);
+      const denomMap = new Map(denominations.map((d) => [d.id, parseFloat(d.value)]));
+      const localTotal = currentLines.reduce((acc, curr) => {
+        const val = denomMap.get(curr.denominationId) || 0;
+        return acc + val * curr.quantity;
+      }, 0);
+
       setSavedCounts((prev) => ({
         ...prev,
         [activeCategoryId]: { ...(counts[activeCategoryId] || {}) },
       }));
       setSavedSheetTotals((prev) => ({
         ...prev,
-        [activeCategoryId]: newTotal,
+        [activeCategoryId]: localTotal,
       }));
 
-      addToast(
-        "success",
-        `${activeCategory?.name} count verified and saved (GH₵ ${res.data.total})`
-      );
+      if (res.offline) {
+        addToast(
+          "attention",
+          `${activeCategory?.name} count saved offline (GH₵ ${localTotal.toFixed(2)}) — waiting to sync`
+        );
+      } else {
+        addToast(
+          "success",
+          `${activeCategory?.name} count verified and saved (GH₵ ${localTotal.toFixed(2)})`
+        );
+      }
     });
   };
 
@@ -366,30 +403,34 @@ export function ServiceCountView({
     }
 
     startTransition(async () => {
-      const res = await addGivingEntryAction({
-        serviceRecordId: serviceRecord.id,
-        categoryId: activeCategoryId,
-        memberId: selectedMemberId,
-        payerName: visitorPayerName.trim() || null,
-        amount: entryAmount,
-        reason: entryReason.trim() || undefined,
-      });
+      const selectedMember = members.find((m) => m.id === selectedMemberId);
+      const displayLabel = selectedMember ? selectedMember.fullName : visitorPayerName.trim();
+
+      const res = await queueAddGiving(
+        {
+          serviceRecordId: serviceRecord.id,
+          categoryId: activeCategoryId,
+          memberId: selectedMemberId,
+          payerName: visitorPayerName.trim() || null,
+          amount: entryAmount,
+          reason: entryReason.trim() || undefined,
+        },
+        displayLabel
+      );
 
       if (!res.success) {
-        setEntryError(res.error.message);
+        setEntryError(res.error || "Failed to record giving entry");
         return;
       }
 
-      const selectedMember = members.find((m) => m.id === selectedMemberId);
-
       const newEntry: InitialGivingEntry = {
-        id: res.data.id,
+        id: res.data?.id || crypto.randomUUID(),
         categoryId: activeCategoryId,
         memberId: selectedMemberId,
         payerName: visitorPayerName.trim() || null,
         amount: amountNum.toFixed(2),
-        receiptId: res.data.receiptId,
-        receiptNumber: "Generated",
+        receiptId: res.data?.receiptId || null,
+        receiptNumber: res.offline ? "Pending (Offline)" : "Generated",
         member: selectedMember
           ? {
               id: selectedMember.id,
@@ -401,7 +442,14 @@ export function ServiceCountView({
       };
 
       setGivingEntries((prev) => [newEntry, ...prev]);
-      addToast("success", `Tithe payment recorded (GH₵ ${amountNum.toFixed(2)})`);
+      if (res.offline) {
+        addToast(
+          "attention",
+          `Tithe payment saved offline (GH₵ ${amountNum.toFixed(2)}) — waiting to sync`
+        );
+      } else {
+        addToast("success", `Tithe payment recorded (GH₵ ${amountNum.toFixed(2)})`);
+      }
       setIsAddEntryOpen(false);
       setSelectedMemberId(null);
       setVisitorPayerName("");
@@ -513,10 +561,21 @@ export function ServiceCountView({
         )}
       </div>
 
+      {/* Offline and Sync Status Banner */}
+      <OfflineStatusBanner
+        isOnline={isOnline}
+        pendingCount={pendingItems.length}
+        isSyncing={isSyncing}
+        conflicts={conflictItems}
+        onManualSync={replayOutbox}
+        onResolveConflict={resolveConflict}
+      />
+
       {/* Category Switch: Three Underlined Text Tabs */}
       <div className="flex border-b border-rule">
         {categories.map((cat) => {
           const isActive = cat.id === activeCategoryId;
+          const isPendingSync = isCategoryPending(cat.id);
           return (
             <button
               key={cat.id}
@@ -529,6 +588,11 @@ export function ServiceCountView({
               }`}
             >
               <span>{cat.name}</span>
+              {isPendingSync && (
+                <span className="text-[10px] text-variance font-mono" title="Waiting to sync">
+                  ⏳
+                </span>
+              )}
               <span className="text-xs font-mono text-ink-soft tabular-nums">
                 GH₵ {(savedSheetTotals[cat.id] || 0).toFixed(2)}
               </span>
@@ -692,7 +756,7 @@ export function ServiceCountView({
                         )}
                       </div>
 
-                      {entry.receiptId && (
+                      {entry.receiptId ? (
                         <Link
                           href={`/receipts/${entry.receiptId}`}
                           className="inline-flex items-center gap-1.5 text-xs font-mono text-ink hover:underline"
@@ -700,6 +764,13 @@ export function ServiceCountView({
                           <ReceiptIcon className="w-3.5 h-3.5 text-ink-soft" />
                           <span>View Official Receipt</span>
                         </Link>
+                      ) : (
+                        <span
+                          className="inline-flex items-center gap-1 text-[10px] font-mono text-variance bg-variance/10 px-1.5 py-0.5 rounded-[2px]"
+                          title="Offline entry waiting to sync"
+                        >
+                          <Clock className="w-3 h-3" /> Waiting to sync
+                        </span>
                       )}
                     </div>
 

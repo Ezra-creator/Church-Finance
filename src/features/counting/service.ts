@@ -1,6 +1,10 @@
-import { CountSheet, Prisma, ServiceStatus } from "@prisma/client";
+import { CountSheet, Prisma, Role, ServiceStatus } from "@prisma/client";
 import { prisma } from "@/server/db";
 import { withAudit } from "@/features/audit/service";
+import {
+  checkIdempotentRequest,
+  saveIdempotentResponse,
+} from "@/features/idempotency/service";
 import { AppError } from "@/lib/errors";
 import { sumCedi } from "@/lib/money";
 import { SaveCountSheetInput } from "./schemas";
@@ -9,7 +13,29 @@ export async function saveCount(
   input: SaveCountSheetInput,
   actorId: string
 ): Promise<CountSheet> {
-  const { serviceRecordId, categoryId, lines } = input;
+  const { serviceRecordId, categoryId, lines, idempotencyKey } = input;
+
+  // Authorisation check inside service
+  const actor = await prisma.user.findUnique({ where: { id: actorId } });
+  if (!actor || !actor.active) {
+    throw new AppError("UNAUTHENTICATED", "Active user account required.");
+  }
+  if (actor.role !== Role.FINANCE_SECRETARY && actor.role !== Role.TREASURER) {
+    throw new AppError(
+      "FORBIDDEN",
+      "Only Finance Secretary or Treasurer may record counts."
+    );
+  }
+
+  // Idempotency check: return cached result if already processed
+  if (idempotencyKey) {
+    const cached = await checkIdempotentRequest<CountSheet>(
+      idempotencyKey,
+      actorId,
+      "COUNT_SHEET_SAVE"
+    );
+    if (cached) return cached;
+  }
 
   // Verify service record exists and is not LOCKED
   const record = await prisma.serviceRecord.findUnique({
@@ -136,6 +162,16 @@ export async function saveCount(
           lineTotal: l.lineTotal,
         })),
       });
+    }
+
+    if (idempotencyKey) {
+      await saveIdempotentResponse(
+        tx,
+        idempotencyKey,
+        actorId,
+        "COUNT_SHEET_SAVE",
+        sheet
+      );
     }
 
     return {

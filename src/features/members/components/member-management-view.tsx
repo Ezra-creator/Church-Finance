@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState, useTransition, useMemo } from "react";
 import Link from "next/link";
 import { Member, Role } from "@prisma/client";

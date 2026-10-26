@@ -97,6 +97,7 @@ model User {
   role               Role
   active             Boolean   @default(true)
   mustChangePassword Boolean   @default(false)
+  tokenVersion       Int       @default(1)
   failedLogins       Int       @default(0)
   lockedUntil        DateTime?
   lastLoginAt        DateTime?
@@ -121,6 +122,7 @@ model User {
   uploadedAttachments        Attachment[]
   generatedStatements        StatementLog[]              @relation("GeneratedStatements")
   recordedDistrictPayments   DistrictRemittancePayment[] @relation("RecordedDistrictPayments")
+  idempotencyKeys            IdempotencyKey[]
 
   @@map("users")
 }
@@ -562,4 +564,29 @@ model StatementLog {
   @@index([generatedById])
   @@map("statement_logs")
 }
+
+model IdempotencyKey {
+  key          String   @id
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  operation    String
+  responseJson Json
+  createdAt    DateTime @default(now())
+  expiresAt    DateTime
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("idempotency_keys")
+}
+
+model RateLimitAttempt {
+  id        String   @id @default(cuid())
+  key       String
+  points    Int      @default(1)
+  expiresAt DateTime
+
+  @@index([key, expiresAt])
+  @@map("rate_limit_attempts")
+}
+
 

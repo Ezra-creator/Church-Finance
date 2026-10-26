@@ -1,79 +1,51 @@
-# PUCA Finance
+# PUCA Finance — Local Church Accounting Ledger
 
-PUCA Finance is a finance management web application for a local church designed to replace paper record books with calm, exact, and verifiable accounting records.
+PUCA Finance is a local church finance and custody ledger application built for the Presbyterian Church of Ghana (PUCA English Assembly). It replaces traditional physical paper registers and uncalibrated spreadsheets with a calm, exact, and tamper-evident digital custody ledger.
 
-This repository implements **Phase 1 (Project Foundation)** and **Phase 2 (Collection Entry & Tithe Register)** of 7 phases.
-
----
-
-## Technology Stack
-
-- **Framework**: Next.js 15 (App Router)
-- **Language**: TypeScript (strict mode enabled)
-- **Styling**: Tailwind CSS with custom ledger design tokens
-- **Database**: Prisma ORM with MySQL provider (compatible with local MySQL 8 and TiDB Cloud)
-- **Validation**: Zod (fail-fast environment and schema parsing)
-- **Authentication**: Auth.js v5 (Credentials provider, bcrypt cost 12, 8-hour JWT sessions, Edge route protection)
-- **Testing**: Vitest
-- **Package Manager**: pnpm
-- **Localization**: Timezone `Africa/Accra`, Currency Ghana cedi (`GH₵`) with two decimal places
+The application is structured to resolve real parish accounting realities:
+- **Cash Counting & Custody**: Sunday physical collections counted across bank notes and coins, verified with witnesses, and tracked in custody until deposited in the bank.
+- **Tithe & Giver Registers**: Sequential numbered official receipts (`R-YYYY-####`) issued with zero race conditions.
+- **Mobile Money Reconciliation**: Importing CSV/XLSX statements from MTN Mobile Money / Vodafone Cash, running regex and exact classification rules, and reviewing unclassified transactions.
+- **Weekly Reconciliation & Presbytery Reports**: Closing books every Sunday, detecting cash and bank variances, and producing one-click official PDF and Word reports.
+- **Expenditure & Bank Deposits**: Recording expenses with voucher numbers, dual-custody cash transfers to the bank, and slip image uploads.
+- **Member Giving Statements & District Remittances**: Year-end statements with bulk ZIP generation and district percentage tracking with historical rules.
+- **Offline Entry & Resilience**: Cash counting and tithe registers remain functional when Sunday internet drops, replaying automatically on reconnection with server-side idempotency deduplication.
 
 ---
 
-## Architectural Principles
+## Architecture Diagram
 
-1. **The Ledger Aesthetic**: The user interface follows a paper-and-ink ledger design rather than a consumer dashboard. It avoids cards, gradients, and box shadows in favor of 1px hairline rules, generous white space, and typography (Fraunces serif for headings, IBM Plex Sans for interface text, and IBM Plex Mono with tabular figures for currency amounts).
-2. **Strict Currency Arithmetic**: All monetary values are modeled as `Decimal(12, 2)`. JavaScript floating-point numbers are never used for currency calculations. All financial transformations use `src/lib/money.ts` (`parseCedi`, `formatCedi`, `sumCedi`, `toMinorUnits`).
-3. **Thin Route Handlers & Server Actions**: Server actions and routes strictly authenticate, authorize, validate with Zod schemas, invoke business logic in `features/<name>/service.ts`, and return a typed `Result<T>`.
-4. **Append-Only Audit Trail**: Financial and security state changes are committed in a single interactive database transaction alongside an audit record. Audit log records are append-only; update and delete code paths do not exist.
-5. **Portability**: Operates identically on standard local MySQL 8.0 installations and managed TiDB Cloud instances without stored procedures, triggers, or MySQL-proprietary extensions.
-
----
-
-## The Audited-Transaction Pattern
-
-Every mutation to critical state or financial records must be executed atomically with an audit log row using the `withAudit` helper located in `src/features/audit/service.ts`.
-
-### How It Works
-
-1. `withAudit` opens an interactive Prisma transaction (`prisma.$transaction`).
-2. The user-supplied closure performs the business operation (e.g. creating records, changing roles, or registering counts).
-3. The closure returns `{ result, audit }` where `audit` defines the `AuditEntry` payload (actor ID, action name, entity type, entity ID, before JSON snapshot, and after JSON snapshot).
-4. `withAudit` inserts the audit log row within the same transaction.
-5. If either the business logic or the audit write fails, Prisma automatically rolls back both operations, preventing un-audited state changes or orphaned audit entries.
-
-### Implementation Example
-
-```typescript
-import { withAudit } from "@/features/audit/service";
-
-export async function changeUserRole(
-  input: { userId: string; role: Role },
-  actorId: string
-): Promise<User> {
-  return withAudit(async (tx) => {
-    const target = await tx.user.findUniqueOrThrow({
-      where: { id: input.userId },
-    });
-
-    const updated = await tx.user.update({
-      where: { id: input.userId },
-      data: { role: input.role },
-    });
-
-    return {
-      result: updated,
-      audit: {
-        actorId,
-        action: "USER_UPDATE_ROLE",
-        entityType: "User",
-        entityId: updated.id,
-        before: { role: target.role },
-        after: { role: updated.role },
-      },
-    };
-  });
-}
+```
++---------------------------------------------------------------------------------------+
+|                                  Browser / PWA Client                                 |
+|  - Service Worker (Static shell & fonts cached; financial data strictly network-only) |
+|  - IndexedDB Client Outbox with Client Idempotency Keys (crypto.randomUUID())         |
+|  - Offline Status Bar ("Offline. X changes waiting.") & Side-by-Side Conflict Modal   |
++---------------------------------------------------------------------------------------+
+                                           |
+                              HTTPS / Server Actions / API
+                                           v
++---------------------------------------------------------------------------------------+
+|                              Next.js 15 App Router Server                             |
+|  - Strict Content Security Policy & Security Headers (next.config.ts)                 |
+|  - Live Session Verification: tokenVersion & active check invalidates revoked users   |
+|  - Database-backed Rate Limiter: Login brute-force & attachment URL limits            |
+|  - Role Guards & Zod Schema Validation with strict bounds                             |
+|  - Idempotency Gate (idempotency_keys table): prevents duplicate counts & tithes      |
+|  - Structured JSON Logging with request ID correlation (src/lib/logger.ts)            |
++---------------------------------------------------------------------------------------+
+                                           |
+                           withAudit(Interactive Transaction)
+                                           v
++---------------------------------------------------------------------------------------+
+|                           MySQL 8.0 / TiDB Cloud Database                             |
+|  - Atomic Mutation + Append-Only AuditLog Row (Rolls back if either fails)           |
+|  - Row Locking: SELECT ... FOR UPDATE (Sequential receipt generation)                 |
+|  - Immutable Status Transitions: OPEN -> COUNTED -> LOCKED                            |
+|  - Strict Decimal Arithmetic: Decimal(12, 2) throughout (No JavaScript floats)        |
++---------------------------------------------------------------------------------------+
+                                           |
+                                           +---> Cloudflare R2 (Encrypted Attachment S3)
 ```
 
 ---
@@ -81,156 +53,247 @@ export async function changeUserRole(
 ## Directory Structure
 
 ```
-prisma/
-  schema.prisma          # Data models: User, AuditLog, Denomination, GivingCategory, ChurchSettings
-  migrations/            # Applied database schema migrations
-  seed.ts                # Reference denominations, categories, and initial admin seed
-src/
-  app/
-    (auth)/login/        # Login page with ledger aesthetic
-    (app)/
-      layout.tsx         # Authenticated layout with forced password change & church setup modals
-      today/             # Today's service page (honest empty state)
-      settings/users/    # User management (Finance Secretary only)
-      settings/audit/    # Paginated audit log explorer with before/after diffs
-    api/auth/[...nextauth]/ route.ts # Auth.js API route handlers
-    globals.css          # Color tokens, typography, and hairline rule definitions
-    layout.tsx           # Root layout with Google Fonts
-    page.tsx             # Root redirector
-  features/
-    auth/                # Credentials verification, account lockout, forced password change
-    users/               # User creation, role changes, deactivation, password reset
-    audit/               # recordAudit, withAudit, paginated audit query filtering
-  components/
-    ui/                  # Button, TextField, AmountInput, Select, RuleHeading,
-                         # LedgerRow, StatusMark, Sheet, Toast, EmptyState, ConfirmDialog
-    layout/              # AppShell, DesktopNav (240px rail), MobileNav (bottom tab bar)
-  lib/
-    money.ts             # Decimal-safe Ghana Cedi arithmetic (parseCedi, formatCedi, sumCedi)
-    dates.ts             # Africa/Accra timezone formatting and service date parsing
-    errors.ts            # AppError and Result<T> types for safe client communication
-    env.ts               # Boot-time Zod environment validation
-    format.ts            # Role and status formatting utilities
-  server/
-    db.ts                # PrismaClient singleton
-    session.ts           # Auth.js v5 credentials configuration and 8-hour JWT session
-    guards.ts            # requireUser() and requireRole() security guards
-tests/
-  factories/             # Fixture builders for unit tests
-  unit/                  # Vitest suites for money edge cases, lockout, secretary guards, withAudit
-.env.example             # Template for required environment variables
+├── backups/                    # Dated SQL dump files generated by pnpm backup
+├── prisma/
+│   ├── schema.prisma           # Complete database schema and relational mappings
+│   ├── migrations/             # Sequential migrations (Phases 1 through 7)
+│   └── seed.ts                 # Denominations, categories, and initial admin seed
+├── public/
+│   ├── icons/                  # PWA typographic SVG/PNG icons (192x192 & 512x512)
+│   ├── manifest.json           # Web App Manifest
+│   └── sw.js                   # Service Worker (Static caching & offline navigation)
+├── scripts/
+│   └── backup.ts               # Standalone database backup exporter (pnpm backup)
+├── src/
+│   ├── app/
+│   │   ├── (auth)/login/       # Ledger-style sign-in page with rate limiting
+│   │   ├── (app)/
+│   │   │   ├── today/          # Today's service overview & backup reminders
+│   │   │   ├── services/       # Cash counting sheets, steppers & tithe registers
+│   │   │   ├── money/          # Held cash custody, bank deposits & MoMo review
+│   │   │   ├── reconcile/      # Weekly reconciliation & status locks
+│   │   │   ├── reports/        # Presbytery PDF and Word exports
+│   │   │   ├── members/        # Parish register & individual giving statements
+│   │   │   ├── district/       # District remittance & allocation percentage rules
+│   │   │   └── settings/       # Users, church configuration & audit log explorer
+│   │   ├── api/
+│   │   │   ├── auth/           # Auth.js route handlers
+│   │   │   ├── health/         # Public health monitoring endpoint
+│   │   │   └── cron/           # Cron tasks (cleanup-idempotency)
+│   │   ├── offline/page.tsx    # Calm offline fallback page
+│   │   ├── globals.css         # Paper/ink tokens, hairline borders, and typography
+│   │   ├── layout.tsx          # Root layout with Google Fonts and Service Worker
+│   │   └── middleware.ts       # Edge auth routing and x-request-id correlation
+│   ├── components/             # Reusable UI library (RuleHeading, Buttons, Sheets, etc.)
+│   ├── features/               # Domain modules: service, actions, queries, schemas
+│   │   ├── audit/              # Append-only audit logger and viewer
+│   │   ├── auth/               # Password verification, hashing & lockout logic
+│   │   ├── counting/           # Denomination stepper & physical verification
+│   │   ├── giving/             # Tithe register, numbered receipts & comboboxes
+│   │   ├── momo/               # Statement parsers (CSV/XLSX) & regex rule engine
+│   │   ├── reconciliation/     # Cash balance calculator & weekly lock enforcement
+│   │   ├── expenses/           # Vouchers, payment methods & approvals
+│   │   ├── banking/            # Cash custody ledger & bank deposit verification
+│   │   ├── members/            # Parish membership records & statements
+│   │   ├── remittance/         # District quota calculations & payment logs
+│   │   ├── idempotency/        # Cache-and-replay idempotency table manager
+│   │   └── users/              # Role management, password resets & session revocation
+│   └── lib/                    # Shared utilities
+│       ├── money.ts            # Strict currency arithmetic via Decimal.js
+│       ├── dates.ts            # Africa/Accra timezone formatting
+│       ├── logger.ts           # Structured JSON logger with request context
+│       ├── rate-limiter.ts     # Database-backed rate limiter
+│       └── offline/            # IndexedDB outbox & useOfflineSync hook
+└── tests/
+    ├── e2e/                    # Playwright smoke and offline network emulation tests
+    ├── factories/              # Test fixtures and factory generators
+    └── unit/                   # Vitest unit test suite (137 tests across 32 suites)
 ```
 
 ---
 
-## Setup & Getting Started
+## Roles and Permissions
 
-### Prerequisites
+| Action | Finance Secretary | Treasurer | Presbytery Viewer |
+| :--- | :---: | :---: | :---: |
+| **Start Service Record** | Yes | Yes | Read-only |
+| **Enter Denomination Counts** | Yes | Yes | Read-only |
+| **Record Tithe Payments & Issue Receipts** | Yes | Yes | Read-only |
+| **Mark Service As Counted** | Yes | Yes | Read-only |
+| **Reopen Counted Record (With Reason)** | Yes | No | No |
+| **Import & Review Mobile Money Transactions** | Yes | Yes | Read-only |
+| **Submit Weekly Reconciliation** | Yes | No | No |
+| **Approve / Void Expenses** | Yes | Yes | Read-only |
+| **Carry Cash / Confirm Bank Deposits** | Yes | Yes | Read-only |
+| **Record District Remittance Payments** | Yes | Yes | Read-only |
+| **Generate Member Statements & Annual Summary** | Yes | Yes | Read-only |
+| **Export Official PDF & Word Reports** | Yes | Yes | Yes |
+| **User Administration & Password Resets** | Yes | No | No |
+| **View Audit Trail** | Yes | Yes | Read-only |
+| **Perform Database Backup** | Yes | No | No |
 
-- **Node.js**: v20 or v22+
-- **pnpm**: v9 or v10+
-- **MySQL**: 8.0 running locally (or TiDB Cloud connection)
+---
 
-### 1. Clone & Install Dependencies
+## How the Books Are Protected
 
+1. **The Append-Only Audit Trail (`withAudit`)**:
+   Financial records cannot be written without an audit entry. Every mutation runs inside a single database transaction (`withAudit`). If either the financial write or the audit log insert fails, both roll back atomically. Audit log records cannot be updated or deleted.
+2. **Sequential Receipt Locking**:
+   Tithe receipt numbers (`R-YYYY-0001`) use row-level database locking (`SELECT ... FOR UPDATE` on `receipt_sequences`) inside the transaction to prevent duplicate or skipped numbers even under concurrent requests.
+3. **Locking Hierarchy**:
+   - **Service Records**: Transition from `OPEN` to `COUNTED` when witnessed. Once the weekly reconciliation period is submitted, service records become permanently `LOCKED`.
+   - **Reconciliation Periods**: Once submitted, all service records, expenses, and MoMo transactions within the period are locked. They can only be reopened by recording an audited `PeriodUnlock` row with an explicit business reason.
+4. **Idempotency & Offline Protection**:
+   Every count save and tithe entry accepts an optional client-generated `idempotencyKey` (`crypto.randomUUID()`). When an action is submitted:
+   - If the key has not been seen, the server processes the write, writes the audit log, and saves the response payload in `idempotency_keys`.
+   - If the key has already been executed by the user, the server returns the cached response without re-calculating, preventing double-counting on network retries.
+5. **Session Hardening**:
+   Every user record maintains a `tokenVersion` integer. Whenever an administrator deactivates an account, changes a user's role, or resets their password, `tokenVersion` is incremented. The Auth.js session callback verifies this version against the database on each request, instantly invalidating active browser sessions without waiting for JWT expiration.
+
+---
+
+## Environment Variables
+
+| Variable | Required | Description | Example |
+| :--- | :---: | :--- | :--- |
+| `DATABASE_URL` | Yes | MySQL / TiDB Cloud connection string | `mysql://user:pass@localhost:3306/puca_finance` |
+| `AUTH_SECRET` | Yes | 32+ character random secret for JWT encryption | `openssl rand -hex 32` |
+| `NEXTAUTH_URL` | Yes | Canonical public URL of the application | `http://localhost:3000` or `https://finance.puca.church` |
+| `R2_ACCOUNT_ID` | Optional | Cloudflare R2 Account ID for slip uploads | `a1b2c3d4e5f6g7h8` |
+| `R2_ACCESS_KEY_ID` | Optional | Cloudflare R2 API token access key ID | `0123456789abcdef` |
+| `R2_SECRET_ACCESS_KEY` | Optional | Cloudflare R2 API token secret access key | `fedcba9876543210` |
+| `R2_BUCKET_NAME` | Optional | Cloudflare R2 bucket name | `puca-finance-attachments` |
+| `CRON_SECRET` | Optional | Bearer secret for `/api/cron/*` endpoints | `secret-cron-token-string` |
+
+---
+
+## Local Development Setup
+
+### 1. Prerequisites
+- Node.js 20 or higher
+- `pnpm` (version 9 or higher: `npm install -g pnpm`)
+- MySQL 8.0 server running locally (or access to a TiDB Cloud cluster)
+
+### 2. Installation
 ```bash
+# Clone the repository
 git clone https://github.com/Ezra-creator/Church-Finance.git
 cd Church-Finance
+
+# Install dependencies
 pnpm install
-```
 
-### 2. Configure Environment
-
-Copy `.env.example` to `.env` and provide your database credentials:
-
-```bash
+# Copy environment template
 cp .env.example .env
 ```
 
-Ensure the following variables are defined:
-
-```env
-DATABASE_URL="mysql://root:password@localhost:3306/puca_finance"
-AUTH_SECRET="your-32-character-or-longer-secret"
-SEED_ADMIN_EMAIL="secretary@puca.local"
-SEED_ADMIN_PASSWORD="TemporaryPassword123#"
-NODE_ENV="development"
+### 3. Database Migration & Seed
+Ensure your local MySQL service is active and the database created:
+```sql
+CREATE DATABASE puca_finance CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ```
 
-### 3. Run Migrations & Seed Reference Data
-
-Apply the Prisma migrations to create the database tables:
-
+Run migrations and seed default denominations, giving categories, and default users:
 ```bash
 pnpm prisma:migrate
-```
-
-Seed reference denominations (GH₵ 200 down to 0.01), giving categories (Tithe, Freewill offering, Special offering), and the initial `FINANCE_SECRETARY` user:
-
-```bash
 pnpm prisma:seed
 ```
 
-### 4. Run the Development Server
+Default seeded credentials:
+- **Finance Secretary**: `secretary@puca.local` / `SeedPassword2026#`
+- **Treasurer**: `treasurer@puca.local` / `SeedPassword2026#`
+- **Presbytery Viewer**: `viewer@puca.local` / `SeedPassword2026#`
 
+### 4. Running the App & Tests
 ```bash
+# Start Next.js development server
 pnpm dev
+
+# Run Vitest unit & integration test suite (137 tests)
+pnpm test
+
+# Run Playwright E2E and Offline test suite
+pnpm test:e2e
+
+# Run TypeScript compiler check
+pnpm typecheck
 ```
 
-Open [http://localhost:3000](http://localhost:3000) in your browser.
+---
 
-- Sign in with the seeded credentials (`secretary@puca.local` / `TemporaryPassword123#`).
-- You will be immediately prompted to change your temporary password to a permanent one (`mustChangePassword: true`).
-- You will then be invited to register the congregation name and presbytery details through the first-run Church Setup modal.
+## Deployment Runbook (Free Tier)
+
+### 1. Database: TiDB Cloud Serverless MySQL (Free Tier)
+1. Sign up for a free TiDB Cloud account at [tidbcloud.com](https://tidbcloud.com).
+2. Create a free **Serverless Cluster**.
+3. Under Cluster Details -> **Connect**:
+   - For runtime application traffic (Vercel serverless functions), copy the **connection string with pooling enabled**:
+     ```env
+     DATABASE_URL="mysql://<user>.<prefix>:<password>@gateway01.<region>.prod.aws.tidbcloud.com:4000/puca_finance?sslaccept=strict"
+     ```
+   - For running migrations (`prisma migrate`), use the direct non-pooled connection URL.
+
+### 2. App Hosting: Vercel (Free Tier)
+1. Import the GitHub repository into Vercel.
+2. Configure project settings:
+   - **Framework Preset**: Next.js
+   - **Node.js Version**: 20.x
+   - **Build Command**: `pnpm build`
+   - **Install Command**: `pnpm install`
+3. Add environment variables:
+   - `DATABASE_URL` (from TiDB Cloud)
+   - `AUTH_SECRET` (generate using `openssl rand -hex 32`)
+   - `NEXTAUTH_URL` (your production domain: `https://<app>.vercel.app`)
+   - `CRON_SECRET`
+4. Deploy.
+
+### 3. Storage: Cloudflare R2 (Free Tier)
+1. Create a Cloudflare account and navigate to **R2 Object Storage**.
+2. Create a bucket: `puca-finance-attachments`.
+3. Under **Bucket Settings** -> **CORS Policy**, add:
+   ```json
+   [
+     {
+       "AllowedOrigins": ["https://<your-vercel-domain>.vercel.app"],
+       "AllowedMethods": ["GET", "PUT"],
+       "AllowedHeaders": ["Content-Type", "x-amz-*"],
+       "MaxAgeSeconds": 3600
+     }
+   ]
+   ```
+4. Create an R2 API token with *Object Read & Write* permissions.
+5. Add `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, and `R2_BUCKET_NAME` to your Vercel Environment Variables.
+
+### 4. Production Health Monitoring
+The application provides a public monitoring route:
+```
+GET /api/health
+```
+Returns `200 OK` with JSON status:
+```json
+{
+  "status": "ok",
+  "database": "connected",
+  "timestamp": "2026-10-26T17:40:00.000Z"
+}
+```
 
 ---
 
-## Available Scripts
+## Database Backup & Restore Procedures
 
-| Command | Description |
-| :--- | :--- |
-| `pnpm dev` | Starts the Next.js development server |
-| `pnpm build` | Compiles the production build |
-| `pnpm start` | Starts the Next.js production server |
-| `pnpm test` | Runs the full Vitest unit test suite |
-| `pnpm typecheck` | Validates TypeScript types across the codebase |
-| `pnpm prisma:migrate` | Runs database migrations with Prisma |
-| `pnpm prisma:seed` | Seeds denominations, categories, and initial admin |
+### 1. Taking a Backup
+Run the backup script locally or on a server with database access:
+```bash
+pnpm backup
+```
+- The script connects to the active `DATABASE_URL`, reads all table structures and rows, and writes a dated dump file: `backups/backup_YYYYMMDD_HHMMSS.sql`.
+- It automatically creates an `AuditLog` entry (`action: "DATABASE_BACKUP_COMPLETED"`).
+- If the Finance Secretary performs a backup manually outside the application, a weekly reminder appears on the `/today` screen with a **"Mark backup done"** button to log compliance.
 
----
-
-## Security & Access Invariants
-
-- **Brute-Force Lockout**: 5 consecutive failed login attempts lock the user account for 15 minutes.
-- **Forced Password Rotation**: Users flagged with `mustChangePassword` are constrained by an unclosable security modal until their password is updated.
-- **Last Secretary Protection**: The system prevents demoting or deactivating the last active `FINANCE_SECRETARY`.
-- **Self-Deactivation Guard**: Users cannot deactivate their own active accounts.
-- **Role Isolation**:
-  - `FINANCE_SECRETARY`: Enter cash counts, initiate reconciliations, manage officers, configure church settings, reopen counted services with audit reason.
-  - `TREASURER`: Verify counts, reconcile bankings, enter tithe payments and counts.
-  - `PRESBYTERY_VIEWER`: Read-only access to final reports, audits, and statements.
-
----
-
-## Phase 2: Collection Entry & Tithe Register
-
-### Cash Count Verification
-- Physical notes (`GH₵ 200, 100, 50, 20, 10, 5, 2, 1`) and coins (`GH₵ 0.50, 0.20, 0.10, 0.05, 0.01`) are entered with 44px thumb-friendly steppers.
-- Server recomputes each line total and category total strictly from active denomination database values; client calculations are never trusted.
-- When marked as counted, a witness name is mandatory, and all active giving categories must have verified sheets.
-
-### Tithe Register & Unattributed Meter
-- Individual tithe payments are recorded against registered members or visitors.
-- **Unattributed Meter**: Tithe entries may total less than or equal to the counted tithe total. Any remaining amount is explicitly tracked as *Unattributed Remainder*. Entries totaling more than the counted amount are strictly rejected.
-- **Audited Edits**: Once a service record is marked `COUNTED`, adding, editing, or deleting giving entries requires a mandatory audit reason.
-
-### Atomic Receipt Sequencing (`SELECT ... FOR UPDATE`)
-- Every tithe entry automatically issues an official receipt formatted as `R-YYYY-0001`.
-- The sequence is acquired inside the interactive database transaction using a row-level lock (`SELECT last FROM receipt_sequences WHERE year = ? FOR UPDATE`).
-- Receipt numbers never repeat or skip under high-concurrency requests.
-
-### Print-Friendly Receipts
-- Route: `/receipts/[id]`
-- Formats amounts in figures and formal English words (e.g. `GH₵ 125.50` -> *"One Hundred and Twenty-Five Ghana Cedis, Fifty Pesewas only"*).
-- Includes full `@media print` CSS hiding navigation rails, buttons, and app shells for sharp physical printer output.
-
+### 2. Restoring from a Backup
+To restore a backup into a local MySQL or TiDB Cloud database:
+```bash
+# Using standard MySQL client
+mysql -h <host> -P <port> -u <user> -p <database_name> < backups/backup_YYYYMMDD_HHMMSS.sql
+```

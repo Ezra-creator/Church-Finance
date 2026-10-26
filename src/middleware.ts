@@ -4,13 +4,19 @@ import type { NextRequest } from "next/server";
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  const requestId = request.headers.get("x-request-id") || crypto.randomUUID();
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-request-id", requestId);
+
   // Static files, images, Next.js internals, and public API auth routes pass through
   if (
     pathname.startsWith("/_next") ||
     pathname.startsWith("/api/auth") ||
     pathname.includes(".")
   ) {
-    return NextResponse.next();
+    const res = NextResponse.next({ request: { headers: requestHeaders } });
+    res.headers.set("x-request-id", requestId);
+    return res;
   }
 
   // Check for Auth.js session cookies (both standard and secure HTTPS variants)
@@ -27,14 +33,20 @@ export function middleware(request: NextRequest) {
     if (pathname !== "/") {
       loginUrl.searchParams.set("callbackUrl", pathname);
     }
-    return NextResponse.redirect(loginUrl);
+    const res = NextResponse.redirect(loginUrl);
+    res.headers.set("x-request-id", requestId);
+    return res;
   }
 
   if (sessionToken && isLoginPage) {
-    return NextResponse.redirect(new URL("/today", request.url));
+    const res = NextResponse.redirect(new URL("/today", request.url));
+    res.headers.set("x-request-id", requestId);
+    return res;
   }
 
-  return NextResponse.next();
+  const res = NextResponse.next({ request: { headers: requestHeaders } });
+  res.headers.set("x-request-id", requestId);
+  return res;
 }
 
 export const config = {
