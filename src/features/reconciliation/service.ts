@@ -5,12 +5,17 @@ import {
   ServiceStatus,
   MomoTransactionStatus,
   ReconciliationPeriod,
+  ExpenseStatus,
+  DepositStatus,
+  DistrictRemittanceStatus,
 } from "@prisma/client";
 import { prisma } from "@/server/db";
 import { withAudit } from "@/features/audit/service";
 import { AppError } from "@/lib/errors";
 import { parseCedi, formatCedi } from "@/lib/money";
 import { nowUtc } from "@/lib/dates";
+import { getHeldMoneyLedger } from "@/features/banking/service";
+import { computeRemittance } from "@/features/allocation/calculator";
 import { computeWeekRange, WeekRange } from "./week-range";
 import {
   calculateReconciliation,
@@ -329,6 +334,108 @@ export async function submitPeriod(
     varianceLabel: computed.computation.totals.varianceLabel,
   };
 
+  // Phase 5: Fetch expenses paid during this week
+  const weekPaidExpenses = await prisma.expense.findMany({
+    where: {
+      status: ExpenseStatus.PAID,
+      paidAt: {
+        gte: computed.weekRange.startDateUtc,
+        lte: computed.weekRange.endDateUtc,
+      },
+    },
+    include: {
+      category: true,
+    },
+  });
+
+  const expenseCatMap = new Map<
+    string,
+    {
+      categoryName: string;
+      cashAmount: Prisma.Decimal;
+      momoAmount: Prisma.Decimal;
+      bankAmount: Prisma.Decimal;
+      totalAmount: Prisma.Decimal;
+    }
+  >();
+
+  let expCashTotal = new Prisma.Decimal(0);
+  let expMomoTotal = new Prisma.Decimal(0);
+  let expBankTotal = new Prisma.Decimal(0);
+
+  for (const exp of weekPaidExpenses) {
+    const amt = exp.amount;
+    const catName = exp.category.name;
+    const existing = expenseCatMap.get(catName) || {
+      categoryName: catName,
+      cashAmount: new Prisma.Decimal(0),
+      momoAmount: new Prisma.Decimal(0),
+      bankAmount: new Prisma.Decimal(0),
+      totalAmount: new Prisma.Decimal(0),
+    };
+
+    if (exp.paymentMethod === "CASH") {
+      existing.cashAmount = existing.cashAmount.add(amt);
+      expCashTotal = expCashTotal.add(amt);
+    } else if (exp.paymentMethod === "MOMO") {
+      existing.momoAmount = existing.momoAmount.add(amt);
+      expMomoTotal = expMomoTotal.add(amt);
+    } else {
+      existing.bankAmount = existing.bankAmount.add(amt);
+      expBankTotal = expBankTotal.add(amt);
+    }
+    existing.totalAmount = existing.totalAmount.add(amt);
+    expenseCatMap.set(catName, existing);
+  }
+
+  const snapshotExpenseCategories = Array.from(expenseCatMap.values()).map((ec) => ({
+    categoryName: ec.categoryName,
+    cashAmount: ec.cashAmount.toString(),
+    momoAmount: ec.momoAmount.toString(),
+    bankAmount: ec.bankAmount.toString(),
+    totalAmount: ec.totalAmount.toString(),
+  }));
+
+  const expGrandTotal = expCashTotal.add(expMomoTotal).add(expBankTotal);
+
+  // Phase 5: Fetch deposits made during this week
+  const weekDeposits = await prisma.deposit.findMany({
+    where: {
+      depositDate: {
+        gte: computed.weekRange.startDate,
+        lte: computed.weekRange.weekEndingDate,
+      },
+    },
+    orderBy: { depositDate: "asc" },
+  });
+
+  let totalDeposited = new Prisma.Decimal(0);
+  const snapshotDeposits = weekDeposits.map((d) => {
+    totalDeposited = totalDeposited.add(d.amount);
+    return {
+      date: d.depositDate.toISOString().slice(0, 10),
+      kind: d.kind,
+      amount: d.amount.toString(),
+      bankReference: d.bankReference,
+    };
+  });
+
+  const heldLedger = await getHeldMoneyLedger();
+
+  // Phase 6: Compute District Remittance based on rules effective on week-ending date
+  const allocationRules = await prisma.districtAllocationRule.findMany({
+    orderBy: { effectiveFrom: "desc" },
+  });
+  const remittanceComputation = computeRemittance(
+    snapshotCategories.map((c) => ({
+      categoryId: c.categoryId,
+      totalAmount: c.totalAmount,
+    })),
+    allocationRules,
+    weekEndingStr
+  );
+  const districtAmountDueStr = remittanceComputation.totalDue.toString();
+
   const snapshot: ReconciliationSnapshot = {
     weekEnding: weekEndingStr,
     weekRange: computed.weekRange.formattedRange,
@@ -342,6 +449,23 @@ export async function submitPeriod(
     categories: snapshotCategories,
     totals: snapshotTotals,
     varianceReason: period.varianceReason,
+    expenses: {
+      categories: snapshotExpenseCategories,
+      totals: {
+        cashTotal: expCashTotal.toString(),
+        momoTotal: expMomoTotal.toString(),
+        bankTotal: expBankTotal.toString(),
+        grandTotal: expGrandTotal.toString(),
+      },
+    },
+    banking: {
+      deposits: snapshotDeposits,
+      totalDeposited: totalDeposited.toString(),
+      cashHeldAtEnd: heldLedger.cashHeld.toString(),
+      momoHeldAtEnd: heldLedger.momoHeld.toString(),
+      totalHeldAtEnd: heldLedger.totalHeld.toString(),
+    },
+    districtAmountDue: districtAmountDueStr,
   };
 
   return withAudit(async (tx) => {
@@ -388,6 +512,20 @@ export async function submitPeriod(
       },
     });
 
+    // 4. Phase 6: Create or update frozen DistrictRemittance
+    await tx.districtRemittance.upsert({
+      where: { periodId: period.id },
+      update: {
+        amountDue: remittanceComputation.totalDue,
+      },
+      create: {
+        periodId: period.id,
+        amountDue: remittanceComputation.totalDue,
+        amountPaid: new Prisma.Decimal(0),
+        status: DistrictRemittanceStatus.DUE,
+      },
+    });
+
     return {
       result: updatedPeriod,
       audit: {
@@ -400,6 +538,7 @@ export async function submitPeriod(
           version: nextVersion,
           expectedTotal: snapshotTotals.expectedTotal,
           bookTotal: snapshotTotals.bookTotal,
+          districtAmountDue: districtAmountDueStr,
           status: ReconciliationStatus.SUBMITTED,
         },
       },

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React, { useEffect, useCallback } from "react";
 import { Button } from "./button";
 
 export interface ConfirmDialogProps {
@@ -32,7 +32,10 @@ export function ConfirmDialog({
   isPending = false,
   tone,
 }: ConfirmDialogProps) {
-  const handleClose = onCancel || onClose || (() => {});
+  const handleClose = useCallback(() => {
+    if (onCancel) onCancel();
+    else if (onClose) onClose();
+  }, [onCancel, onClose]);
   const loading = isLoading || isPending;
   const destructive = isDestructive || tone === "variance";
 

@@ -6,7 +6,24 @@ const envSchema = z.object({
   SEED_ADMIN_EMAIL: z.string().email("SEED_ADMIN_EMAIL must be a valid email"),
   SEED_ADMIN_PASSWORD: z.string().min(8, "SEED_ADMIN_PASSWORD must be at least 8 characters"),
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
+  R2_ACCOUNT_ID: z.string().default("dummy-r2-account-id"),
+  R2_ACCESS_KEY_ID: z.string().default("dummy-r2-access-key"),
+  R2_SECRET_ACCESS_KEY: z.string().default("dummy-r2-secret-key"),
+  R2_BUCKET_NAME: z.string().default("puca-finance-receipts"),
+  R2_PUBLIC_DOMAIN: z.string().optional(),
 });
+
+if (!process.env.DATABASE_URL && typeof process.loadEnvFile === "function") {
+  try {
+    process.loadEnvFile();
+  } catch {
+    try {
+      process.loadEnvFile(".env");
+    } catch {
+      // .env file not present or unreadable
+    }
+  }
+}
 
 const parsed = envSchema.safeParse(process.env);
 

@@ -48,3 +48,11 @@ export async function requireRole(
 
   return user;
 }
+
+/**
+ * Convenience guard for actions restricted to Finance Secretary or Treasurer.
+ */
+export async function requireSecretaryOrTreasurer(): Promise<AuthenticatedUser> {
+  return requireRole(Role.FINANCE_SECRETARY, Role.TREASURER);
+}
+

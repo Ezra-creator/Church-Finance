@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeAll, beforeEach, afterEach, afterAll } from "vitest";
 import { prisma } from "@/server/db";
 import {
   changeUserRole,
@@ -38,6 +38,13 @@ describe("Last Secretary Protection & Self-Deactivation Guard", () => {
   afterEach(async () => {
     await prisma.user.deleteMany({
       where: { email: { in: [adminEmail, secondSecEmail] } },
+    });
+  });
+
+  afterAll(async () => {
+    await prisma.user.updateMany({
+      where: { email: "secretary@puca.local" },
+      data: { active: true },
     });
   });
 

@@ -166,6 +166,91 @@ export function ReportPreviewView({
           </div>
         )}
 
+        {/* Phase 6: District Remittance Line */}
+        {reportData.districtAmountDueFormatted && (
+          <div className="pt-4 border-t border-rule flex items-center justify-between text-xs font-mono">
+            <div>
+              <p className="font-semibold uppercase tracking-wider text-ink-soft">
+                District Allocation Due
+              </p>
+              <p className="text-[11px] text-ink-soft">
+                Computed from percentage rules active on this week-ending date
+              </p>
+            </div>
+            <p className="text-base font-semibold text-ink tabular-nums">
+              {reportData.districtAmountDueFormatted}
+            </p>
+          </div>
+        )}
+
+        {/* Phase 5: Expenses Section if present */}
+        {reportData.expenseCategories.length > 0 && reportData.expenseTotals && (
+          <div className="pt-6 border-t border-rule space-y-3">
+            <h3 className="font-serif text-lg font-normal text-ink">
+              Disbursements & Expenses
+            </h3>
+            <table className="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr className="border-b border-rule font-mono uppercase tracking-wider text-[11px] text-ink-soft">
+                  <th className="py-2 pr-4 font-normal">Expense Category</th>
+                  <th className="py-2 px-2 text-right font-normal">Cash</th>
+                  <th className="py-2 px-2 text-right font-normal">MoMo</th>
+                  <th className="py-2 px-2 text-right font-normal">Bank</th>
+                  <th className="py-2 pl-2 text-right font-normal">Total</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-rule font-mono">
+                {reportData.expenseCategories.map((ec) => (
+                  <tr key={ec.name}>
+                    <td className="py-2 pr-4 text-ink font-sans">{ec.name}</td>
+                    <td className="py-2 px-2 text-right tabular-nums text-ink">{ec.cashFormatted}</td>
+                    <td className="py-2 px-2 text-right tabular-nums text-ink">{ec.momoFormatted}</td>
+                    <td className="py-2 px-2 text-right tabular-nums text-ink">{ec.bankFormatted}</td>
+                    <td className="py-2 pl-2 text-right tabular-nums font-semibold text-ink">{ec.totalFormatted}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot className="border-t-2 border-rule-strong border-b-2 font-bold font-mono text-ink text-xs">
+                <tr>
+                  <td className="py-2.5 pr-4 font-sans">TOTAL EXPENSES</td>
+                  <td className="py-2.5 px-2 text-right tabular-nums">{reportData.expenseTotals.cashFormatted}</td>
+                  <td className="py-2.5 px-2 text-right tabular-nums">{reportData.expenseTotals.momoFormatted}</td>
+                  <td className="py-2.5 px-2 text-right tabular-nums">{reportData.expenseTotals.bankFormatted}</td>
+                  <td className="py-2.5 pl-2 text-right tabular-nums">{reportData.expenseTotals.grandTotalFormatted}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        )}
+
+        {/* Phase 5: Banking & Held Funds Section if present */}
+        {reportData.banking && (
+          <div className="pt-6 border-t border-rule space-y-3 font-mono text-xs">
+            <h3 className="font-serif text-lg font-normal text-ink font-sans">
+              Bank Deposits & Held Funds
+            </h3>
+            {reportData.banking.deposits.length > 0 ? (
+              <div className="space-y-1.5 pb-2">
+                <p className="text-ink-soft uppercase tracking-wider text-[11px]">
+                  Deposits Made ({reportData.banking.totalDepositedFormatted} total):
+                </p>
+                {reportData.banking.deposits.map((d, idx) => (
+                  <p key={idx} className="text-ink pl-2 border-l border-rule">
+                    {d.dateFormatted} • {d.kindLabel} • <strong>{d.amountFormatted}</strong> (Ref: {d.bankReference})
+                  </p>
+                ))}
+              </div>
+            ) : (
+              <p className="text-ink-soft italic">No deposits were recorded during this week.</p>
+            )}
+            <div className="p-3 bg-ink/[0.02] border border-rule rounded-[2px] flex justify-between items-center text-xs">
+              <span>Cash Held: <strong>{reportData.banking.cashHeldFormatted}</strong></span>
+              <span>MoMo Held: <strong>{reportData.banking.momoHeldFormatted}</strong></span>
+              <span>Total Held: <strong>{reportData.banking.totalHeldFormatted}</strong></span>
+            </div>
+          </div>
+        )}
+
         {/* Attestation & Signature Lines */}
         <div className="pt-10 border-t border-rule space-y-8">
           <div className="text-xs font-mono text-ink-soft space-y-1">

@@ -1,4 +1,4 @@
-import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
+import { PDFDocument, StandardFonts, rgb, PDFPage } from "pdf-lib";
 import { ReconciliationReportData } from "../report-data";
 
 function sanitizeForPdf(text: string | null | undefined): string {
@@ -7,18 +7,20 @@ function sanitizeForPdf(text: string | null | undefined): string {
     .replace(/GH[₵c]/g, "GHS ")
     .replace(/₵/g, "GHS ")
     .replace(/•/g, "-")
-    .replace(/—/g, "-");
+    .replace(/—/g, "-")
+    .replace(/[“”]/g, '"');
 }
 
 /**
  * Generates a clean, serverless-compatible PDF document from ReconciliationReportData.
+ * Includes income categories, disbursements/expenses, bank deposits, and held balances.
  */
 export async function generateReconciliationPdf(
   data: ReconciliationReportData
 ): Promise<Uint8Array> {
   const pdfDoc = await PDFDocument.create();
-  const page = pdfDoc.addPage([595.28, 841.89]); // A4 in points
-  const { width, height } = page.getSize();
+  let currentPage = pdfDoc.addPage([595.28, 841.89]); // A4 in points
+  const { width, height } = currentPage.getSize();
 
   // Load standard fonts
   const serifBold = await pdfDoc.embedFont(StandardFonts.TimesRomanBold);
@@ -35,8 +37,15 @@ export async function generateReconciliationPdf(
   const softColor = rgb(0.34, 0.33, 0.31); // #57534E
   const ruleColor = rgb(0.85, 0.84, 0.82); // Hairline border
 
+  function ensureSpace(needed: number) {
+    if (y - needed < margin + 60) {
+      currentPage = pdfDoc.addPage([595.28, 841.89]);
+      y = height - margin;
+    }
+  }
+
   // Church Name (Serif heading)
-  page.drawText(sanitizeForPdf(data.churchName), {
+  currentPage.drawText(sanitizeForPdf(data.churchName), {
     x: margin,
     y: y - 18,
     size: 20,
@@ -46,7 +55,7 @@ export async function generateReconciliationPdf(
   y -= 32;
 
   // Presbytery Name
-  page.drawText(sanitizeForPdf(data.presbyteryName.toUpperCase()), {
+  currentPage.drawText(sanitizeForPdf(data.presbyteryName.toUpperCase()), {
     x: margin,
     y,
     size: 9,
@@ -56,7 +65,7 @@ export async function generateReconciliationPdf(
   y -= 16;
 
   // Week range subtitle
-  page.drawText(sanitizeForPdf(`WEEKLY FINANCIAL RETURN • ${data.weekRange}`), {
+  currentPage.drawText(sanitizeForPdf(`WEEKLY FINANCIAL RETURN • ${data.weekRange}`), {
     x: margin,
     y,
     size: 10,
@@ -66,7 +75,7 @@ export async function generateReconciliationPdf(
   y -= 25;
 
   // Hairline rule above table
-  page.drawLine({
+  currentPage.drawLine({
     start: { x: margin, y },
     end: { x: width - margin, y },
     thickness: 1,
@@ -80,78 +89,78 @@ export async function generateReconciliationPdf(
   const colMomo = 380;
   const colTotal = 480;
 
-  page.drawText("Giving Category", {
+  currentPage.drawText("Giving Category", {
     x: colCategory,
     y,
     size: 9,
     font: sansBold,
     color: softColor,
   });
-  page.drawText("Cash Counted", {
+  currentPage.drawText("Cash Counted", {
     x: colCash,
     y,
     size: 9,
     font: sansBold,
     color: softColor,
   });
-  page.drawText("Mobile Money", {
+  currentPage.drawText("Mobile Money", {
     x: colMomo,
     y,
     size: 9,
     font: sansBold,
     color: softColor,
   });
-  page.drawText("Total Received", {
+  currentPage.drawText("Total", {
     x: colTotal,
     y,
     size: 9,
     font: sansBold,
     color: softColor,
   });
-  y -= 10;
 
-  // Line below header
-  page.drawLine({
+  y -= 8;
+  currentPage.drawLine({
     start: { x: margin, y },
     end: { x: width - margin, y },
-    thickness: 1,
+    thickness: 0.5,
     color: ruleColor,
   });
-  y -= 16;
+  y -= 14;
 
-  // Table rows
-  for (const row of data.incomeCategories) {
-    page.drawText(sanitizeForPdf(row.name), {
+  // Category rows
+  for (const cat of data.incomeCategories) {
+    ensureSpace(20);
+    currentPage.drawText(sanitizeForPdf(cat.name), {
       x: colCategory,
       y,
-      size: 9.5,
+      size: 9,
       font: sansRegular,
       color: inkColor,
     });
-    page.drawText(sanitizeForPdf(row.cashFormatted), {
+    currentPage.drawText(sanitizeForPdf(cat.cashFormatted), {
       x: colCash,
       y,
-      size: 9.5,
+      size: 9,
       font: monoRegular,
       color: inkColor,
     });
-    page.drawText(sanitizeForPdf(row.momoFormatted), {
+    currentPage.drawText(sanitizeForPdf(cat.momoFormatted), {
       x: colMomo,
       y,
-      size: 9.5,
+      size: 9,
       font: monoRegular,
       color: inkColor,
     });
-    page.drawText(sanitizeForPdf(row.totalFormatted), {
+    currentPage.drawText(sanitizeForPdf(cat.totalFormatted), {
       x: colTotal,
       y,
-      size: 9.5,
+      size: 9,
       font: monoRegular,
       color: inkColor,
     });
 
-    y -= 8;
-    page.drawLine({
+    y -= 6;
+    currentPage.drawLine({
       start: { x: margin, y },
       end: { x: width - margin, y },
       thickness: 0.5,
@@ -161,131 +170,257 @@ export async function generateReconciliationPdf(
   }
 
   // Totals Row
+  ensureSpace(30);
   y -= 2;
-  page.drawLine({
+  currentPage.drawLine({
     start: { x: margin, y: y + 8 },
     end: { x: width - margin, y: y + 8 },
     thickness: 1,
     color: inkColor,
   });
 
-  page.drawText("TOTAL INCOME", {
+  currentPage.drawText("TOTAL INCOME", {
     x: colCategory,
     y,
-    size: 10,
+    size: 9.5,
     font: sansBold,
     color: inkColor,
   });
-  page.drawText(sanitizeForPdf(data.totals.cashFormatted), {
+  currentPage.drawText(sanitizeForPdf(data.totals.cashFormatted), {
     x: colCash,
     y,
-    size: 10,
+    size: 9.5,
     font: monoBold,
     color: inkColor,
   });
-  page.drawText(sanitizeForPdf(data.totals.momoFormatted), {
+  currentPage.drawText(sanitizeForPdf(data.totals.momoFormatted), {
     x: colMomo,
     y,
-    size: 10,
+    size: 9.5,
     font: monoBold,
     color: inkColor,
   });
-  page.drawText(sanitizeForPdf(data.totals.expectedFormatted), {
+  currentPage.drawText(sanitizeForPdf(data.totals.expectedFormatted), {
     x: colTotal,
     y,
-    size: 10,
+    size: 9.5,
     font: monoBold,
     color: inkColor,
   });
 
-  y -= 8;
-  page.drawLine({
+  y -= 6;
+  currentPage.drawLine({
     start: { x: margin, y },
     end: { x: width - margin, y },
     thickness: 1.5,
     color: inkColor,
   });
-  y -= 25;
+  y -= 20;
 
   // Variance & Book Comparison (if present)
   if (data.totals.bookFormatted) {
-    page.drawText("PARALLEL RUN BOOK COMPARISON", {
+    ensureSpace(45);
+    currentPage.drawText("PARALLEL RUN BOOK COMPARISON", {
       x: margin,
       y,
-      size: 8.5,
+      size: 8,
+      font: sansBold,
+      color: softColor,
+    });
+    y -= 12;
+
+    currentPage.drawText(
+      sanitizeForPdf(
+        `Paper Book Total: ${data.totals.bookFormatted}   -   System Expected: ${data.totals.expectedFormatted}   -   ${data.totals.varianceLabel || "Balanced"}`
+      ),
+      {
+        x: margin,
+        y,
+        size: 8.5,
+        font: monoRegular,
+        color: inkColor,
+      }
+    );
+    y -= 12;
+
+    if (data.varianceReason) {
+      currentPage.drawText(sanitizeForPdf(`Variance Reason: "${data.varianceReason}"`), {
+        x: margin,
+        y,
+        size: 8.5,
+        font: serifRegular,
+        color: softColor,
+      });
+      y -= 14;
+    }
+    y -= 10;
+  }
+
+  // Phase 6: District Remittance Allocation Line
+  if (data.districtAmountDueFormatted) {
+    ensureSpace(35);
+    currentPage.drawText("DISTRICT REMITTANCE OBLIGATION", {
+      x: margin,
+      y,
+      size: 8,
+      font: sansBold,
+      color: softColor,
+    });
+    y -= 12;
+
+    currentPage.drawText(
+      sanitizeForPdf(
+        `Amount Due to District: ${data.districtAmountDueFormatted}   (from active allocation rules)`
+      ),
+      {
+        x: margin,
+        y,
+        size: 8.5,
+        font: monoRegular,
+        color: inkColor,
+      }
+    );
+    y -= 16;
+  }
+
+  // Phase 5: Expenses table if present
+  if (data.expenseCategories.length > 0 && data.expenseTotals) {
+    ensureSpace(60);
+    currentPage.drawText("DISBURSEMENTS & EXPENSES", {
+      x: margin,
+      y,
+      size: 9,
       font: sansBold,
       color: softColor,
     });
     y -= 14;
 
-    page.drawText(
-      sanitizeForPdf(
-        `Recorded in Paper Books: ${data.totals.bookFormatted}   -   System Expected: ${data.totals.expectedFormatted}   -   ${data.totals.varianceLabel || "Balanced"}`
-      ),
-      {
-        x: margin,
-        y,
-        size: 9,
-        font: monoRegular,
-        color: inkColor,
-      }
-    );
-    y -= 14;
+    const expColName = margin;
+    const expColCash = 250;
+    const expColMomo = 330;
+    const expColBank = 410;
+    const expColTotal = 490;
 
-    if (data.varianceReason) {
-      page.drawText(sanitizeForPdf(`Variance Reason: "${data.varianceReason}"`), {
-        x: margin,
+    currentPage.drawText("Expense Category", { x: expColName, y, size: 8, font: sansBold, color: softColor });
+    currentPage.drawText("Cash", { x: expColCash, y, size: 8, font: sansBold, color: softColor });
+    currentPage.drawText("MoMo", { x: expColMomo, y, size: 8, font: sansBold, color: softColor });
+    currentPage.drawText("Bank", { x: expColBank, y, size: 8, font: sansBold, color: softColor });
+    currentPage.drawText("Total", { x: expColTotal, y, size: 8, font: sansBold, color: softColor });
+
+    y -= 6;
+    currentPage.drawLine({ start: { x: margin, y }, end: { x: width - margin, y }, thickness: 0.5, color: ruleColor });
+    y -= 12;
+
+    for (const ec of data.expenseCategories) {
+      ensureSpace(18);
+      currentPage.drawText(sanitizeForPdf(ec.name), { x: expColName, y, size: 8, font: sansRegular, color: inkColor });
+      currentPage.drawText(sanitizeForPdf(ec.cashFormatted), { x: expColCash, y, size: 8, font: monoRegular, color: inkColor });
+      currentPage.drawText(sanitizeForPdf(ec.momoFormatted), { x: expColMomo, y, size: 8, font: monoRegular, color: inkColor });
+      currentPage.drawText(sanitizeForPdf(ec.bankFormatted), { x: expColBank, y, size: 8, font: monoRegular, color: inkColor });
+      currentPage.drawText(sanitizeForPdf(ec.totalFormatted), { x: expColTotal, y, size: 8, font: monoRegular, color: inkColor });
+
+      y -= 5;
+      currentPage.drawLine({ start: { x: margin, y }, end: { x: width - margin, y }, thickness: 0.5, color: ruleColor });
+      y -= 12;
+    }
+
+    // Expense totals
+    ensureSpace(24);
+    currentPage.drawText("TOTAL EXPENSES", { x: expColName, y, size: 8.5, font: sansBold, color: inkColor });
+    currentPage.drawText(sanitizeForPdf(data.expenseTotals.cashFormatted), { x: expColCash, y, size: 8.5, font: monoBold, color: inkColor });
+    currentPage.drawText(sanitizeForPdf(data.expenseTotals.momoFormatted), { x: expColMomo, y, size: 8.5, font: monoBold, color: inkColor });
+    currentPage.drawText(sanitizeForPdf(data.expenseTotals.bankFormatted), { x: expColBank, y, size: 8.5, font: monoBold, color: inkColor });
+    currentPage.drawText(sanitizeForPdf(data.expenseTotals.grandTotalFormatted), { x: expColTotal, y, size: 8.5, font: monoBold, color: inkColor });
+
+    y -= 6;
+    currentPage.drawLine({ start: { x: margin, y }, end: { x: width - margin, y }, thickness: 1, color: inkColor });
+    y -= 20;
+  }
+
+  // Phase 5: Banking & Held Funds section if present
+  if (data.banking) {
+    ensureSpace(60);
+    currentPage.drawText("BANK DEPOSITS & HELD FUNDS", {
+      x: margin,
+      y,
+      size: 9,
+      font: sansBold,
+      color: softColor,
+    });
+    y -= 12;
+
+    if (data.banking.deposits.length > 0) {
+      for (const d of data.banking.deposits) {
+        ensureSpace(14);
+        currentPage.drawText(
+          sanitizeForPdf(`• ${d.dateFormatted}: ${d.kindLabel} (${d.amountFormatted}) Ref: ${d.bankReference}`),
+          { x: margin + 8, y, size: 8, font: monoRegular, color: inkColor }
+        );
+        y -= 12;
+      }
+    } else {
+      currentPage.drawText("No bank deposits were recorded during this week.", {
+        x: margin + 8,
         y,
-        size: 9,
+        size: 8,
         font: serifRegular,
         color: softColor,
       });
-      y -= 16;
+      y -= 12;
     }
-    y -= 15;
+
+    ensureSpace(20);
+    currentPage.drawText(
+      sanitizeForPdf(
+        `Held at Week End: Cash Held: ${data.banking.cashHeldFormatted}   -   MoMo Held: ${data.banking.momoHeldFormatted}   -   Total Held: ${data.banking.totalHeldFormatted}`
+      ),
+      { x: margin, y, size: 8.5, font: monoBold, color: inkColor }
+    );
+    y -= 25;
   }
 
-  // Submission info
-  page.drawText(
+  // Submission info & Signatures
+  ensureSpace(80);
+  currentPage.drawText(
     sanitizeForPdf(
       `Prepared & Submitted by: ${data.preparedByName} on ${data.submittedAtFormatted} (Report v${data.version})`
     ),
     {
       x: margin,
       y,
-      size: 8.5,
+      size: 8,
       font: sansRegular,
       color: softColor,
     }
   );
-  y -= 45;
+  y -= 40;
 
-  // Signatures
-  page.drawLine({
+  // Signatures lines
+  currentPage.drawLine({
     start: { x: margin, y },
     end: { x: margin + 200, y },
     thickness: 0.75,
     color: inkColor,
   });
-  page.drawLine({
+  currentPage.drawLine({
     start: { x: width - margin - 200, y },
     end: { x: width - margin, y },
     thickness: 0.75,
     color: inkColor,
   });
-  y -= 14;
+  y -= 12;
 
-  page.drawText("Finance Secretary Signature", {
+  currentPage.drawText("Finance Secretary Signature", {
     x: margin,
     y,
-    size: 8.5,
+    size: 8,
     font: sansRegular,
     color: softColor,
   });
-  page.drawText("Parish Treasurer Signature", {
+  currentPage.drawText("Parish Treasurer Signature", {
     x: width - margin - 200,
     y,
-    size: 8.5,
+    size: 8,
     font: sansRegular,
     color: softColor,
   });

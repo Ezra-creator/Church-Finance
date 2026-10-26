@@ -4,7 +4,7 @@ import React, { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Role, ServiceType } from "@prisma/client";
-import { Plus, Calendar, ArrowRight, ShieldAlert } from "lucide-react";
+import { Plus, Calendar, ArrowRight, ShieldAlert, Landmark, Building2, Coins } from "lucide-react";
 import { RuleHeading } from "@/components/ui/rule-heading";
 import { Button } from "@/components/ui/button";
 import { StatusMark } from "@/components/ui/status-mark";
@@ -14,6 +14,7 @@ import { Select } from "@/components/ui/select";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useToast } from "@/components/ui/toast";
 import { formatAccraDate } from "@/lib/dates";
+import { formatCedi } from "@/lib/money";
 import { createServiceRecordAction } from "../actions";
 import { ServiceSummaryItem } from "../queries";
 
@@ -21,12 +22,18 @@ interface TodayServiceListProps {
   services: ServiceSummaryItem[];
   userRole: Role;
   todayAccraDateString: string;
+  heldAmount?: { toString(): string } | number;
+  districtOutstandingAmount?: { toString(): string } | number;
+  unreviewedMomoCount?: number;
 }
 
 export function TodayServiceList({
   services,
   userRole,
   todayAccraDateString,
+  heldAmount,
+  districtOutstandingAmount,
+  unreviewedMomoCount = 0,
 }: TodayServiceListProps) {
   const router = useRouter();
   const [isStartCountOpen, setIsStartCountOpen] = useState(false);
@@ -81,6 +88,69 @@ export function TodayServiceList({
           ) : undefined
         }
       />
+
+      {/* Quiet Status Ledger Lines (Hidden when zero) */}
+      {(() => {
+        const heldNum = heldAmount ? parseFloat(heldAmount.toString()) : 0;
+        const districtNum = districtOutstandingAmount ? parseFloat(districtOutstandingAmount.toString()) : 0;
+        const showHeld = heldNum > 0;
+        const showDistrict = districtNum > 0;
+        const showMomo = unreviewedMomoCount > 0;
+
+        if (!showHeld && !showDistrict && !showMomo) return null;
+
+        return (
+          <div className="border border-rule rounded-[2px] bg-paper divide-y divide-rule font-mono text-xs">
+            {showHeld && (
+              <Link
+                href="/money"
+                className="flex items-center justify-between p-3 hover:bg-ink/[0.02] transition-colors"
+              >
+                <div className="flex items-center gap-2.5 text-ink-soft">
+                  <Landmark className="w-4 h-4 text-ink-soft" />
+                  <span>Held in custody, not yet banked</span>
+                </div>
+                <div className="flex items-center gap-2 font-semibold text-ink">
+                  <span className="tabular-nums">{formatCedi(heldNum.toFixed(2))}</span>
+                  <ArrowRight className="w-3.5 h-3.5 text-ink-soft" />
+                </div>
+              </Link>
+            )}
+
+            {showDistrict && (
+              <Link
+                href="/district"
+                className="flex items-center justify-between p-3 hover:bg-ink/[0.02] transition-colors"
+              >
+                <div className="flex items-center gap-2.5 text-ink-soft">
+                  <Building2 className="w-4 h-4 text-ink-soft" />
+                  <span>District allocation assessment outstanding</span>
+                </div>
+                <div className="flex items-center gap-2 font-semibold text-variance">
+                  <span className="tabular-nums">{formatCedi(districtNum.toFixed(2))}</span>
+                  <ArrowRight className="w-3.5 h-3.5 text-ink-soft" />
+                </div>
+              </Link>
+            )}
+
+            {showMomo && (
+              <Link
+                href="/money/momo"
+                className="flex items-center justify-between p-3 hover:bg-ink/[0.02] transition-colors"
+              >
+                <div className="flex items-center gap-2.5 text-ink-soft">
+                  <Coins className="w-4 h-4 text-ink-soft" />
+                  <span>Unclassified items waiting in Mobile Money queue</span>
+                </div>
+                <div className="flex items-center gap-2 font-semibold text-ink">
+                  <span>{unreviewedMomoCount} item{unreviewedMomoCount === 1 ? "" : "s"}</span>
+                  <ArrowRight className="w-3.5 h-3.5 text-ink-soft" />
+                </div>
+              </Link>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Ruled List of Recent Services */}
       {services.length === 0 ? (

@@ -4,7 +4,7 @@ import { twMerge } from "tailwind-merge";
 
 export interface ButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: "primary" | "secondary" | "quiet" | "destructive";
+  variant?: "primary" | "secondary" | "quiet" | "destructive" | "outline";
   size?: "sm" | "md" | "lg";
   isLoading?: boolean;
 }
@@ -29,6 +29,8 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       primary:
         "bg-ink text-paper border border-ink hover:bg-ink/90 active:bg-black",
       secondary:
+        "bg-transparent text-ink border border-rule hover:border-rule-strong hover:bg-ink/[0.03]",
+      outline:
         "bg-transparent text-ink border border-rule hover:border-rule-strong hover:bg-ink/[0.03]",
       quiet:
         "bg-transparent text-ink hover:bg-ink/[0.04] border border-transparent",

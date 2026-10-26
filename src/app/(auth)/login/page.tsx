@@ -11,15 +11,9 @@ export default function LoginPage() {
       <div className="w-full max-w-sm space-y-8">
         {/* Header */}
         <div className="text-left space-y-1 pb-6 border-b border-rule">
-          <p className="text-xs uppercase tracking-widest font-semibold text-ink-soft">
-            Parish Financial System
-          </p>
           <h1 className="text-3xl font-serif font-normal text-ink">
             PUCA Finance
           </h1>
-          <p className="text-xs text-ink-soft pt-1 leading-relaxed">
-            Local church financial ledger replacing paper record books with verifiable accounts.
-          </p>
         </div>
 
         {/* Login Form */}
@@ -30,7 +24,6 @@ export default function LoginPage() {
         {/* Footer info */}
         <div className="pt-6 border-t border-rule text-center">
           <p className="text-[11px] text-ink-soft font-mono">
-            Ghana Cedi (GH₵) • Africa/Accra Timezone
           </p>
         </div>
       </div>

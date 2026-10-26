@@ -1,7 +1,11 @@
 import { Prisma } from "@prisma/client";
 import { AppError } from "./errors";
 
-export type CediValue = Prisma.Decimal | string | number;
+export type CediValue =
+  | Prisma.Decimal
+  | string
+  | number
+  | { toString(): string };
 
 /**
  * Parses a string representation of Ghana cedis into a Decimal.
@@ -64,7 +68,7 @@ export function formatCedi(amount: CediValue | null | undefined): string {
     return "GH₵ 0.00";
   }
 
-  const dec = amount instanceof Prisma.Decimal ? amount : new Prisma.Decimal(amount);
+  const dec = toDecimal(amount);
   const isNegative = dec.isNegative();
   const absolute = dec.abs().toFixed(2);
   const [whole, fractional] = absolute.split(".");
@@ -80,8 +84,7 @@ export function formatCedi(amount: CediValue | null | undefined): string {
  */
 export function sumCedi(list: CediValue[]): Prisma.Decimal {
   return list.reduce<Prisma.Decimal>((acc, item) => {
-    const val = item instanceof Prisma.Decimal ? item : new Prisma.Decimal(item);
-    return acc.plus(val);
+    return acc.plus(toDecimal(item));
   }, new Prisma.Decimal(0));
 }
 
@@ -90,6 +93,14 @@ export function sumCedi(list: CediValue[]): Prisma.Decimal {
  * e.g. GH₵ 150.50 -> 15050 pesewas.
  */
 export function toMinorUnits(amount: CediValue): number {
-  const dec = amount instanceof Prisma.Decimal ? amount : new Prisma.Decimal(amount);
+  const dec = toDecimal(amount);
   return parseInt(dec.times(100).toFixed(0), 10);
+}
+
+export function toDecimal(value: CediValue): Prisma.Decimal {
+  if (value instanceof Prisma.Decimal) return value;
+  if (typeof value === "object" && value !== null && "toString" in value) {
+    return new Prisma.Decimal(value.toString());
+  }
+  return new Prisma.Decimal(value);
 }

@@ -1,8 +1,17 @@
-"use client";
-
 import React, { useState, useTransition, useMemo } from "react";
+import Link from "next/link";
 import { Member, Role } from "@prisma/client";
-import { Search, UserPlus, Phone, Hash, Edit2, UserCheck, UserX } from "lucide-react";
+import {
+  Search,
+  UserPlus,
+  Phone,
+  Hash,
+  Edit2,
+  UserCheck,
+  UserX,
+  FileArchive,
+  BookOpen,
+} from "lucide-react";
 import { RuleHeading } from "@/components/ui/rule-heading";
 import { Button } from "@/components/ui/button";
 import { TextField } from "@/components/ui/text-field";
@@ -31,6 +40,8 @@ export function MemberManagementView({
   const [showInactive, setShowInactive] = useState(false);
 
   const [isAddSheetOpen, setIsAddSheetOpen] = useState(false);
+  const [isBulkZipModalOpen, setIsBulkZipModalOpen] = useState(false);
+  const [bulkZipYear, setBulkZipYear] = useState(new Date().getUTCFullYear());
   const [editingMember, setEditingMember] = useState<Member | null>(null);
   const [togglingMember, setTogglingMember] = useState<Member | null>(null);
 
@@ -169,10 +180,19 @@ export function MemberManagementView({
         description="Church members and envelope numbers for the verified tithe register."
         action={
           canEdit ? (
-            <Button variant="primary" onClick={openAddSheet}>
-              <UserPlus className="w-4 h-4 mr-2" />
-              Add member
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="secondary"
+                onClick={() => setIsBulkZipModalOpen(true)}
+              >
+                <FileArchive className="w-4 h-4 mr-1.5" />
+                Annual statements (ZIP)
+              </Button>
+              <Button variant="primary" onClick={openAddSheet}>
+                <UserPlus className="w-4 h-4 mr-2" />
+                Add member
+              </Button>
+            </div>
           ) : undefined
         }
       />
@@ -227,7 +247,12 @@ export function MemberManagementView({
             >
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
-                  <span className="font-medium text-sm text-ink">{m.fullName}</span>
+                  <Link
+                    href={`/members/${m.id}`}
+                    className="font-medium text-sm text-ink hover:underline"
+                  >
+                    {m.fullName}
+                  </Link>
                   <StatusMark
                     tone={m.active ? "balanced" : "neutral"}
                     label={m.active ? "Active" : "Inactive"}
@@ -252,6 +277,12 @@ export function MemberManagementView({
 
               {canEdit && (
                 <div className="flex items-center gap-2 self-end sm:self-auto">
+                  <Link href={`/members/${m.id}`}>
+                    <Button variant="quiet" size="sm" className="min-h-[44px]">
+                      <BookOpen className="w-3.5 h-3.5 mr-1" />
+                      Ledger
+                    </Button>
+                  </Link>
                   <Button
                     variant="quiet"
                     size="sm"
@@ -378,6 +409,57 @@ export function MemberManagementView({
           isPending={isPending}
         />
       )}
+
+      {/* Bulk Statements Modal */}
+      <Sheet
+        isOpen={isBulkZipModalOpen}
+        onClose={() => setIsBulkZipModalOpen(false)}
+        title="Export All Annual Statements (ZIP)"
+        description="Generate and package giving statements for every active member who contributed during the selected tax year."
+      >
+        <div className="space-y-4 py-3">
+          <TextField
+            label="Statement Tax Year"
+            type="number"
+            value={bulkZipYear}
+            onChange={(e) => setBulkZipYear(parseInt(e.target.value, 10))}
+          />
+
+          <div className="p-3 bg-paper border border-rule text-xs space-y-1 font-mono text-ink-soft">
+            <p className="font-semibold text-ink">Package Overview:</p>
+            <p>
+              • Streams a single compressed ZIP archive containing individual PDFs.
+            </p>
+            <p>
+              • Only active members with verified contributions during {bulkZipYear} are included.
+            </p>
+            <p>
+              • An immutable statement issuance log and audit record is recorded for each generated PDF.
+            </p>
+          </div>
+
+          <div className="pt-4 flex gap-2">
+            <Button
+              variant="secondary"
+              className="flex-1"
+              onClick={() => setIsBulkZipModalOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              className="flex-1"
+              onClick={() => {
+                window.open(`/api/statements/bulk?year=${bulkZipYear}`, "_blank");
+                setIsBulkZipModalOpen(false);
+              }}
+            >
+              <FileArchive className="w-4 h-4 mr-1.5" />
+              Download Statements ZIP
+            </Button>
+          </div>
+        </div>
+      </Sheet>
     </div>
   );
 }

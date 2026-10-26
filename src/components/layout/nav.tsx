@@ -13,6 +13,9 @@ import {
   History,
   LogOut,
   ShieldAlert,
+  Landmark,
+  Building2,
+  FileText,
 } from "lucide-react";
 import { Role } from "@prisma/client";
 import { Sheet } from "@/components/ui/sheet";
@@ -64,9 +67,27 @@ export function DesktopNav({ user, churchName = "PUCA Finance" }: NavProps) {
       visible: true,
     },
     {
+      href: "/money",
+      label: "Money & Banking",
+      icon: Landmark,
+      visible: true,
+    },
+    {
       href: "/money/momo",
       label: "Mobile Money",
       icon: Coins,
+      visible: true,
+    },
+    {
+      href: "/district",
+      label: "District",
+      icon: Building2,
+      visible: true,
+    },
+    {
+      href: "/reports/annual",
+      label: "Annual Report",
+      icon: FileText,
       visible: true,
     },
     {
@@ -183,9 +204,9 @@ export function MobileNav({ user }: NavProps) {
       icon: Scale,
     },
     {
-      href: "/money/momo",
-      label: "MoMo",
-      icon: Coins,
+      href: "/money",
+      label: "Money",
+      icon: Landmark,
     },
   ];
 
@@ -249,6 +270,34 @@ export function MobileNav({ user }: NavProps) {
               <p className="font-medium">Parish Members</p>
               <p className="text-xs text-ink-soft">
                 Directory and tithe member registry
+              </p>
+            </div>
+          </Link>
+
+          <Link
+            href="/district"
+            onClick={() => setIsMoreOpen(false)}
+            className="flex items-center gap-3 px-3 py-3 rounded-[2px] text-sm text-ink hover:bg-ink/[0.04] border-b border-rule"
+          >
+            <Building2 className="w-4 h-4 text-ink-soft" />
+            <div>
+              <p className="font-medium">District Remittances</p>
+              <p className="text-xs text-ink-soft">
+                Allocation rules and payment records
+              </p>
+            </div>
+          </Link>
+
+          <Link
+            href="/reports/annual"
+            onClick={() => setIsMoreOpen(false)}
+            className="flex items-center gap-3 px-3 py-3 rounded-[2px] text-sm text-ink hover:bg-ink/[0.04] border-b border-rule"
+          >
+            <FileText className="w-4 h-4 text-ink-soft" />
+            <div>
+              <p className="font-medium">Annual Financial Summary</p>
+              <p className="text-xs text-ink-soft">
+                Yearly category revenue and expenditure
               </p>
             </div>
           </Link>

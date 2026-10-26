@@ -6,6 +6,12 @@ import { StatusTone } from "./status-mark";
 
 export type ToastTone = StatusTone | "success" | "error";
 
+export interface ToastOptions {
+  type?: ToastTone;
+  tone?: ToastTone;
+  message: string;
+}
+
 export interface ToastMessage {
   id: string;
   message: string;
@@ -14,7 +20,10 @@ export interface ToastMessage {
 
 interface ToastContextValue {
   showToast: (message: string, tone?: StatusTone) => void;
-  addToast: (tone: ToastTone, message: string) => void;
+  addToast: {
+    (tone: ToastTone, message: string): void;
+    (options: ToastOptions): void;
+  };
 }
 
 const ToastContext = createContext<ToastContextValue | undefined>(undefined);
@@ -31,11 +40,29 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     }, 4500);
   }, []);
 
-  const addToast = useCallback((tone: ToastTone, message: string) => {
-    const resolvedTone: StatusTone =
-      tone === "success" ? "balanced" : tone === "error" ? "variance" : tone;
-    showToast(message, resolvedTone);
-  }, [showToast]);
+  const addToast = useCallback(
+    ((toneOrOptions: ToastTone | ToastOptions, messageParam?: string) => {
+      let resolvedTone: ToastTone = "neutral";
+      let message = "";
+
+      if (typeof toneOrOptions === "object" && toneOrOptions !== null) {
+        resolvedTone = toneOrOptions.tone || toneOrOptions.type || "neutral";
+        message = toneOrOptions.message;
+      } else {
+        resolvedTone = toneOrOptions;
+        message = messageParam || "";
+      }
+
+      const finalTone: StatusTone =
+        resolvedTone === "success"
+          ? "balanced"
+          : resolvedTone === "error"
+          ? "variance"
+          : resolvedTone;
+      showToast(message, finalTone);
+    }) as ToastContextValue["addToast"],
+    [showToast]
+  );
 
 
 
