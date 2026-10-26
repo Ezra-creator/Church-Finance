@@ -50,12 +50,12 @@ export default async function MemberDetailPage({
 
   return (
     <MemberDetailView
-      member={member}
+      member={JSON.parse(JSON.stringify(member))}
       year={selectedYear}
-      months={ledger.months}
-      categoryTotals={ledger.categoryTotals}
-      grandTotal={ledger.grandTotal}
-      statementHistory={statementHistory}
+      months={JSON.parse(JSON.stringify(ledger.months))}
+      categoryTotals={JSON.parse(JSON.stringify(ledger.categoryTotals))}
+      grandTotal={ledger.grandTotal.toString()}
+      statementHistory={JSON.parse(JSON.stringify(statementHistory))}
       userRole={user.role}
     />
   );

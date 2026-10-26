@@ -33,11 +33,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             mustChangePassword: user.mustChangePassword,
             tokenVersion: user.tokenVersion,
           };
-        } catch (error) {
-          if (error instanceof AppError) {
-            throw new Error(error.message);
-          }
-          throw new Error("Email or password is incorrect.");
+        } catch {
+          return null;
         }
       },
     }),

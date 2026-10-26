@@ -28,9 +28,9 @@ export default async function MoneyPage() {
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
       <MoneyLandingView
-        ledger={ledger}
-        expenses={expenses}
-        deposits={deposits}
+        ledger={JSON.parse(JSON.stringify(ledger))}
+        expenses={JSON.parse(JSON.stringify(expenses))}
+        deposits={JSON.parse(JSON.stringify(deposits))}
         categories={categories}
         churchUsers={users}
         currentUser={{

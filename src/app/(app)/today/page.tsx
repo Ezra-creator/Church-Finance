@@ -57,7 +57,7 @@ export default async function TodayPage() {
 
   return (
     <TodayServiceList
-      services={services}
+      services={JSON.parse(JSON.stringify(services))}
       userRole={user.role}
       todayAccraDateString={todayStr}
       heldAmount={heldLedger.totalHeld.toString()}

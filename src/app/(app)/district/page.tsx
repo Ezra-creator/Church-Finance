@@ -27,8 +27,8 @@ export default async function DistrictPage() {
 
   return (
     <DistrictManagementView
-      remittances={remittances as any}
-      summary={summary}
+      remittances={JSON.parse(JSON.stringify(remittances))}
+      summary={JSON.parse(JSON.stringify(summary))}
       rules={rules as any}
       categories={categories}
       userRole={user.role}

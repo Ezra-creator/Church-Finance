@@ -19,7 +19,7 @@ import { createServiceRecordAction, markBackupDoneAction } from "../actions";
 import { ServiceSummaryItem } from "../queries";
 
 interface TodayServiceListProps {
-  services: ServiceSummaryItem[];
+  services: any[];
   userRole: Role;
   todayAccraDateString: string;
   heldAmount?: { toString(): string } | number;

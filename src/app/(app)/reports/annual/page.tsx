@@ -25,7 +25,7 @@ export default async function AnnualReportPage({
 
   return (
     <AnnualReportView
-      initialData={reportData}
+      initialData={JSON.parse(JSON.stringify(reportData))}
       availableYears={availableYears}
     />
   );
