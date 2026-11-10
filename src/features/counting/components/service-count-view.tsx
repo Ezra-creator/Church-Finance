@@ -483,7 +483,7 @@ export function ServiceCountView({
   };
 
   return (
-    <div className="space-y-6 pb-28">
+    <div className="p-6 sm:p-8 lg:p-10 max-w-[1280px] 2xl:max-w-[1440px] w-full space-y-6 pb-28">
       {/* Header with Title, Status, and Grand Total */}
       <div className="space-y-3 pb-6 border-b border-border">
         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">

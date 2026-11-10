@@ -30,7 +30,7 @@ export function ReportPreviewView({
   };
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto">
+    <div className="p-6 sm:p-8 lg:p-10 max-w-4xl w-full mx-auto space-y-6 pb-24">
       {/* Top action toolbar (hidden during printing) */}
       <div className="print:hidden flex items-center justify-between p-4 bg-paper border border-rule rounded-[2px] gap-3 flex-wrap">
         <Link href={`/reconcile/${weekEnding}`}>

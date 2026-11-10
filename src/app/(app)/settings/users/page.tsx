@@ -14,7 +14,7 @@ export default async function UsersPage() {
   const users = await getUsers();
 
   return (
-    <div className="space-y-8">
+    <div className="p-6 sm:p-8 lg:p-10 max-w-[1280px] 2xl:max-w-[1440px] w-full space-y-8 pb-24">
       <RuleHeading
         eyebrow="Access Control"
         title="Church Officers"

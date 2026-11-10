@@ -69,7 +69,7 @@ export function SettingsView({ initialSettings }: SettingsViewProps) {
   };
 
   return (
-    <div className="space-y-8 max-w-4xl pb-24">
+    <div className="p-6 sm:p-8 lg:p-10 max-w-4xl w-full space-y-8 pb-24">
       {/* Page Header */}
       <div className="pb-4 border-b border-border">
         <h1 className="text-[24px] sm:text-[28px] font-semibold text-text leading-[34px]">

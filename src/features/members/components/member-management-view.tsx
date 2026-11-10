@@ -175,7 +175,7 @@ export function MemberManagementView({
   };
 
   return (
-    <div className="space-y-8">
+    <div className="p-6 sm:p-8 lg:p-10 max-w-[1280px] 2xl:max-w-[1440px] w-full space-y-8 pb-24">
       <RuleHeading
         eyebrow="Congregation Directory"
         title="Assembly Members"

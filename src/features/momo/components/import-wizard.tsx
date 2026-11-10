@@ -389,7 +389,7 @@ export function ImportWizard({ savedProfiles }: ImportWizardProps) {
   ];
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8">
+    <div className="p-6 sm:p-8 lg:p-10 max-w-4xl w-full mx-auto space-y-8 pb-24">
       {/* Page Header */}
       <RuleHeading
         eyebrow="Statement Importer"

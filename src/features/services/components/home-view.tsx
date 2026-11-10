@@ -79,7 +79,7 @@ export function HomeView({
       />
 
       {/* Main Content Area */}
-      <div className="p-4 sm:p-6 lg:p-8 max-w-[1120px] 2xl:max-w-[1280px] w-full flex flex-col gap-6 lg:gap-8">
+      <div className="p-6 sm:p-8 lg:p-10 max-w-[1280px] 2xl:max-w-[1440px] w-full flex flex-col gap-6 lg:gap-8">
         {/* a) Totals Strip (matches mockup exactly) */}
         <div className="bg-surface border border-border rounded-panel p-5 sm:p-6 grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-border">
           {/* Column 1: Cash counted */}

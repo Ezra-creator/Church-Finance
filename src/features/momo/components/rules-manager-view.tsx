@@ -279,7 +279,7 @@ export function RulesManagerView({
   };
 
   return (
-    <div className="max-w-5xl mx-auto space-y-8">
+    <div className="p-6 sm:p-8 lg:p-10 max-w-5xl w-full mx-auto space-y-8 pb-24">
       {/* Page Header */}
       <RuleHeading
         eyebrow="Automation Rules"

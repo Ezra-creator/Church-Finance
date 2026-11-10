@@ -157,7 +157,7 @@ export function DistrictManagementView({
   };
 
   return (
-    <div className="space-y-8">
+    <div className="p-6 sm:p-8 lg:p-10 max-w-[1280px] 2xl:max-w-[1440px] w-full space-y-8 pb-24">
       {/* Page Header with Total Outstanding in Large Mono */}
       <div className="pb-6 border-b border-rule flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>

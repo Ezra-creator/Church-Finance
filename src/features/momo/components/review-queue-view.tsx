@@ -171,7 +171,7 @@ export function ReviewQueueView({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="p-6 sm:p-8 lg:p-10 max-w-[1280px] 2xl:max-w-[1440px] w-full space-y-6 pb-24">
       {/* Page Header with Running Count */}
       <RuleHeading
         eyebrow="Review Queue"

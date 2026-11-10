@@ -96,7 +96,7 @@ export function CollectionsView({ services }: CollectionsViewProps) {
         }
       />
 
-      <div className="p-4 sm:p-6 lg:p-8 max-w-[1120px] 2xl:max-w-[1280px] w-full">
+      <div className="p-6 sm:p-8 lg:p-10 max-w-[1280px] 2xl:max-w-[1440px] w-full">
         <DataTable
           columns={columns}
           data={services}
