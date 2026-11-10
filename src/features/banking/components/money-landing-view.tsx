@@ -1,20 +1,23 @@
 "use client";
 
-import React, { useState, useTransition, useMemo } from "react";
+import React, { useState, useTransition } from "react";
 import Link from "next/link";
 import { Role, ExpenseStatus, DepositStatus } from "@prisma/client";
-import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { StatBlock } from "@/components/ui/stat-block";
-import { SegmentedControl } from "@/components/ui/segmented-control";
-import { EmptyState } from "@/components/ui/empty-state";
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
-import { formatCedi, toDecimal } from "@/lib/money";
+import { StatusMark } from "@/components/ui/status-mark";
+import { formatCedi } from "@/lib/money";
 import { formatAccraDate } from "@/lib/dates";
-import { plural } from "@/lib/plural";
-import { ChevronRight, FileText } from "lucide-react";
-import { FormattedHeldMoneyLedger } from "../service";
+import {
+  Plus,
+  Coins,
+  ArrowRight,
+  FileText,
+  CheckCircle2,
+  Clock,
+  Landmark,
+  ShieldAlert,
+} from "lucide-react";
+import { FormattedHeldMoneySummary } from "../service";
 import { ExpenseEntrySheet, ExpenseCategoryItem } from "@/features/expenses/components/expense-entry-sheet";
 import { DepositEntrySheet, ChurchUserOption } from "@/features/deposits/components/deposit-entry-sheet";
 import { ExpenseApprovalSheet, ExpenseWithDetails } from "@/features/expenses/components/expense-approval-sheet";
@@ -23,7 +26,7 @@ import { markExpensePaidAction } from "@/features/expenses/actions";
 import { useToast } from "@/components/ui/toast";
 
 export interface MoneyLandingViewProps {
-  ledger: FormattedHeldMoneyLedger;
+  summary: FormattedHeldMoneySummary;
   expenses: any[];
   deposits: any[];
   categories: ExpenseCategoryItem[];
@@ -36,7 +39,7 @@ export interface MoneyLandingViewProps {
 }
 
 export function MoneyLandingView({
-  ledger,
+  summary,
   expenses: initialExpenses,
   deposits: initialDeposits,
   categories,
@@ -44,63 +47,43 @@ export function MoneyLandingView({
   currentUser,
 }: MoneyLandingViewProps) {
   const { addToast } = useToast();
-  const [, startTransition] = useTransition();
+  const [isPending, startTransition] = useTransition();
 
   const isTreasurer = currentUser.role === Role.TREASURER;
   const isSecretary = currentUser.role === Role.FINANCE_SECRETARY;
   const canWrite = isSecretary || isTreasurer;
 
-  const [mainTab, setMainTab] = useState<"expenses" | "deposits">("expenses");
+  // Sheet states
   const [isExpenseEntryOpen, setIsExpenseEntryOpen] = useState(false);
   const [isDepositEntryOpen, setIsDepositEntryOpen] = useState(false);
   const [selectedExpense, setSelectedExpense] = useState<ExpenseWithDetails | null>(null);
   const [selectedDeposit, setSelectedDeposit] = useState<DepositWithDetails | null>(null);
 
+  // Filters
   const [expenseFilter, setExpenseFilter] = useState<string>("ALL");
   const [depositFilter, setDepositFilter] = useState<string>("ALL");
 
-  const pendingApprovalsCount = useMemo(
-    () => initialExpenses.filter((e) => e.status === ExpenseStatus.SUBMITTED).length,
-    [initialExpenses]
-  );
+  const pendingApprovalsCount = initialExpenses.filter(
+    (e) => e.status === ExpenseStatus.SUBMITTED
+  ).length;
 
-  const pendingDepositsCount = useMemo(
-    () => initialDeposits.filter((d) => d.status === DepositStatus.PENDING_CONFIRMATION).length,
-    [initialDeposits]
-  );
+  const pendingDepositsCount = initialDeposits.filter(
+    (d) => d.status === DepositStatus.PENDING_CONFIRMATION
+  ).length;
 
-  const filteredExpenses = useMemo(() => {
-    return initialExpenses.filter((e) => {
-      if (expenseFilter === "SUBMITTED") return e.status === ExpenseStatus.SUBMITTED;
-      if (expenseFilter === "APPROVED") return e.status === ExpenseStatus.APPROVED;
-      if (expenseFilter === "PAID") return e.status === ExpenseStatus.PAID;
-      if (expenseFilter === "DRAFT") return e.status === ExpenseStatus.DRAFT;
-      return true;
-    });
-  }, [initialExpenses, expenseFilter]);
+  const filteredExpenses = initialExpenses.filter((e) => {
+    if (expenseFilter === "SUBMITTED") return e.status === ExpenseStatus.SUBMITTED;
+    if (expenseFilter === "APPROVED") return e.status === ExpenseStatus.APPROVED;
+    if (expenseFilter === "PAID") return e.status === ExpenseStatus.PAID;
+    if (expenseFilter === "DRAFT") return e.status === ExpenseStatus.DRAFT;
+    return true;
+  });
 
-  const filteredDeposits = useMemo(() => {
-    return initialDeposits.filter((d) => {
-      if (depositFilter === "PENDING") return d.status === DepositStatus.PENDING_CONFIRMATION;
-      if (depositFilter === "CONFIRMED") return d.status === DepositStatus.CONFIRMED;
-      return true;
-    });
-  }, [initialDeposits, depositFilter]);
-
-  const unbankedCashNotice = useMemo(() => {
-    const dec = toDecimal(ledger.cashHeld);
-    const isZeroOrNegative = dec ? dec.lte(0) : true;
-    if (isZeroOrNegative) {
-      return "All counted cash has been banked.";
-    }
-    if (ledger.oldestUndepositedCashDate) {
-      const now = new Date();
-      const diffMs = now.getTime() - new Date(ledger.oldestUndepositedCashDate).getTime();
-      const diffDays = Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
-      return `Oldest unbanked cash: ${plural(diffDays, "day", "days")}`;
-    }
-    return "Oldest unbanked cash: 0 days";
-  }, [ledger.cashHeld, ledger.oldestUndepositedCashDate]);
+  const filteredDeposits = initialDeposits.filter((d) => {
+    if (depositFilter === "PENDING") return d.status === DepositStatus.PENDING_CONFIRMATION;
+    if (depositFilter === "CONFIRMED") return d.status === DepositStatus.CONFIRMED;
+    return true;
+  });
 
   const handleQuickMarkPaid = (expenseId: string, paymentMethod: any, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -112,324 +95,386 @@ export function MoneyLandingView({
       if (res.success) {
         addToast({ type: "success", message: "Expense marked as paid." });
       } else {
-        addToast({ type: "error", message: res.error.message });
+        addToast({ type: "attention", message: res.error.message });
       }
     });
   };
 
-  const getExpenseBadge = (status: ExpenseStatus) => {
-    switch (status) {
-      case ExpenseStatus.PAID:
-        return <Badge variant="balanced" label="Paid" />;
-      case ExpenseStatus.APPROVED:
-        return <Badge variant="neutral" label="Approved" />;
-      case ExpenseStatus.SUBMITTED:
-        return <Badge variant="attention" label="For approval" />;
-      case ExpenseStatus.REJECTED:
-        return <Badge variant="neutral" label="Rejected" />;
-      case ExpenseStatus.VOIDED:
-        return <Badge variant="neutral" label="Voided" />;
-      default:
-        return <Badge variant="neutral" label="Draft" />;
-    }
-  };
-
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Money"
-        action={
-          <div className="flex flex-wrap items-center gap-2">
-            <Link
-              href="/money/momo"
-              className="inline-flex items-center justify-center h-10 px-3 text-body font-medium border border-border hover:bg-hover text-text rounded-control transition-colors"
-            >
-              Mobile money
-            </Link>
+    <div className="space-y-10 pb-16">
+      {/* Top Header & Fast Actions */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 pb-6 border-b border-rule">
+        <div>
+          <p className="text-[11px] font-mono uppercase tracking-widest text-ink-soft">
+            Assembly Custody & Banking
+          </p>
+          <h1 className="text-3xl font-serif font-normal text-ink mt-1">
+            Money & Bank Deposits
+          </h1>
+          <p className="text-xs text-ink-soft pt-1 max-w-xl leading-relaxed">
+            Track held cash and mobile money balances, record disbursement approvals with receipts, and verify bank deposit slips.
+          </p>
+        </div>
 
-            {canWrite && (
-              <>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => setIsExpenseEntryOpen(true)}
-                >
-                  Record expense
-                </Button>
-                <Button
-                  variant="primary"
-                  size="sm"
-                  onClick={() => setIsDepositEntryOpen(true)}
-                >
-                  Record deposit
-                </Button>
-              </>
-            )}
-          </div>
-        }
-      />
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            href="/money/momo"
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-mono font-medium border border-rule hover:bg-ink/[0.04] text-ink rounded-[2px] transition-colors"
+          >
+            <Coins className="w-3.5 h-3.5" />
+            <span>Mobile Money</span>
+            <ArrowRight className="w-3 h-3 text-ink-soft" />
+          </Link>
 
-      {/* Held, Not Yet Banked Section */}
-      <section aria-labelledby="held-balances-heading" className="bg-surface border border-border rounded-panel p-5 space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 id="held-balances-heading" className="text-body font-medium text-text">
-            Held, not yet banked
+          {canWrite && (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsExpenseEntryOpen(true)}
+              >
+                <Plus className="w-3.5 h-3.5 mr-1" />
+                Record Expense
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => setIsDepositEntryOpen(true)}
+              >
+                <Landmark className="w-3.5 h-3.5 mr-1" />
+                Record Bank Deposit
+              </Button>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Held, Not Yet Banked Summary */}
+      <section className="p-6 bg-paper border border-rule rounded-[2px] space-y-6">
+        <div className="flex items-center justify-between border-b border-rule pb-3">
+          <h2 className="text-xs uppercase tracking-widest font-mono font-semibold text-ink-soft">
+            Held, Not Yet Banked
           </h2>
-          <span className="text-caption text-muted">
-            Total unbanked: <span className="font-medium text-text tnum">{ledger.totalHeldFormatted}</span>
-          </span>
+          <span className="text-xs font-mono text-ink-soft">Live Church Custody</span>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-border">
-          <div className="pb-4 md:pb-0 md:pr-6">
-            <StatBlock
-              label="Cash held"
-              value={ledger.cashHeldFormatted}
-              hint="Counted minus paid cash and banked cash."
-            />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Row 1: Cash in Hand */}
+          <div className="p-5 bg-ink/[0.02] border border-rule rounded-[2px] space-y-2">
+            <div className="flex items-center justify-between text-xs font-mono text-ink-soft">
+              <span>Cash Counted & Held</span>
+              <span>Counted minus paid expenses & deposits</span>
+            </div>
+            <div className="text-3xl font-mono tabular-nums font-bold text-ink">
+              {summary.cashHeldFormatted}
+            </div>
+            <div className="flex items-center gap-2 text-[11px] font-mono text-ink-soft pt-1">
+              <span>Counted: {formatCedi(summary.cashCounted)}</span>
+              <span>•</span>
+              <span>Expenses: {formatCedi(summary.cashExpenses)}</span>
+              <span>•</span>
+              <span>Banked: {formatCedi(summary.cashDeposits)}</span>
+            </div>
           </div>
-          <div className="pt-4 md:pt-0 md:pl-6">
-            <StatBlock
-              label="Mobile money held"
-              value={ledger.momoHeldFormatted}
-              hint="Received minus paid and transfers."
-            />
+
+          {/* Row 2: Mobile Money Held */}
+          <div className="p-5 bg-ink/[0.02] border border-rule rounded-[2px] space-y-2">
+            <div className="flex items-center justify-between text-xs font-mono text-ink-soft">
+              <span>Mobile Money Held</span>
+              <span>Classified minus MoMo expenses & transfers</span>
+            </div>
+            <div className="text-3xl font-mono tabular-nums font-bold text-ink">
+              {summary.momoHeldFormatted}
+            </div>
+            <div className="flex items-center gap-2 text-[11px] font-mono text-ink-soft pt-1">
+              <span>Received: {formatCedi(summary.momoReceived)}</span>
+              <span>•</span>
+              <span>Expenses: {formatCedi(summary.momoExpenses)}</span>
+              <span>•</span>
+              <span>Transferred: {formatCedi(summary.momoTransfers)}</span>
+            </div>
           </div>
         </div>
 
-        <div className="pt-3 border-t border-border text-caption text-muted">
-          {unbankedCashNotice}
+        {/* Beneath it: Plain line stating how long oldest undeposited cash has been held */}
+        <div className="pt-2 border-t border-rule flex items-center justify-between flex-wrap gap-2 text-xs font-mono">
+          <div className="flex items-center gap-2 text-ink">
+            <Clock className="w-4 h-4 text-ink-soft flex-shrink-0" />
+            <span>{summary.oldestUndepositedNotice}</span>
+          </div>
+          <div className="text-ink-soft">
+            Total unbanked funds: <strong className="text-ink">{summary.totalHeldFormatted}</strong>
+          </div>
         </div>
       </section>
 
-      {/* Expenses and Deposits Tables */}
-      <section className="space-y-4" aria-label="Expenses and deposits records">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <SegmentedControl
-            options={[
-              { value: "expenses", label: `Expenses (${initialExpenses.length})` },
-              { value: "deposits", label: `Deposits (${initialDeposits.length})` },
-            ]}
-            value={mainTab}
-            onChange={(v) => setMainTab(v as "expenses" | "deposits")}
-          />
+      {/* Ruled Section 1: Expenses */}
+      <section className="space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b-2 border-rule-strong">
+          <div>
+            <h3 className="text-xl font-serif font-normal text-ink">
+              Disbursements & Expenses
+            </h3>
+            <p className="text-xs text-ink-soft font-mono">
+              Assembly expenditures requiring treasurer approval and receipt evidence.
+            </p>
+          </div>
 
-          {mainTab === "expenses" ? (
-            <div className="overflow-x-auto pb-1">
-              <SegmentedControl
-                size="sm"
-                options={[
-                  { value: "ALL", label: "All" },
-                  {
-                    value: "SUBMITTED",
-                    label: pendingApprovalsCount > 0 ? `For approval (${pendingApprovalsCount})` : "For approval",
-                  },
-                  { value: "APPROVED", label: "Approved" },
-                  { value: "PAID", label: "Paid" },
-                  { value: "DRAFT", label: "Drafts" },
-                ]}
-                value={expenseFilter}
-                onChange={setExpenseFilter}
-              />
-            </div>
-          ) : (
-            <div className="overflow-x-auto pb-1">
-              <SegmentedControl
-                size="sm"
-                options={[
-                  { value: "ALL", label: "All" },
-                  {
-                    value: "PENDING",
-                    label: pendingDepositsCount > 0 ? `Pending confirmation (${pendingDepositsCount})` : "Pending confirmation",
-                  },
-                  { value: "CONFIRMED", label: "Confirmed" },
-                ]}
-                value={depositFilter}
-                onChange={setDepositFilter}
-              />
-            </div>
-          )}
+          {/* Filter Pills */}
+          <div className="flex items-center gap-1 bg-ink/[0.03] p-1 rounded-[2px] self-start sm:self-auto text-xs font-mono">
+            {[
+              { id: "ALL", label: "All" },
+              {
+                id: "SUBMITTED",
+                label: `For Approval${pendingApprovalsCount > 0 ? ` (${pendingApprovalsCount})` : ""}`,
+              },
+              { id: "APPROVED", label: "Approved" },
+              { id: "PAID", label: "Paid" },
+              { id: "DRAFT", label: "Drafts" },
+            ].map((f) => (
+              <button
+                key={f.id}
+                type="button"
+                onClick={() => setExpenseFilter(f.id)}
+                className={`px-2.5 py-1 rounded-[1px] transition-colors ${
+                  expenseFilter === f.id
+                    ? "bg-paper text-ink font-semibold shadow-sm"
+                    : "text-ink-soft hover:text-ink"
+                }`}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
         </div>
 
-        {mainTab === "expenses" && (
-          filteredExpenses.length === 0 ? (
-            <EmptyState
-              title="No expenses match this filter"
-              description="Record church expenditures with payee details and attach photos of physical receipts."
-              action={
-                canWrite ? (
-                  <Button
-                    variant="primary"
-                    onClick={() => setIsExpenseEntryOpen(true)}
-                  >
-                    Record expense
-                  </Button>
-                ) : undefined
-              }
-            />
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Payee</TableHead>
-                  <TableHead>Category</TableHead>
-                  <TableHead className="text-right">Amount</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="w-10">
-                    <span className="sr-only">Actions</span>
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredExpenses.map((exp) => {
-                  const hasAttachment = exp.attachments && exp.attachments.length > 0;
-                  return (
-                    <TableRow
-                      key={exp.id}
-                      onClick={() => setSelectedExpense(exp)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" || e.key === " ") {
-                          e.preventDefault();
-                          setSelectedExpense(exp);
-                        }
-                      }}
-                      tabIndex={0}
-                      role="button"
-                      className="cursor-pointer"
-                      aria-label={`View expense for ${exp.payee}, amount ${formatCedi(exp.amount)}`}
-                    >
-                      <TableCell className="text-muted whitespace-nowrap">
-                        {formatAccraDate(new Date(exp.expenseDate), { day: "numeric", month: "short", year: "numeric" })}
-                      </TableCell>
-                      <TableCell className="font-medium text-text">
-                        <div className="flex items-center gap-2">
-                          <span>{exp.payee}</span>
-                          {hasAttachment && (
-                            <span className="inline-flex items-center gap-1 text-caption px-1.5 py-0.5 bg-hover text-muted rounded-control">
-                              <FileText className="w-3 h-3" strokeWidth={1.75} />
-                              <span className="sr-only">Receipt attached</span>
-                            </span>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-muted">
-                        {exp.category?.name || "Uncategorized"}
-                      </TableCell>
-                      <TableCell className="text-right font-medium tnum text-text whitespace-nowrap">
-                        <div>{formatCedi(exp.amount)}</div>
-                        {exp.status === ExpenseStatus.APPROVED && canWrite && (
-                          <button
-                            type="button"
-                            onClick={(e) => handleQuickMarkPaid(exp.id, exp.paymentMethod, e)}
-                            className="text-caption text-ok-ink hover:underline font-medium block ml-auto mt-0.5 min-h-[44px] flex items-center"
-                          >
-                            Mark paid
-                          </button>
-                        )}
-                      </TableCell>
-                      <TableCell>{getExpenseBadge(exp.status)}</TableCell>
-                      <TableCell className="text-right text-muted">
-                        <ChevronRight className="w-4 h-4 ml-auto" strokeWidth={1.75} aria-hidden="true" />
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          )
-        )}
+        {filteredExpenses.length === 0 ? (
+          <div className="py-12 border border-dashed border-rule rounded-[2px] text-center space-y-2 bg-ink/[0.01]">
+            <p className="text-sm font-medium text-ink">No expenses in this view</p>
+            <p className="text-xs text-ink-soft font-mono max-w-sm mx-auto">
+              Record church expenditures with payee details and attach photos of physical receipts for audit compliance.
+            </p>
+            {canWrite && (
+              <div className="pt-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsExpenseEntryOpen(true)}
+                >
+                  <Plus className="w-3.5 h-3.5 mr-1" />
+                  Record First Expense
+                </Button>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="border border-rule rounded-[2px] overflow-hidden divide-y divide-rule bg-paper">
+            {filteredExpenses.map((exp) => {
+              const hasAttachment = exp.attachments && exp.attachments.length > 0;
+              let tone: "neutral" | "balanced" | "attention" | "variance" = "neutral";
+              let statusLabel = exp.status;
 
-        {mainTab === "deposits" && (
-          filteredDeposits.length === 0 ? (
-            <EmptyState
-              title="No deposits match this filter"
-              description="Record physical cash banking with photos of bank deposit slips, or transfers to church account."
-              action={
-                canWrite ? (
-                  <Button
-                    variant="primary"
-                    onClick={() => setIsDepositEntryOpen(true)}
-                  >
-                    Record deposit
-                  </Button>
-                ) : undefined
+              if (exp.status === ExpenseStatus.PAID) {
+                tone = "balanced";
+                statusLabel = "Paid";
+              } else if (exp.status === ExpenseStatus.APPROVED) {
+                tone = "balanced";
+                statusLabel = "Approved";
+              } else if (exp.status === ExpenseStatus.SUBMITTED) {
+                tone = "attention";
+                statusLabel = "Awaiting Approval";
+              } else if (exp.status === ExpenseStatus.REJECTED) {
+                tone = "variance";
+                statusLabel = "Rejected";
+              } else if (exp.status === ExpenseStatus.VOIDED) {
+                tone = "variance";
+                statusLabel = "Voided";
+              } else {
+                statusLabel = "Draft";
               }
-            />
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Method</TableHead>
-                  <TableHead>Reference</TableHead>
-                  <TableHead className="text-right">Amount</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="w-10">
-                    <span className="sr-only">Actions</span>
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredDeposits.map((dep) => {
-                  const isConfirmed = dep.status === DepositStatus.CONFIRMED;
-                  const methodLabel = dep.kind === "CASH_DEPOSIT" ? "Cash" : "Mobile money";
-                  const hasAttachment = dep.attachments && dep.attachments.length > 0;
-                  return (
-                    <TableRow
-                      key={dep.id}
-                      onClick={() => setSelectedDeposit(dep)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" || e.key === " ") {
-                          e.preventDefault();
-                          setSelectedDeposit(dep);
-                        }
-                      }}
-                      tabIndex={0}
-                      role="button"
-                      className="cursor-pointer"
-                      aria-label={`View deposit ${dep.bankReference}, amount ${formatCedi(dep.amount)}`}
-                    >
-                      <TableCell className="text-muted whitespace-nowrap">
-                        {formatAccraDate(new Date(dep.depositDate), { day: "numeric", month: "short", year: "numeric" })}
-                      </TableCell>
-                      <TableCell className="font-medium text-text">
-                        {methodLabel}
-                      </TableCell>
-                      <TableCell className="text-muted">
-                        <div className="flex items-center gap-2">
-                          <span className="tnum">{dep.bankReference}</span>
-                          {hasAttachment && (
-                            <span className="inline-flex items-center gap-1 text-caption px-1.5 py-0.5 bg-hover text-muted rounded-control">
-                              <FileText className="w-3 h-3" strokeWidth={1.75} />
-                              <span className="sr-only">Slip attached</span>
-                            </span>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right font-medium tnum text-text whitespace-nowrap">
-                        <div>{formatCedi(dep.amount)}</div>
-                        {!isConfirmed && isTreasurer && (
-                          <span className="text-caption text-warn-ink font-medium block ml-auto mt-0.5">
-                            Verify slip
+
+              return (
+                <div
+                  key={exp.id}
+                  onClick={() => setSelectedExpense(exp)}
+                  className="p-4 hover:bg-ink/[0.01] transition-colors cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                >
+                  <div className="flex items-start gap-3 min-w-0">
+                    <div className="pt-0.5">
+                      <StatusMark tone={tone} label={statusLabel} />
+                    </div>
+
+                    <div className="space-y-0.5 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-semibold text-ink truncate">
+                          {exp.payee}
+                        </span>
+                        <span className="text-xs text-ink-soft font-mono">
+                          ({exp.category.name})
+                        </span>
+                        {hasAttachment && (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-mono px-1.5 py-0.5 bg-ink/5 text-ink-soft rounded-[1px]">
+                            <FileText className="w-3 h-3" /> Receipt
                           </span>
                         )}
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={isConfirmed ? "balanced" : "attention"}
-                          label={isConfirmed ? "Confirmed" : "Pending confirmation"}
-                        />
-                      </TableCell>
-                      <TableCell className="text-right text-muted">
-                        <ChevronRight className="w-4 h-4 ml-auto" strokeWidth={1.75} aria-hidden="true" />
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          )
+                      </div>
+
+                      <p className="text-xs text-ink-soft truncate max-w-lg">
+                        {exp.description}
+                      </p>
+
+                      <p className="text-[10px] font-mono text-ink-soft">
+                        {formatAccraDate(new Date(exp.expenseDate), { day: "numeric", month: "short", year: "numeric" })}
+                        {" • "}
+                        Method: {exp.paymentMethod}
+                        {" • "}
+                        Req by: {exp.requestedBy.name}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between sm:justify-end gap-3 flex-shrink-0 pl-7 sm:pl-0">
+                    <div className="text-right">
+                      <div className="text-base font-mono tabular-nums font-bold text-ink">
+                        {formatCedi(exp.amount)}
+                      </div>
+                      {exp.status === ExpenseStatus.APPROVED && canWrite && (
+                        <button
+                          type="button"
+                          onClick={(e) => handleQuickMarkPaid(exp.id, exp.paymentMethod, e)}
+                          className="text-[11px] font-mono text-balanced hover:underline font-semibold block mt-0.5"
+                        >
+                          Mark as Paid
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
+      {/* Ruled Section 2: Bank Deposits */}
+      <section className="space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b-2 border-rule-strong">
+          <div>
+            <h3 className="text-xl font-serif font-normal text-ink">
+              Bank Deposit Log
+            </h3>
+            <p className="text-xs text-ink-soft font-mono">
+              Cash deposits and MoMo transfers with verified bank slip documents.
+            </p>
+          </div>
+
+          {/* Filter Pills */}
+          <div className="flex items-center gap-1 bg-ink/[0.03] p-1 rounded-[2px] self-start sm:self-auto text-xs font-mono">
+            {[
+              { id: "ALL", label: "All" },
+              {
+                id: "PENDING",
+                label: `Pending${pendingDepositsCount > 0 ? ` (${pendingDepositsCount})` : ""}`,
+              },
+              { id: "CONFIRMED", label: "Confirmed" },
+            ].map((f) => (
+              <button
+                key={f.id}
+                type="button"
+                onClick={() => setDepositFilter(f.id)}
+                className={`px-2.5 py-1 rounded-[1px] transition-colors ${
+                  depositFilter === f.id
+                    ? "bg-paper text-ink font-semibold shadow-sm"
+                    : "text-ink-soft hover:text-ink"
+                }`}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {filteredDeposits.length === 0 ? (
+          <div className="py-12 border border-dashed border-rule rounded-[2px] text-center space-y-2 bg-ink/[0.01]">
+            <p className="text-sm font-medium text-ink">No bank deposits logged</p>
+            <p className="text-xs text-ink-soft font-mono max-w-sm mx-auto">
+              Record physical cash banking with photos of bank deposit slips, or record transfers to the church account.
+            </p>
+            {canWrite && (
+              <div className="pt-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsDepositEntryOpen(true)}
+                >
+                  <Landmark className="w-3.5 h-3.5 mr-1" />
+                  Record First Deposit
+                </Button>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="border border-rule rounded-[2px] overflow-hidden divide-y divide-rule bg-paper">
+            {filteredDeposits.map((dep) => {
+              const isConfirmed = dep.status === DepositStatus.CONFIRMED;
+              const hasAttachment = dep.attachments && dep.attachments.length > 0;
+
+              return (
+                <div
+                  key={dep.id}
+                  onClick={() => setSelectedDeposit(dep)}
+                  className="p-4 hover:bg-ink/[0.01] transition-colors cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                >
+                  <div className="flex items-start gap-3 min-w-0">
+                    <div className="pt-0.5">
+                      <StatusMark
+                        tone={isConfirmed ? "balanced" : "attention"}
+                        label={isConfirmed ? "Confirmed" : "Pending Confirmation"}
+                      />
+                    </div>
+
+                    <div className="space-y-0.5 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-semibold text-ink">
+                          {dep.kind === "CASH_DEPOSIT" ? "Cash Bank Deposit" : "MoMo Bank Transfer"}
+                        </span>
+                        <span className="text-xs font-mono text-ink-soft">
+                          Ref: {dep.bankReference}
+                        </span>
+                        {hasAttachment && (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-mono px-1.5 py-0.5 bg-ink/5 text-ink-soft rounded-[1px]">
+                            <FileText className="w-3 h-3" /> Slip
+                          </span>
+                        )}
+                      </div>
+
+                      <p className="text-xs text-ink-soft">
+                        {dep.notes || `Carried by ${dep.carriedBy.name}`}
+                      </p>
+
+                      <p className="text-[10px] font-mono text-ink-soft">
+                        Date: {formatAccraDate(new Date(dep.depositDate), { day: "numeric", month: "short", year: "numeric" })}
+                        {dep.confirmedBy ? ` • Confirmed by ${dep.confirmedBy.name}` : " • Awaiting treasurer verification"}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between sm:justify-end gap-3 flex-shrink-0 pl-7 sm:pl-0">
+                    <div className="text-right">
+                      <div className="text-base font-mono tabular-nums font-bold text-ink">
+                        {formatCedi(dep.amount)}
+                      </div>
+                      {!isConfirmed && isTreasurer && (
+                        <span className="text-[11px] font-mono text-attention font-semibold block mt-0.5">
+                          Tap to verify slip & confirm
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         )}
       </section>
 
@@ -444,8 +489,8 @@ export function MoneyLandingView({
         isOpen={isDepositEntryOpen}
         onClose={() => setIsDepositEntryOpen(false)}
         users={churchUsers}
-        cashHeld={ledger.cashHeld.toString()}
-        momoHeld={ledger.momoHeld.toString()}
+        cashHeld={summary.cashHeld.toString()}
+        momoHeld={summary.momoHeld.toString()}
       />
 
       <ExpenseApprovalSheet

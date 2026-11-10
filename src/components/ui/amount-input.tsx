@@ -3,20 +3,23 @@
 import React, { useState, useEffect } from "react";
 import { clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
-import { formatCedi, parseCedi } from "@/lib/money";
+import { formatMoney, parseCedi } from "@/lib/money";
+import { AlertCircle } from "lucide-react";
 
 export interface AmountInputProps
   extends Omit<React.InputHTMLAttributes<HTMLInputElement>, "onChange" | "value"> {
   label?: string;
   error?: string;
-  hint?: string;
+  optional?: boolean;
   value?: string;
   onChange?: (value: string) => void;
 }
 
 export const AmountInput = React.forwardRef<HTMLInputElement, AmountInputProps>(
-  ({ className, label, error, hint, id, value = "", onChange, onBlur, onFocus, ...props }, ref) => {
-    const inputId = id || (label ? label.toLowerCase().replace(/\s+/g, "-") : undefined);
+  ({ className, label, error, optional, id, value = "", onChange, onBlur, onFocus, ...props }, ref) => {
+    const generatedId = React.useId();
+    const inputId = id || generatedId;
+    const errorId = `${inputId}-error`;
     const [displayValue, setDisplayValue] = useState(value);
     const [isFocused, setIsFocused] = useState(false);
 
@@ -39,13 +42,9 @@ export const AmountInput = React.forwardRef<HTMLInputElement, AmountInputProps>(
       if (raw !== "") {
         try {
           const dec = parseCedi(raw);
-          const formatted = formatCedi(dec);
+          const formatted = formatMoney(dec);
           setDisplayValue(formatted);
-          const rawStr = dec.toString();
-          const parts = rawStr.split(".");
-          const frac = parts[1] || "";
-          const paddedFrac = frac.length === 0 ? "00" : frac.length === 1 ? `${frac}0` : frac.slice(0, 2);
-          onChange?.(`${parts[0] || "0"}.${paddedFrac}`);
+          onChange?.(dec.toFixed(2));
         } catch {
           setDisplayValue(raw);
           onChange?.(raw);
@@ -58,56 +57,50 @@ export const AmountInput = React.forwardRef<HTMLInputElement, AmountInputProps>(
     };
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      const next = e.target.value;
-      setDisplayValue(next);
-      onChange?.(next);
+      setDisplayValue(e.target.value);
     };
 
     return (
-      <div className="flex flex-col gap-1 w-full text-left">
+      <div className="flex flex-col gap-1.5 w-full">
         {label && (
-          <label
-            htmlFor={inputId}
-            className="text-label font-medium text-text"
-          >
+          <label htmlFor={inputId} className="text-[13px] font-medium text-text leading-[18px]">
             {label}
+            {optional && <span className="text-muted font-normal ml-1">(optional)</span>}
           </label>
         )}
-        <div
-          className={twMerge(
-            clsx(
-              "relative flex items-center w-full h-11 sm:h-10 bg-surface border border-border rounded-control transition-colors duration-120",
-              "focus-within:border-accent focus-within:ring-2 focus-within:ring-accent",
-              error && "border-bad focus-within:border-bad focus-within:ring-bad",
-              className
-            )
-          )}
-        >
-          <span className="pl-3 pr-2 text-body font-medium text-muted select-none pointer-events-none">
-            GH₵
-          </span>
+        <div className="relative">
           <input
             id={inputId}
             ref={ref}
             type="text"
             inputMode="decimal"
-            autoComplete="off"
             value={displayValue}
             onChange={handleChange}
             onFocus={handleFocus}
             onBlur={handleBlur}
-            className="w-full h-full pr-3 py-2 bg-transparent text-body font-normal tnum tabular-nums text-right text-text placeholder:text-muted outline-none"
+            aria-invalid={error ? "true" : undefined}
+            aria-describedby={error ? errorId : undefined}
             placeholder="0.00"
+            className={twMerge(
+              clsx(
+                "w-full h-[40px] px-3 bg-surface border rounded-control text-text text-[16px] md:text-[14px] placeholder:text-muted transition-colors num touch-target",
+                "border-border-strong focus:border-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand focus-visible:outline-offset-2",
+                error && "border-bad focus:border-bad focus-visible:outline-bad",
+                className
+              )
+            )}
             {...props}
           />
         </div>
-        {hint && !error && (
-          <p className="text-caption text-muted">{hint}</p>
-        )}
         {error && (
-          <p className="text-caption text-bad font-medium mt-0.5" role="alert">
-            {error}
-          </p>
+          <div
+            id={errorId}
+            aria-live="polite"
+            className="flex items-center gap-1.5 text-[13px] text-bad-ink leading-[18px]"
+          >
+            <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true" />
+            <span>{error}</span>
+          </div>
         )}
       </div>
     );

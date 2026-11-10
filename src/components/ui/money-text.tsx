@@ -4,29 +4,29 @@ import { formatMoney, toDecimal, CediValue } from "@/lib/money";
 
 export interface MoneyTextProps {
   amount: CediValue | null | undefined;
-  currency?: string;
+  variant?: "inline" | "headline";
+  emptyAsHyphen?: boolean;
   className?: string;
-  showSign?: boolean;
 }
 
 export function MoneyText({
   amount,
-  currency = "GH₵",
+  variant = "inline",
+  emptyAsHyphen = false,
   className,
 }: MoneyTextProps) {
-  const dec = amount !== null && amount !== undefined && amount !== "" ? toDecimal(amount) : null;
-  const isNegative = dec !== null && dec.isNegative();
-  const formatted = formatMoney(amount, currency);
+  const dec = amount !== null && amount !== undefined ? toDecimal(amount) : null;
+  const isNegative = dec ? dec.isNegative() : false;
+  const isHyphen = emptyAsHyphen && (!dec || dec.isZero());
+  const text = formatMoney(amount, { emptyAsHyphen });
+
+  const variantClass = variant === "headline" ? "figure" : "body";
+  const colorClass = isHyphen ? "text-muted" : isNegative ? "text-bad-ink" : "text-text";
 
   return (
-    <span
-      className={clsx(
-        "tnum tabular-nums",
-        isNegative ? "text-bad-ink" : "text-text",
-        className
-      )}
-    >
-      {formatted}
+    <span className={clsx("num inline-block", variantClass, colorClass, className)}>
+      {text}
     </span>
   );
 }
+

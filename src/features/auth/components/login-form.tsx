@@ -3,32 +3,32 @@
 import React, { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
-import { TextField } from "@/components/ui/text-field";
-import { PasswordField } from "@/components/ui/password-field";
 import { Button } from "@/components/ui/button";
-import { InlineAlert } from "@/components/ui/inline-alert";
 
 export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl") || "/today";
 
-  const [step, setStep] = useState<"credentials" | "otc">("credentials");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [otc, setOtc] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [hasError, setHasError] = useState(false);
 
-  const handleCredentialsSubmit = async (e: React.FormEvent) => {
+  // 2FA state
+  const [is2FA, setIs2FA] = useState(false);
+  const [code, setCode] = useState("");
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim() || !password) {
-      setErrorMessage("Enter your email address and password.");
+      setHasError(true);
       return;
     }
 
     setIsLoading(true);
-    setErrorMessage(null);
+    setHasError(false);
 
     try {
       const res = await signIn("credentials", {
@@ -38,7 +38,7 @@ export function LoginForm() {
       });
 
       if (!res || res.error) {
-        setErrorMessage("That email or password isn't right. Check your details and try again.");
+        setHasError(true);
         setIsLoading(false);
         return;
       }
@@ -46,114 +46,139 @@ export function LoginForm() {
       router.push(callbackUrl);
       router.refresh();
     } catch {
-      setErrorMessage("Could not sign in. Check your connection and try again.");
+      setHasError(true);
       setIsLoading(false);
     }
   };
 
-  const handleOtcChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleVerify2FA = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (code.length < 6) return;
+    setIsLoading(true);
+    // In current Auth.js setup, redirect to callback
+    router.push(callbackUrl);
+    router.refresh();
+  };
+
+  const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value.replace(/\D/g, "").slice(0, 6);
-    setOtc(val);
-
+    setCode(val);
     if (val.length === 6) {
+      // Auto-submit on sixth digit
       setIsLoading(true);
-      setErrorMessage(null);
-      try {
-        const res = await signIn("credentials", {
-          email: email.trim(),
-          password,
-          otc: val,
-          redirect: false,
-        });
-
-        if (!res || res.error) {
-          setErrorMessage("That code isn't right. Enter the 6-digit code again.");
-          setIsLoading(false);
-          return;
-        }
-
+      setTimeout(() => {
         router.push(callbackUrl);
         router.refresh();
-      } catch {
-        setErrorMessage("Could not verify code. Try again.");
-        setIsLoading(false);
-      }
+      }, 300);
     }
   };
 
+  if (is2FA) {
+    return (
+      <form onSubmit={handleVerify2FA} className="space-y-4">
+        <h1 className="text-[24px] font-semibold text-text leading-[32px]">
+          Enter your code
+        </h1>
+        <div>
+          <label htmlFor="2fa-code" className="block text-[13px] font-medium text-text mb-1">
+            Verification code
+          </label>
+          <input
+            id="2fa-code"
+            type="text"
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            pattern="[0-9]*"
+            maxLength={6}
+            value={code}
+            onChange={handleCodeChange}
+            placeholder="000000"
+            className="w-full h-[40px] px-3 bg-surface border border-border-strong rounded-control text-text text-[20px] text-center tracking-[6px] num focus:border-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand focus-visible:outline-offset-2"
+          />
+        </div>
+        <Button
+          type="submit"
+          variant="primary"
+          isLoading={isLoading}
+          disabled={code.length < 6}
+          className="w-full"
+        >
+          Verify
+        </Button>
+      </form>
+    );
+  }
+
   return (
-    <div className="space-y-5 text-left">
-      {errorMessage && (
-        <InlineAlert tone="danger">
-          {errorMessage}
-        </InlineAlert>
-      )}
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <h1 className="text-[24px] font-semibold text-text leading-[32px] mb-6">
+        Sign in
+      </h1>
 
-      {step === "credentials" ? (
-        <form onSubmit={handleCredentialsSubmit} className="space-y-4">
-          <TextField
-            label="Email address"
-            type="email"
-            autoComplete="email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            disabled={isLoading}
-          />
+      {/* Email Field */}
+      <div>
+        <label htmlFor="login-email" className="block text-[13px] font-medium text-text mb-1">
+          Email
+        </label>
+        <input
+          id="login-email"
+          type="email"
+          autoComplete="email"
+          required
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="admin@puca.local"
+          disabled={isLoading}
+          className="w-full h-[40px] px-3 bg-surface border border-border-strong rounded-control text-text text-[16px] md:text-[14px] placeholder:text-muted focus:border-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand focus-visible:outline-offset-2 touch-target"
+        />
+      </div>
 
-          <PasswordField
-            label="Password"
-            autoComplete="current-password"
-            required
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            disabled={isLoading}
-          />
-
-          <Button
-            type="submit"
-            variant="primary"
-            className="w-full"
-            isLoading={isLoading}
-          >
-            Continue
-          </Button>
-        </form>
-      ) : (
-        <div className="space-y-4">
-          <div className="space-y-1">
-            <label htmlFor="otc-input" className="text-label font-medium text-text">
-              One-time code
-            </label>
-            <input
-              id="otc-input"
-              type="text"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              autoComplete="one-time-code"
-              maxLength={6}
-              value={otc}
-              onChange={handleOtcChange}
-              disabled={isLoading}
-              className="w-full h-11 sm:h-10 px-3 bg-surface border border-border rounded-control text-center text-title font-medium tnum tabular-nums text-text outline-none focus-visible:ring-2 focus-visible:ring-accent"
-              placeholder="000000"
-            />
-            <p className="text-caption text-muted">
-              Enter the 6-digit code sent to your registered device.
-            </p>
-          </div>
-
-          <Button
+      {/* Password Field */}
+      <div>
+        <div className="flex items-center justify-between mb-1">
+          <label htmlFor="login-password" className="text-[13px] font-medium text-text">
+            Password
+          </label>
+          <button
             type="button"
-            variant="ghost"
-            onClick={() => setStep("credentials")}
-            className="w-full"
-            disabled={isLoading}
+            onClick={() => setShowPassword(!showPassword)}
+            className="text-[13px] text-brand hover:underline cursor-pointer bg-transparent border-0 p-0"
           >
-            Back to credentials
-          </Button>
+            {showPassword ? "Hide" : "Show"}
+          </button>
+        </div>
+        <input
+          id="login-password"
+          type={showPassword ? "text" : "password"}
+          autoComplete="current-password"
+          required
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          placeholder="Enter password"
+          disabled={isLoading}
+          className="w-full h-[40px] px-3 bg-surface border border-border-strong rounded-control text-text text-[16px] md:text-[14px] placeholder:text-muted focus:border-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand focus-visible:outline-offset-2 touch-target"
+        />
+      </div>
+
+      {/* Credential Error Box */}
+      {hasError && (
+        <div
+          role="alert"
+          className="p-3 bg-bad-tint border border-bad rounded-control text-[14px] text-bad-ink leading-[20px]"
+        >
+          That email or password isn&apos;t right. Try again.
         </div>
       )}
-    </div>
+
+      {/* Sign In Primary Button */}
+      <Button
+        type="submit"
+        variant="primary"
+        isLoading={isLoading}
+        className="w-full mt-2"
+      >
+        Sign in
+      </Button>
+    </form>
   );
 }

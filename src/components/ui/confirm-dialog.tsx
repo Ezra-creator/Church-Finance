@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useEffect, useRef, useCallback } from "react";
+import React from "react";
+import { Dialog } from "./dialog";
 import { Button } from "./button";
 
 export interface ConfirmDialogProps {
@@ -15,7 +16,7 @@ export interface ConfirmDialogProps {
   isDestructive?: boolean;
   isLoading?: boolean;
   isPending?: boolean;
-  tone?: "variance" | "balanced" | "neutral" | "attention" | string;
+  tone?: string;
 }
 
 export function ConfirmDialog({
@@ -32,123 +33,38 @@ export function ConfirmDialog({
   isPending = false,
   tone,
 }: ConfirmDialogProps) {
-  const dialogRef = useRef<HTMLDivElement>(null);
-  const previousActiveElement = useRef<HTMLElement | null>(null);
-
-  const handleClose = useCallback(() => {
-    if (onCancel) onCancel();
-    else if (onClose) onClose();
-  }, [onCancel, onClose]);
-
+  const handleClose = onClose || onCancel || (() => {});
   const loading = isLoading || isPending;
-  const destructive = isDestructive || tone === "variance" || tone === "danger";
-
-  useEffect(() => {
-    if (!isOpen) return;
-
-    previousActiveElement.current = document.activeElement as HTMLElement | null;
-    document.body.style.overflow = "hidden";
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !loading) {
-        handleClose();
-        return;
-      }
-
-      if (e.key === "Tab" && dialogRef.current) {
-        const focusableElements = dialogRef.current.querySelectorAll<HTMLElement>(
-          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-        );
-        if (focusableElements.length === 0) return;
-
-        const first = focusableElements[0];
-        const last = focusableElements[focusableElements.length - 1];
-
-        if (e.shiftKey && document.activeElement === first) {
-          e.preventDefault();
-          last.focus();
-        } else if (!e.shiftKey && document.activeElement === last) {
-          e.preventDefault();
-          first.focus();
-        }
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-
-    requestAnimationFrame(() => {
-      if (dialogRef.current) {
-        const confirmBtn = dialogRef.current.querySelector<HTMLElement>('button[data-confirm="true"]');
-        if (confirmBtn) {
-          confirmBtn.focus();
-        } else {
-          dialogRef.current.focus();
-        }
-      }
-    });
-
-    return () => {
-      document.body.style.overflow = "";
-      window.removeEventListener("keydown", handleKeyDown);
-      if (previousActiveElement.current) {
-        previousActiveElement.current.focus();
-      }
-    };
-  }, [isOpen, loading, handleClose]);
-
-  if (!isOpen) return null;
+  const destructive = isDestructive || tone === "danger";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      {/* Opaque scrim backdrop */}
-      <div
-        className="fixed inset-0 bg-scrim"
-        onClick={() => !loading && handleClose()}
-        aria-hidden="true"
-      />
-
-      {/* Modal Dialog with specified shadow */}
-      <div
-        ref={dialogRef}
-        role="alertdialog"
-        tabIndex={-1}
-        aria-modal="true"
-        aria-labelledby="confirm-dialog-title"
-        aria-describedby="confirm-dialog-description"
-        className="relative z-10 w-full max-w-md bg-surface border border-border p-6 rounded-panel shadow-overlay outline-none text-left"
-      >
-        <h2
-          id="confirm-dialog-title"
-          className="text-title font-medium text-text leading-tight"
-        >
-          {title}
-        </h2>
-        <p
-          id="confirm-dialog-description"
-          className="text-body text-muted mt-2 leading-normal"
-        >
-          {description}
-        </p>
-
-        <div className="flex items-center justify-end gap-3 mt-6 pt-4 border-t border-border">
+    <Dialog
+      isOpen={isOpen}
+      onClose={handleClose}
+      title={title}
+      description={description}
+      footer={
+        <>
           <Button
             variant="secondary"
             onClick={handleClose}
             disabled={loading}
+            className="w-full sm:w-auto"
           >
             {cancelLabel}
           </Button>
           <Button
-            data-confirm="true"
             variant={destructive ? "danger" : "primary"}
             onClick={onConfirm}
-            disabled={loading}
             isLoading={loading}
+            className="w-full sm:w-auto"
           >
             {confirmLabel}
           </Button>
-        </div>
-      </div>
-    </div>
+        </>
+      }
+    >
+      <div />
+    </Dialog>
   );
 }

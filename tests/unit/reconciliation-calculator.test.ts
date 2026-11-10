@@ -128,7 +128,7 @@ describe("Reconciliation Calculator (Pure Engine)", () => {
       ],
       momoTransactions: [],
       bookTotal: new Prisma.Decimal("950.00"),
-      varianceReason: "Counter error recorded on page 14 of the physical ledger.",
+      varianceReason: "Counter error recorded on page 14 of the physical count book.",
       parallelRunActive: true,
     });
     expect(explainedShort.blockers.length).toBe(0);

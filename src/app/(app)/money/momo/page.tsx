@@ -4,10 +4,10 @@ import { listMomoTransactions, listGivingCategories, getNeedsReviewQueue } from 
 import { MomoTransactionList } from "@/features/momo/components/momo-transaction-list";
 
 export const metadata = {
-  title: "Mobile money · PUCA Finance",
+  title: "Mobile Money — PUCA Finance",
 };
 
-export default async function MobileMoneyPage() {
+export default async function MomoPage() {
   const user = await requireUser();
 
   const [transactionsData, categories, reviewQueue] = await Promise.all([

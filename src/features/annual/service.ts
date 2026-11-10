@@ -29,7 +29,7 @@ export interface AnnualExpenseCategoryRow {
 export interface AnnualReportData {
   year: number;
   churchName: string;
-  presbyteryName: string;
+  parentBodyName: string;
   generatedAt: string;
   income: {
     categories: AnnualCategoryMonthlyRow[];
@@ -281,8 +281,8 @@ export async function getAnnualReportData(year: number): Promise<AnnualReportDat
 
   return {
     year,
-    churchName: settings?.churchName || "Local Congregation",
-    presbyteryName: settings?.presbyteryName || "District Office",
+    churchName: settings?.assemblyName || "PUCA English Assembly",
+    parentBodyName: settings?.parentBodyName || "The Church of Pentecost",
     generatedAt: nowUtc().toISOString(),
     income: {
       categories: categoryRows,

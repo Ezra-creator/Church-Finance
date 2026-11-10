@@ -6,7 +6,7 @@ import { getServiceRecord } from "@/features/services/queries";
 import { ServiceCountView } from "@/features/counting/components/service-count-view";
 
 export const metadata = {
-  title: "Count · PUCA Finance",
+  title: "Service Count & Tithes — PUCA Finance",
 };
 
 export default async function ServiceRecordPage({
@@ -36,25 +36,25 @@ export default async function ServiceRecordPage({
     notFound();
   }
 
-  // Format initial sheets using string values
+  // Format initial sheets
   const initialSheets = record.countSheets.map((sheet) => ({
     id: sheet.id,
     categoryId: sheet.categoryId,
-    total: sheet.total.toString(),
+    total: sheet.total.toFixed(2),
     lines: sheet.lines.map((line) => ({
       denominationId: line.denominationId,
       quantity: line.quantity,
-      lineTotal: line.lineTotal.toString(),
+      lineTotal: line.lineTotal.toFixed(2),
     })),
   }));
 
-  // Format initial giving entries using string values
+  // Format initial giving entries
   const initialGivingEntries = record.givingEntries.map((entry) => ({
     id: entry.id,
     categoryId: entry.categoryId,
     memberId: entry.memberId,
     payerName: entry.payerName,
-    amount: entry.amount.toString(),
+    amount: entry.amount.toFixed(2),
     receiptId: entry.receiptId,
     receiptNumber: entry.receipt?.number || null,
     member: entry.member
@@ -80,7 +80,7 @@ export default async function ServiceRecordPage({
       }}
       denominations={denominations.map((d) => ({
         id: d.id,
-        value: d.value.toString(),
+        value: d.value.toFixed(2),
         kind: d.kind,
         sortOrder: d.sortOrder,
       }))}

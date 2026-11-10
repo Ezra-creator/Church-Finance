@@ -1,10 +1,8 @@
 "use client";
 
 import React, { useEffect, useRef } from "react";
-import { X } from "lucide-react";
 import { clsx } from "clsx";
-import { twMerge } from "tailwind-merge";
-import { Button } from "./button";
+import { X } from "lucide-react";
 
 export interface DialogProps {
   isOpen: boolean;
@@ -13,7 +11,7 @@ export interface DialogProps {
   description?: string;
   children: React.ReactNode;
   footer?: React.ReactNode;
-  maxWidth?: "sm" | "md" | "lg" | "xl";
+  size?: "default" | "import";
   className?: string;
 }
 
@@ -24,130 +22,91 @@ export function Dialog({
   description,
   children,
   footer,
-  maxWidth = "md",
+  size = "default",
   className,
 }: DialogProps) {
-  const dialogRef = useRef<HTMLDivElement>(null);
-  const previousActiveElement = useRef<HTMLElement | null>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!isOpen) return;
-
-    previousActiveElement.current = document.activeElement as HTMLElement | null;
-    document.body.style.overflow = "hidden";
-
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
+      if (e.key === "Escape" && isOpen) {
         onClose();
-        return;
-      }
-
-      if (e.key === "Tab" && dialogRef.current) {
-        const focusableElements = dialogRef.current.querySelectorAll<HTMLElement>(
-          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-        );
-        if (focusableElements.length === 0) return;
-
-        const first = focusableElements[0];
-        const last = focusableElements[focusableElements.length - 1];
-
-        if (e.shiftKey && document.activeElement === first) {
-          e.preventDefault();
-          last.focus();
-        } else if (!e.shiftKey && document.activeElement === last) {
-          e.preventDefault();
-          first.focus();
-        }
       }
     };
 
-    window.addEventListener("keydown", handleKeyDown);
-
-    requestAnimationFrame(() => {
-      if (dialogRef.current) {
-        const firstFocusable = dialogRef.current.querySelector<HTMLElement>(
-          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-        );
-        if (firstFocusable) {
-          firstFocusable.focus();
-        } else {
-          dialogRef.current.focus();
-        }
-      }
-    });
+    if (isOpen) {
+      document.body.style.overflow = "hidden";
+      window.addEventListener("keydown", handleKeyDown);
+    } else {
+      document.body.style.overflow = "";
+    }
 
     return () => {
       document.body.style.overflow = "";
       window.removeEventListener("keydown", handleKeyDown);
-      if (previousActiveElement.current) {
-        previousActiveElement.current.focus();
-      }
     };
   }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
-  const maxWidthStyles = {
-    sm: "max-w-sm",
-    md: "max-w-md",
-    lg: "max-w-lg",
-    xl: "max-w-xl",
-  };
+  const maxWidthClass = size === "import" ? "md:max-w-[640px]" : "md:max-w-[480px]";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      {/* Opaque scrim backdrop */}
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="dialog-title"
+      className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-0 md:p-4"
+    >
+      {/* Opaque Scrim Backdrop */}
       <div
-        className="fixed inset-0 bg-scrim"
+        className="fixed inset-0 bg-scrim transition-opacity duration-150 ease-out"
         onClick={onClose}
         aria-hidden="true"
       />
 
-      {/* Opaque Modal Dialog with specified shadow */}
+      {/* Dialog Panel: Bottom Sheet below 768px, Centered Dialog on 768px+ */}
       <div
-        ref={dialogRef}
-        role="dialog"
-        tabIndex={-1}
-        aria-modal="true"
-        aria-labelledby="dialog-title"
-        className={twMerge(
-          clsx(
-            "relative z-10 w-full bg-surface border border-border rounded-panel flex flex-col shadow-overlay outline-none overflow-hidden text-left",
-            maxWidthStyles[maxWidth],
-            className
-          )
+        ref={panelRef}
+        className={clsx(
+          "relative z-10 w-full bg-surface border border-border shadow-overlay flex flex-col transition-transform duration-150 ease-out",
+          // Mobile: bottom sheet
+          "max-h-[90dvh] rounded-t-[12px] md:rounded-panel",
+          // Tablet & Desktop: centered dialog
+          maxWidthClass,
+          className
         )}
       >
         {/* Header */}
-        <div className="flex items-start justify-between p-5 border-b border-border">
-          <div className="space-y-0.5">
-            <h2
-              id="dialog-title"
-              className="text-title font-medium text-text leading-tight"
-            >
+        <div className="flex items-start justify-between p-4 sm:p-6 pb-2">
+          <div>
+            <h2 id="dialog-title" className="text-[20px] font-semibold text-text leading-[28px]">
               {title}
             </h2>
             {description && (
-              <p className="text-caption text-muted">{description}</p>
+              <p className="text-[14px] text-muted leading-[20px] mt-1">
+                {description}
+              </p>
             )}
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
+          <button
+            type="button"
             onClick={onClose}
-            className="p-1 h-8 w-8 min-h-0 -mr-2 -mt-1 text-muted hover:text-text"
             aria-label="Close dialog"
+            className="p-1 -mr-1 text-muted hover:text-text rounded-control hover:bg-hover transition-colors touch-target flex items-center justify-center"
           >
-            <X className="w-4 h-4 stroke-[1.75]" />
-          </Button>
+            <X className="w-5 h-5" aria-hidden="true" />
+          </button>
         </div>
 
-        {/* Body */}
-        <div className="p-5">{children}</div>
+        {/* Content body */}
+        <div className="p-4 sm:p-6 pt-2 overflow-y-auto flex-1">
+          {children}
+        </div>
 
         {/* Footer */}
         {footer && (
-          <div className="p-4 border-t border-border bg-surface flex items-center justify-end gap-3">
+          <div className="p-4 sm:p-6 border-t border-border flex flex-col-reverse sm:flex-row items-center justify-end gap-3">
             {footer}
           </div>
         )}
@@ -155,3 +114,4 @@ export function Dialog({
     </div>
   );
 }
+

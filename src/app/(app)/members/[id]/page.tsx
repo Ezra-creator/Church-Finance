@@ -17,7 +17,7 @@ export async function generateMetadata({
   });
 
   return {
-    title: member ? `${member.fullName} — Member` : "Member Not Found",
+    title: member ? `${member.fullName} — Giving Statement` : "Member Not Found",
   };
 }
 
@@ -43,7 +43,7 @@ export default async function MemberDetailPage({
     notFound();
   }
 
-  const [ledger, statementHistory] = await Promise.all([
+  const [annualData, statementHistory] = await Promise.all([
     getMemberAnnualLedger(member.id, selectedYear),
     getMemberStatementHistory(member.id),
   ]);
@@ -52,9 +52,9 @@ export default async function MemberDetailPage({
     <MemberDetailView
       member={JSON.parse(JSON.stringify(member))}
       year={selectedYear}
-      months={JSON.parse(JSON.stringify(ledger.months))}
-      categoryTotals={JSON.parse(JSON.stringify(ledger.categoryTotals))}
-      grandTotal={ledger.grandTotal.toString()}
+      months={JSON.parse(JSON.stringify(annualData.months))}
+      categoryTotals={JSON.parse(JSON.stringify(annualData.categoryTotals))}
+      grandTotal={annualData.grandTotal.toString()}
       statementHistory={JSON.parse(JSON.stringify(statementHistory))}
       userRole={user.role}
     />

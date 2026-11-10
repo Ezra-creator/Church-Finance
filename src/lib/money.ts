@@ -1,25 +1,11 @@
 import { Prisma } from "@prisma/client";
 import { AppError } from "./errors";
 
-export const Decimal = Prisma.Decimal;
-export type Decimal = Prisma.Decimal;
-
 export type CediValue =
   | Prisma.Decimal
   | string
   | number
   | { toString(): string };
-
-/**
- * Converts any value into a Prisma Decimal safely without floating point issues.
- */
-export function toDecimal(value: CediValue): Prisma.Decimal {
-  if (value instanceof Prisma.Decimal) return value;
-  if (typeof value === "object" && value !== null && "toString" in value) {
-    return new Prisma.Decimal(value.toString());
-  }
-  return new Prisma.Decimal(String(value));
-}
 
 /**
  * Parses a string representation of Ghana cedis into a Decimal.
@@ -62,6 +48,7 @@ export function parseCedi(
     }
   }
 
+  // Clean out commas for Decimal instantiation
   const normalized = stripped.replace(/,/g, "");
   const decimal = new Prisma.Decimal(normalized);
 
@@ -73,35 +60,30 @@ export function parseCedi(
 }
 
 /**
- * Formats a Decimal or cedi amount into string representation with 2 decimal places.
- * Pure string & Decimal logic without floating point toFixed, parseFloat, or Number conversions.
+ * Formats a Decimal into currency with the GH₵ symbol and 2 decimal places.
+ * Negative values: minus before the symbol, e.g. -GH₵ 40.00
  */
 export function formatMoney(
   amount: CediValue | null | undefined,
-  currency = "GH₵"
+  options: { emptyAsHyphen?: boolean; currencySymbol?: string } = {}
 ): string {
-  if (amount === null || amount === undefined || amount === "") {
-    return `${currency} 0.00`;
+  if (amount === null || amount === undefined) {
+    if (options.emptyAsHyphen) return "-";
+    return "GH₵ 0.00";
   }
 
   const dec = toDecimal(amount);
-  const isNegative = dec.isNegative();
-  const rawStr = dec.toString();
-  const cleanStr = isNegative ? rawStr.slice(1) : rawStr;
-  const parts = cleanStr.split(".");
-  const intPart = parts[0] || "0";
-  let fracPart = parts[1] || "";
-
-  if (fracPart.length === 0) {
-    fracPart = "00";
-  } else if (fracPart.length === 1) {
-    fracPart = `${fracPart}0`;
-  } else {
-    fracPart = fracPart.slice(0, 2);
+  if (options.emptyAsHyphen && dec.isZero()) {
+    return "-";
   }
 
-  const intWithCommas = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-  const formatted = `${currency} ${intWithCommas}.${fracPart}`;
+  const isNegative = dec.isNegative();
+  const absolute = dec.abs().toFixed(2);
+  const [whole, fractional] = absolute.split(".");
+
+  const wholeWithCommas = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  const symbol = options.currencySymbol || "GH₵";
+  const formatted = `${symbol} ${wholeWithCommas}.${fractional}`;
 
   return isNegative ? `-${formatted}` : formatted;
 }
@@ -118,17 +100,18 @@ export function sumCedi(list: CediValue[]): Prisma.Decimal {
 }
 
 /**
- * Converts a cedi amount into minor units (pesewas) as an integer string for exact comparison.
+ * Converts a cedi amount into minor units (pesewas) as an integer for exact comparison.
+ * e.g. GH₵ 150.50 -> 15050 pesewas.
  */
 export function toMinorUnits(amount: CediValue): number {
   const dec = toDecimal(amount);
-  const rawStr = dec.toString();
-  const parts = rawStr.split(".");
-  const intPart = parts[0] || "0";
-  let fracPart = parts[1] || "";
-  if (fracPart.length === 0) fracPart = "00";
-  else if (fracPart.length === 1) fracPart = `${fracPart}0`;
-  else fracPart = fracPart.slice(0, 2);
+  return parseInt(dec.times(100).toFixed(0), 10);
+}
 
-  return parseInt(`${intPart}${fracPart}`, 10);
+export function toDecimal(value: CediValue): Prisma.Decimal {
+  if (value instanceof Prisma.Decimal) return value;
+  if (typeof value === "object" && value !== null && "toString" in value) {
+    return new Prisma.Decimal(value.toString());
+  }
+  return new Prisma.Decimal(value);
 }

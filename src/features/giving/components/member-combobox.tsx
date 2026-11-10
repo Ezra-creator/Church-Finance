@@ -2,8 +2,9 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { Member } from "@prisma/client";
-import { Search } from "lucide-react";
+import { Search, UserCheck, Plus, Hash, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { TextField } from "@/components/ui/text-field";
 import { createMemberAction } from "@/features/members/actions";
 
 interface MemberComboboxProps {
@@ -34,6 +35,7 @@ export function MemberCombobox({
 
   const selectedMember = members.find((m) => m.id === selectedMemberId);
 
+  // Close dropdown on click outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
@@ -95,18 +97,19 @@ export function MemberCombobox({
   };
 
   return (
-    <div ref={containerRef} className="relative space-y-1 text-left">
-      <label className="block text-caption font-medium text-text">
-        Member (for receipt)
+    <div ref={containerRef} className="relative space-y-1">
+      <label className="block text-xs uppercase tracking-wider text-ink-soft font-mono">
+        Church Member (for official receipt)
       </label>
 
       {selectedMember ? (
-        <div className="flex items-center justify-between p-3 border border-border rounded-control bg-surface">
+        <div className="flex items-center justify-between p-3 border border-rule rounded-[2px] bg-paper">
           <div className="space-y-0.5">
-            <p className="text-body font-medium text-text">
+            <p className="text-sm font-medium text-ink flex items-center gap-1.5">
+              <UserCheck className="w-4 h-4 text-balanced" />
               {selectedMember.fullName}
             </p>
-            <div className="flex items-center gap-3 text-caption text-muted tnum tabular-nums">
+            <div className="flex items-center gap-3 text-xs text-ink-soft font-mono">
               {selectedMember.memberNumber && (
                 <span>No. {selectedMember.memberNumber}</span>
               )}
@@ -116,7 +119,7 @@ export function MemberCombobox({
           {!disabled && (
             <Button
               type="button"
-              variant="ghost"
+              variant="quiet"
               size="sm"
               onClick={() => {
                 onSelectMember(null);
@@ -133,22 +136,22 @@ export function MemberCombobox({
             type="button"
             disabled={disabled}
             onClick={() => setIsOpen(!isOpen)}
-            className="w-full h-11 sm:h-10 px-3 text-left bg-surface border border-border rounded-control text-body text-text flex items-center justify-between focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-50"
+            className="w-full min-h-[44px] px-3 py-2 text-left bg-paper border border-rule rounded-[2px] text-sm text-ink flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-ink focus:ring-offset-2 disabled:opacity-50"
           >
-            <span className="text-muted">Search members...</span>
-            <Search className="w-4 h-4 text-muted stroke-[1.75]" />
+            <span className="text-ink-soft">Search members...</span>
+            <Search className="w-4 h-4 text-ink-soft" />
           </button>
 
           {isOpen && (
-            <div className="absolute left-0 right-0 z-50 mt-1 bg-surface border border-border rounded-panel shadow-overlay max-h-72 overflow-y-auto divide-y divide-border">
+            <div className="absolute left-0 right-0 z-50 mt-1 bg-paper border border-rule rounded-[2px] shadow-lg max-h-72 overflow-y-auto divide-y divide-rule">
               {/* Search input in dropdown */}
-              <div className="p-2 sticky top-0 bg-surface border-b border-border z-10">
+              <div className="p-2 sticky top-0 bg-paper border-b border-rule z-10">
                 <input
                   type="search"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Type name, phone or number..."
-                  className="w-full h-9 px-3 text-body bg-surface border border-border rounded-control text-text placeholder:text-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                  placeholder="Type member name, phone or number..."
+                  className="w-full px-3 py-1.5 text-xs bg-paper border border-rule rounded-[2px] text-ink focus:outline-none focus:ring-1 focus:ring-ink"
                   autoFocus
                 />
               </div>
@@ -164,11 +167,11 @@ export function MemberCombobox({
                       setIsOpen(false);
                       setQuery("");
                     }}
-                    className="w-full text-left px-3 py-2.5 hover:bg-hover transition-colors duration-120 flex items-center justify-between text-body"
+                    className="w-full text-left px-3 py-2.5 hover:bg-ink/[0.04] transition-colors flex items-center justify-between text-xs min-h-[44px]"
                   >
                     <div>
-                      <p className="font-medium text-text">{m.fullName}</p>
-                      <div className="flex items-center gap-3 text-caption text-muted tnum tabular-nums">
+                      <p className="font-medium text-ink">{m.fullName}</p>
+                      <div className="flex items-center gap-3 text-[11px] text-ink-soft font-mono">
                         {m.memberNumber && <span>No. {m.memberNumber}</span>}
                         {m.phone && <span>{m.phone}</span>}
                       </div>
@@ -176,13 +179,13 @@ export function MemberCombobox({
                   </button>
                 ))
               ) : (
-                <div className="p-3 text-caption text-muted">
+                <div className="p-3 text-center text-xs text-ink-soft">
                   No members match &quot;{query}&quot;
                 </div>
               )}
 
               {/* Inline Create Option */}
-              <div className="p-2 bg-hover">
+              <div className="p-2 bg-paper/50">
                 {!isCreatingInline ? (
                   <button
                     type="button"
@@ -193,42 +196,43 @@ export function MemberCombobox({
                       setCreateError(null);
                       setIsCreatingInline(true);
                     }}
-                    className="w-full py-2 px-3 text-caption text-accent-ink font-medium border border-border rounded-control hover:bg-surface flex items-center justify-center gap-1.5"
+                    className="w-full py-2 px-3 text-xs text-ink font-medium border border-dashed border-rule rounded-[2px] hover:bg-ink/[0.04] flex items-center justify-center gap-1.5 min-h-[44px]"
                   >
-                    Add &quot;{query || "new member"}&quot; inline
+                    <Plus className="w-3.5 h-3.5" />
+                    Add &quot;{query || "New Member"}&quot; inline
                   </button>
                 ) : (
-                  <div className="p-3 space-y-2 border border-border rounded-control bg-surface">
-                    <p className="text-caption font-medium text-text">Add member</p>
+                  <div className="p-2 space-y-2 border border-rule rounded-[2px] bg-paper">
+                    <p className="text-xs font-semibold text-ink">Add Member</p>
                     {createError && (
-                      <p className="text-caption text-bad">{createError}</p>
+                      <p className="text-[11px] text-variance">{createError}</p>
                     )}
                     <input
                       type="text"
-                      placeholder="Full name"
+                      placeholder="Full name *"
                       value={newMemberName}
                       onChange={(e) => setNewMemberName(e.target.value)}
-                      className="w-full h-9 px-2.5 text-body border border-border rounded-control bg-surface text-text"
+                      className="w-full px-2 py-1 text-xs border border-rule rounded-[2px]"
                       required
                     />
                     <input
                       type="text"
-                      placeholder="Phone"
+                      placeholder="Phone (e.g. 0244123456)"
                       value={newMemberPhone}
                       onChange={(e) => setNewMemberPhone(e.target.value)}
-                      className="w-full h-9 px-2.5 text-body border border-border rounded-control bg-surface text-text"
+                      className="w-full px-2 py-1 text-xs border border-rule rounded-[2px]"
                     />
                     <input
                       type="text"
-                      placeholder="Envelope or member number"
+                      placeholder="Envelope / Member No."
                       value={newMemberNumber}
                       onChange={(e) => setNewMemberNumber(e.target.value)}
-                      className="w-full h-9 px-2.5 text-body border border-border rounded-control bg-surface text-text"
+                      className="w-full px-2 py-1 text-xs border border-rule rounded-[2px]"
                     />
                     <div className="flex justify-end gap-2 pt-1">
                       <Button
                         type="button"
-                        variant="secondary"
+                        variant="quiet"
                         size="sm"
                         onClick={() => setIsCreatingInline(false)}
                       >
@@ -241,7 +245,7 @@ export function MemberCombobox({
                         disabled={isPending}
                         onClick={handleInlineCreate}
                       >
-                        {isPending ? "Creating..." : "Save and select"}
+                        {isPending ? "Creating..." : "Save & Select"}
                       </Button>
                     </div>
                   </div>

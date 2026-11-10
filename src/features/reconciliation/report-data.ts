@@ -54,7 +54,8 @@ export interface ReconciliationSnapshot {
   weekEnding: string;
   weekRange: string;
   churchName: string;
-  presbyteryName: string;
+  presbyteryName?: string;
+  parentBodyName: string;
   preparedById: string;
   preparedByName: string;
   submittedAt: string;
@@ -124,7 +125,8 @@ export interface ReconciliationReportBankingSection {
 
 export interface ReconciliationReportData {
   churchName: string;
-  presbyteryName: string;
+  presbyteryName?: string;
+  parentBodyName: string;
   weekRange: string;
   weekEnding: string;
   version: number;
@@ -213,9 +215,12 @@ export function buildReportData(snapshot: ReconciliationSnapshot): Reconciliatio
 
   const filenameBase = `PUCA-weekly-${snapshot.weekEnding}-v${snapshot.version}`;
 
+  const parentBodyName = snapshot.parentBodyName || snapshot.presbyteryName || "The Church of Pentecost";
+
   return {
     churchName: snapshot.churchName,
-    presbyteryName: snapshot.presbyteryName,
+    presbyteryName: parentBodyName,
+    parentBodyName: parentBodyName,
     weekRange: snapshot.weekRange,
     weekEnding: snapshot.weekEnding,
     version: snapshot.version,
@@ -237,7 +242,7 @@ export function buildReportData(snapshot: ReconciliationSnapshot): Reconciliatio
         name: snapshot.preparedByName,
       },
       {
-        title: "Treasurer",
+        title: "Assembly Treasurer",
         name: "", // For physical signoff
       },
     ],

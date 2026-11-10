@@ -21,8 +21,16 @@ export const changePasswordSchema = z
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
 
 export const churchSetupSchema = z.object({
-  churchName: z.string().trim().min(3, "Church name must be at least 3 characters."),
-  presbyteryName: z.string().trim().min(3, "Presbytery name must be at least 3 characters."),
+  assemblyName: z.string().trim().min(2, "Assembly name must be at least 2 characters.").default("PUCA English Assembly"),
+  parentBodyName: z.string().trim().min(2, "Denomination name must be at least 2 characters.").default("The Church of Pentecost"),
+  assemblyAbbreviation: z.string().trim().min(1, "Abbreviation must be at least 1 character.").default("PUCA"),
+  districtName: z.string().trim().optional(),
+  areaName: z.string().trim().optional(),
+  reportRecipientName: z.string().trim().optional(),
+  signatoryTitles: z.array(z.string()).default([]),
+  currency: z.string().default("GHS"),
+  timezone: z.string().default("Africa/Accra"),
+  weekStartsOn: z.string().default("Sunday"),
   weekEndsOn: z.coerce.number().int().min(0).max(6).default(0),
 });
 

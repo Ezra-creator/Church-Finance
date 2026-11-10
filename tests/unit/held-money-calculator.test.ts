@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { Prisma } from "@prisma/client";
 import { calculateHeldMoney } from "@/features/banking/calculator";
 
-describe("calculateHeldMoney (Held Money Ledger)", () => {
+describe("calculateHeldMoney (Held Money Summary)", () => {
   it("returns zero balances when there are no transactions", () => {
     const result = calculateHeldMoney({
       serviceRecords: [],

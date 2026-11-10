@@ -6,7 +6,7 @@ export function formatRole(role: Role | string): string {
       return "Finance Secretary";
     case "TREASURER":
       return "Treasurer";
-    case "PRESBYTERY_VIEWER":
+    case "REVIEWER":
       return "Reviewer";
     default:
       return role;
@@ -19,7 +19,7 @@ export function formatRoleDescription(role: Role | string): string {
       return "Enters offerings, manages users, and prepares counts.";
     case "TREASURER":
       return "Verifies counts, reconciles banking, and signs off.";
-    case "PRESBYTERY_VIEWER":
+    case "REVIEWER":
       return "Read-only access to records and financial reports.";
     default:
       return "";

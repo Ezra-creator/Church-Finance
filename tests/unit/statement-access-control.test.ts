@@ -24,13 +24,13 @@ describe("Statement & Remittance Access Control (requireSecretaryOrTreasurer)", 
     await expect(requireSecretaryOrTreasurer()).rejects.toThrow("Authentication required.");
   });
 
-  it("throws FORBIDDEN error when user has PRESBYTERY_VIEWER role", async () => {
+  it("throws FORBIDDEN error when user has REVIEWER role", async () => {
     mockAuth.mockResolvedValue({
       user: {
         id: "usr_viewer",
-        name: "Presbytery Viewer",
+        name: "Reviewer",
         email: "viewer@puca.local",
-        role: Role.PRESBYTERY_VIEWER,
+        role: Role.REVIEWER,
         mustChangePassword: false,
       },
       expires: new Date().toISOString(),

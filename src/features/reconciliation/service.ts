@@ -38,8 +38,8 @@ export interface PeriodComputationResponse {
   computation: PureReconciliationResult;
   parallelRunActive: boolean;
   churchSettings: {
-    churchName: string;
-    presbyteryName: string;
+    assemblyName: string;
+    parentBodyName: string;
     weekEndsOn: number;
     parallelRunActive: boolean;
   };
@@ -57,8 +57,13 @@ export async function getChurchSettings() {
     settings = await prisma.churchSettings.create({
       data: {
         id: "singleton",
-        churchName: "PUCA Congregation",
-        presbyteryName: "District Office",
+        assemblyName: process.env.ASSEMBLY_NAME || "PUCA English Assembly",
+        parentBodyName: process.env.PARENT_BODY_NAME || "The Church of Pentecost",
+        assemblyAbbreviation: process.env.ASSEMBLY_ABBREVIATION || "PUCA",
+        signatoryTitles: JSON.stringify(["Finance Secretary", "Assembly Treasurer"]),
+        currency: "GHS",
+        timezone: "Africa/Accra",
+        weekStartsOn: "Sunday",
         weekEndsOn: 0,
         parallelRunActive: true,
       },
@@ -157,8 +162,8 @@ export async function computePeriod(weekEndingStr: string): Promise<PeriodComput
     computation,
     parallelRunActive: settings.parallelRunActive,
     churchSettings: {
-      churchName: settings.churchName,
-      presbyteryName: settings.presbyteryName,
+      assemblyName: settings.assemblyName,
+      parentBodyName: settings.parentBodyName,
       weekEndsOn: settings.weekEndsOn,
       parallelRunActive: settings.parallelRunActive,
     },
@@ -268,7 +273,7 @@ export async function setVarianceReason(
 }
 
 /**
- * Submits a reconciliation period.
+ * Submits and finalizes a weekly reconciliation period.
  * Allowed only with zero blockers.
  * Writes the immutable snapshot, sets SUBMITTED, increments reportVersion,
  * and locks every included ServiceRecord and MoMo transaction.
@@ -439,8 +444,9 @@ export async function submitPeriod(
   const snapshot: ReconciliationSnapshot = {
     weekEnding: weekEndingStr,
     weekRange: computed.weekRange.formattedRange,
-    churchName: computed.churchSettings.churchName,
-    presbyteryName: computed.churchSettings.presbyteryName,
+    churchName: computed.churchSettings.assemblyName,
+    parentBodyName: computed.churchSettings.parentBodyName,
+    presbyteryName: computed.churchSettings.parentBodyName,
     preparedById: actorId,
     preparedByName: actor?.name || "Finance Secretary",
     submittedAt: submissionTime.toISOString(),

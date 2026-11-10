@@ -4,31 +4,27 @@ import React, { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Role, ServiceType } from "@prisma/client";
-import { ChevronRight } from "lucide-react";
+import { Plus, Calendar, ArrowRight, ShieldAlert, Landmark, Building2, Coins, Database } from "lucide-react";
+import { RuleHeading } from "@/components/ui/rule-heading";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { StatusMark } from "@/components/ui/status-mark";
+import { Sheet } from "@/components/ui/sheet";
 import { TextField } from "@/components/ui/text-field";
 import { Select } from "@/components/ui/select";
-import { Sheet } from "@/components/ui/sheet";
-import { PageHeader } from "@/components/ui/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
-import { DataTable } from "@/components/ui/data-table";
-import { MoneyText } from "@/components/ui/money-text";
 import { useToast } from "@/components/ui/toast";
 import { formatAccraDate } from "@/lib/dates";
-import { AttentionItem } from "@/lib/attention";
+import { formatCedi } from "@/lib/money";
 import { createServiceRecordAction, markBackupDoneAction } from "../actions";
 import { ServiceSummaryItem } from "../queries";
 
 interface TodayServiceListProps {
-  services: ServiceSummaryItem[];
+  services: any[];
   userRole: Role;
   todayAccraDateString: string;
-  churchName?: string;
-  cashHeldFormatted: string;
-  momoHeldFormatted: string;
-  totalHeldFormatted: string;
-  attentionItems: AttentionItem[];
+  heldAmount?: { toString(): string } | number;
+  districtOutstandingAmount?: { toString(): string } | number;
+  unreviewedMomoCount?: number;
   needsBackupReminder?: boolean;
   lastBackupDate?: string | null;
 }
@@ -37,10 +33,9 @@ export function TodayServiceList({
   services,
   userRole,
   todayAccraDateString,
-  cashHeldFormatted,
-  momoHeldFormatted,
-  totalHeldFormatted,
-  attentionItems,
+  heldAmount,
+  districtOutstandingAmount,
+  unreviewedMomoCount = 0,
   needsBackupReminder = false,
   lastBackupDate = null,
 }: TodayServiceListProps) {
@@ -51,6 +46,7 @@ export function TodayServiceList({
   const [title, setTitle] = useState("");
   const [notes, setNotes] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
+
   const [isPending, startTransition] = useTransition();
   const { addToast } = useToast();
 
@@ -64,7 +60,7 @@ export function TodayServiceList({
         addToast("error", res.error.message);
         return;
       }
-      addToast("success", "Database backup recorded");
+      addToast("success", "Database backup status recorded in the audit log");
       router.refresh();
     });
   };
@@ -77,8 +73,8 @@ export function TodayServiceList({
       const res = await createServiceRecordAction({
         serviceDate,
         serviceType,
-        title: title.trim() || undefined,
-        notes: notes.trim() || undefined,
+        title: title.trim() || null,
+        notes: notes.trim() || null,
       });
 
       if (!res.success) {
@@ -86,207 +82,205 @@ export function TodayServiceList({
         return;
       }
 
+      addToast("success", "Service record initiated. Loading count sheet...");
       setIsStartCountOpen(false);
-      addToast("success", "Count sheet opened");
       router.push(`/services/${res.data.id}`);
     });
   };
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "COUNTED":
-        return <Badge variant="Balanced">Counted</Badge>;
-      case "LOCKED":
-        return <Badge variant="Neutral">Locked</Badge>;
-      default:
-        return <Badge variant="Needs attention">In progress</Badge>;
-    }
-  };
-
-  const formatServiceType = (type: string) => {
-    switch (type) {
-      case "SUNDAY":
-        return "Sunday service";
-      case "MIDWEEK":
-        return "Midweek service";
-      case "SPECIAL":
-        return "Special service";
-      default:
-        return "Other gathering";
-    }
-  };
-
   return (
-    <div className="space-y-6 text-left">
-      {/* Page Header with exactly one primary button */}
-      <PageHeader
-        title="Home"
+    <div className="space-y-8">
+      {/* Page Header */}
+      <RuleHeading
+        eyebrow="Collections"
+        title="Service Collections"
+        description="Daily offering collections, denomination verification and tithe attributions."
         action={
           canStartCount ? (
             <Button variant="primary" onClick={() => setIsStartCountOpen(true)}>
-              Record a count
+              <Plus className="w-4 h-4 mr-1.5" />
+              Start a count
             </Button>
           ) : undefined
         }
       />
 
-      {/* Single bordered totals strip with three columns and 1px vertical dividers */}
-      <section aria-label="Financial totals summary">
-        <div className="border border-border rounded-panel bg-surface grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-border">
-          <div className="p-5 space-y-1">
-            <span className="text-caption text-muted font-medium">
-              Cash held
-            </span>
-            <div className="text-figure font-semibold text-text tnum tabular-nums leading-tight">
-              {cashHeldFormatted}
-            </div>
-            <p className="text-caption text-muted">
-              Counted cash waiting for deposit
-            </p>
-          </div>
+      {/* Status summary lines (Hidden when zero) */}
+      {(() => {
+        const heldNum = heldAmount ? parseFloat(heldAmount.toString()) : 0;
+        const districtNum = districtOutstandingAmount ? parseFloat(districtOutstandingAmount.toString()) : 0;
+        const showHeld = heldNum > 0;
+        const showDistrict = districtNum > 0;
+        const showMomo = unreviewedMomoCount > 0;
 
-          <div className="p-5 space-y-1">
-            <span className="text-caption text-muted font-medium">
-              Mobile money held
-            </span>
-            <div className="text-figure font-semibold text-text tnum tabular-nums leading-tight">
-              {momoHeldFormatted}
-            </div>
-            <p className="text-caption text-muted">
-              Balance received in electronic wallet
-            </p>
-          </div>
+        const showBackup = needsBackupReminder && userRole === Role.FINANCE_SECRETARY;
 
-          <div className="p-5 space-y-1">
-            <span className="text-caption text-muted font-medium">
-              Total unbanked
-            </span>
-            <div className="text-figure font-semibold text-text tnum tabular-nums leading-tight">
-              {totalHeldFormatted}
-            </div>
-            <p className="text-caption text-muted">
-              Cumulative unbanked church custody
-            </p>
-          </div>
-        </div>
-      </section>
+        if (!showHeld && !showDistrict && !showMomo && !showBackup) return null;
 
-      {/* Needs Attention List */}
-      <section aria-labelledby="needs-attention-heading" className="space-y-3">
-        <h2 id="needs-attention-heading" className="text-lead font-semibold text-text">
-          Needs attention
-        </h2>
-        {attentionItems.length === 0 ? (
-          <EmptyState
-            title="All accounts are up to date"
-            description="There are no pending mobile money reviews, unbanked cash alerts, or due remittances."
-          />
-        ) : (
-          <div className="border border-border rounded-panel bg-surface divide-y divide-border">
-            {attentionItems.map((item) => (
-              <Link
-                key={item.id}
-                href={item.href}
-                className="p-4 flex items-center justify-between gap-4 hover:bg-hover transition-colors duration-120 block"
-              >
-                <div className="space-y-0.5">
-                  <p className="text-body font-medium text-text">
-                    {item.title}
-                  </p>
-                  {item.detail && (
-                    <p className="text-caption text-muted">
-                      {item.detail}
-                    </p>
-                  )}
+        return (
+          <div className="border border-rule rounded-[2px] bg-paper divide-y divide-rule font-mono text-xs">
+            {showBackup && (
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 bg-variance/[0.04] text-xs">
+                <div className="flex items-center gap-2.5 text-variance font-medium">
+                  <Database className="w-4 h-4 text-variance flex-shrink-0" />
+                  <span>
+                    {lastBackupDate
+                      ? `No database backup recorded in the last 7 days (last: ${formatAccraDate(new Date(lastBackupDate), { day: "numeric", month: "short" })})`
+                      : "No database backup has been recorded in the system"}
+                  </span>
                 </div>
-                <ChevronRight className="w-4 h-4 text-muted flex-shrink-0 stroke-[1.75]" aria-hidden="true" />
+                <div className="flex items-center gap-3">
+                  <Button
+                    variant="quiet"
+                    size="sm"
+                    disabled={isPending}
+                    onClick={handleMarkBackupDone}
+                    className="text-ink hover:text-variance text-xs underline cursor-pointer p-0 h-auto"
+                  >
+                    Mark backup done
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {showHeld && (
+              <Link
+                href="/money"
+                className="flex items-center justify-between p-3 hover:bg-ink/[0.02] transition-colors"
+              >
+                <div className="flex items-center gap-2.5 text-ink-soft">
+                  <Landmark className="w-4 h-4 text-ink-soft" />
+                  <span>Held in custody, not yet banked</span>
+                </div>
+                <div className="flex items-center gap-2 font-semibold text-ink">
+                  <span className="tabular-nums">{formatCedi(heldNum.toFixed(2))}</span>
+                  <ArrowRight className="w-3.5 h-3.5 text-ink-soft" />
+                </div>
               </Link>
-            ))}
+            )}
+
+            {showDistrict && (
+              <Link
+                href="/district"
+                className="flex items-center justify-between p-3 hover:bg-ink/[0.02] transition-colors"
+              >
+                <div className="flex items-center gap-2.5 text-ink-soft">
+                  <Building2 className="w-4 h-4 text-ink-soft" />
+                  <span>District allocation assessment outstanding</span>
+                </div>
+                <div className="flex items-center gap-2 font-semibold text-variance">
+                  <span className="tabular-nums">{formatCedi(districtNum.toFixed(2))}</span>
+                  <ArrowRight className="w-3.5 h-3.5 text-ink-soft" />
+                </div>
+              </Link>
+            )}
+
+            {showMomo && (
+              <Link
+                href="/money/momo"
+                className="flex items-center justify-between p-3 hover:bg-ink/[0.02] transition-colors"
+              >
+                <div className="flex items-center gap-2.5 text-ink-soft">
+                  <Coins className="w-4 h-4 text-ink-soft" />
+                  <span>Unclassified items waiting in Mobile Money queue</span>
+                </div>
+                <div className="flex items-center gap-2 font-semibold text-ink">
+                  <span>{unreviewedMomoCount} item{unreviewedMomoCount === 1 ? "" : "s"}</span>
+                  <ArrowRight className="w-3.5 h-3.5 text-ink-soft" />
+                </div>
+              </Link>
+            )}
           </div>
-        )}
-      </section>
+        );
+      })()}
 
-      {/* Recent Collections Table (Limited to 8) */}
-      <section aria-labelledby="recent-collections-heading" className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 id="recent-collections-heading" className="text-lead font-semibold text-text">
-            Recent collections
-          </h2>
-          <span className="text-caption text-muted">
-            Showing up to 8 recent services
-          </span>
-        </div>
-
-        {services.length === 0 ? (
-          <EmptyState
-            title="No collections recorded"
-            description="Physical cash counts will appear here once recorded by the finance officers."
-            action={
-              canStartCount ? (
-                <Button variant="secondary" onClick={() => setIsStartCountOpen(true)}>
-                  Record a count
-                </Button>
-              ) : undefined
-            }
-          />
-        ) : (
-          <DataTable
-            data={services}
-            keyExtractor={(s) => s.id}
-            onRowClick={(s) => router.push(`/services/${s.id}`)}
-            columns={[
-              {
-                key: "serviceDate",
-                header: "Date",
-                render: (s) => (
-                  <span className="font-medium text-text">
-                    {formatAccraDate(new Date(s.serviceDate), {
-                      weekday: "short",
+      {/* Ruled List of Recent Services */}
+      {services.length === 0 ? (
+        <EmptyState
+          title="No service records found"
+          description="Physical cash counts have not been initiated yet. Begin the first verified count for today's service."
+          action={
+            canStartCount ? (
+              <Button
+                variant="secondary"
+                onClick={() => setIsStartCountOpen(true)}
+              >
+                Start a count
+              </Button>
+            ) : (
+              <span className="text-xs text-ink-soft font-mono">
+                Waiting for Finance Secretary or Treasurer to initiate count
+              </span>
+            )
+          }
+        />
+      ) : (
+        <div className="border border-rule rounded-[2px] bg-paper divide-y divide-rule">
+          {services.map((srv) => (
+            <Link
+              key={srv.id}
+              href={`/services/${srv.id}`}
+              className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-ink/[0.02] transition-colors group"
+            >
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <h3 className="font-serif text-base sm:text-lg text-ink font-normal group-hover:underline">
+                    {formatAccraDate(new Date(srv.serviceDate), {
+                      weekday: "long",
                       day: "numeric",
-                      month: "short",
+                      month: "long",
                       year: "numeric",
                     })}
+                  </h3>
+                  <StatusMark
+                    tone={
+                      srv.status === "COUNTED"
+                        ? "balanced"
+                        : srv.status === "LOCKED"
+                        ? "neutral"
+                        : "attention"
+                    }
+                    label={srv.status}
+                  />
+                </div>
+
+                <div className="flex flex-wrap items-center gap-3 text-xs text-ink-soft">
+                  <span className="font-mono uppercase font-semibold text-ink">
+                    {srv.serviceType}
                   </span>
-                ),
-              },
-              {
-                key: "serviceType",
-                header: "Type",
-                render: (s) => formatServiceType(s.serviceType),
-              },
-              {
-                key: "title",
-                header: "Source",
-                render: (s) => s.title || "General collection",
-              },
-              {
-                key: "grandTotal",
-                header: "Amount",
-                isNumeric: true,
-                render: (s) => (
-                  <MoneyText amount={s.grandTotal} className="font-semibold" />
-                ),
-              },
-              {
-                key: "status",
-                header: "Status",
-                render: (s) => getStatusBadge(s.status),
-              },
-            ]}
-          />
-        )}
-      </section>
+                  {srv.title && <span>• {srv.title}</span>}
+                  {srv.witnessName && (
+                    <span>• Witnessed by {srv.witnessName}</span>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex items-center gap-4 self-end sm:self-auto">
+                <div className="text-right">
+                  <span className="font-mono text-base sm:text-lg font-semibold tabular-nums text-ink">
+                    GH₵ {parseFloat(String(srv.grandTotal || 0)).toFixed(2)}
+                  </span>
+                  <span className="block text-[10px] uppercase font-mono text-ink-soft">
+                    {srv.categoryTotals.length} categories
+                  </span>
+                </div>
+                <ArrowRight className="w-4 h-4 text-ink-soft group-hover:text-ink group-hover:translate-x-0.5 transition-all" />
+              </div>
+            </Link>
+          ))}
+        </div>
+      )}
 
       {/* Start Count Sheet */}
       <Sheet
         isOpen={isStartCountOpen}
         onClose={() => setIsStartCountOpen(false)}
-        title="Start cash count"
-        description="Select the service date and type to open a count sheet."
+        title="Start Cash Count"
+        description="Select the service date and type to open a verified count sheet."
       >
-        <form onSubmit={handleStartCount} className="space-y-4 py-2">
+        <form onSubmit={handleStartCount} className="space-y-4 py-3">
           {formError && (
-            <div className="p-3 bg-bad-tint text-bad-ink text-caption rounded-control border border-bad">
+            <div className="p-3 bg-variance text-variance text-xs rounded-[2px] border border-variance/30">
               {formError}
             </div>
           )}
@@ -294,7 +288,7 @@ export function TodayServiceList({
           <TextField
             id="service-date"
             type="date"
-            label="Service date"
+            label="Service Date"
             value={serviceDate}
             onChange={(e) => setServiceDate(e.target.value)}
             required
@@ -302,43 +296,43 @@ export function TodayServiceList({
 
           <Select
             id="service-type"
-            label="Service type"
+            label="Service Type"
             value={serviceType}
             onChange={(e) => setServiceType(e.target.value as ServiceType)}
             options={[
-              { value: ServiceType.SUNDAY, label: "Sunday service" },
-              { value: ServiceType.MIDWEEK, label: "Midweek service" },
-              { value: ServiceType.SPECIAL, label: "Special service" },
-              { value: ServiceType.OTHER, label: "Other gathering" },
+              { value: ServiceType.SUNDAY, label: "Sunday Service" },
+              { value: ServiceType.MIDWEEK, label: "Midweek / Wednesday Service" },
+              { value: ServiceType.SPECIAL, label: "Special / Thanksgiving Service" },
+              { value: ServiceType.OTHER, label: "Other Gathering / Vigil" },
             ]}
           />
 
           <TextField
             id="service-title"
-            label="Service title (optional)"
+            label="Service Title (Optional)"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="Harvest thanksgiving"
+            placeholder="e.g. Annual Harvest & Thanksgiving"
           />
 
           <TextField
             id="service-notes"
-            label="Notes (optional)"
+            label="Notes (Optional)"
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            placeholder="Combined service"
+            placeholder="e.g. Morning and second service combined count"
           />
 
-          <div className="pt-4 flex items-center justify-end gap-3 border-t border-border">
+          <div className="pt-4 flex items-center justify-end gap-2 border-t border-rule">
             <Button
               type="button"
-              variant="secondary"
+              variant="quiet"
               onClick={() => setIsStartCountOpen(false)}
             >
               Cancel
             </Button>
-            <Button type="submit" variant="primary" isLoading={isPending}>
-              Open count sheet
+            <Button type="submit" variant="primary" disabled={isPending}>
+              {isPending ? "Opening sheet..." : "Open count sheet"}
             </Button>
           </div>
         </form>

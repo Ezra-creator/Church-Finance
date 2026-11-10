@@ -1,23 +1,17 @@
 {
-  "name": "PUCA Finance",
+  "name": "PUCA English Assembly Finance",
   "short_name": "PUCA",
-  "description": "Church financial management, counting and weekly returns",
+  "description": "Local assembly finance and custody ledger",
   "start_url": "/today",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#F6F7F5",
-  "theme_color": "#3F6F57",
+  "background_color": "#FFFFFF",
+  "theme_color": "#2B5340",
   "icons": [
     {
-      "src": "/icons/icon-192.svg",
-      "sizes": "192x192",
-      "type": "image/svg+xml",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "/icons/icon.svg",
-      "sizes": "512x512",
+      "src": "/icon.svg",
+      "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any maskable"
     }

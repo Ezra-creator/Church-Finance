@@ -4,3 +4,5 @@ allowBuilds:
   esbuild: true
   prisma: true
   unrs-resolver: true
+  electron: true
+  electron-winstaller: true

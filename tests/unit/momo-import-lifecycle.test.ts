@@ -58,7 +58,7 @@ describe("MoMo Import Lifecycle, Duplicates, and Rollback", () => {
     ).toThrow(AppError);
 
     expect(() =>
-      assertCanRollback(Role.PRESBYTERY_VIEWER, "Accidental duplicate import")
+      assertCanRollback(Role.REVIEWER, "Accidental duplicate import")
     ).toThrow(AppError);
 
     expect(() =>

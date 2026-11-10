@@ -6,6 +6,8 @@ import {
   Printer,
   ArrowLeft,
   Download,
+  CheckCircle2,
+  Lock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ReconciliationReportData } from "../report-data";
@@ -30,17 +32,17 @@ export function ReportPreviewView({
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
       {/* Top action toolbar (hidden during printing) */}
-      <div className="print:hidden flex items-center justify-between p-4 bg-surface border border-border rounded-panel gap-3 flex-wrap">
+      <div className="print:hidden flex items-center justify-between p-4 bg-paper border border-rule rounded-[2px] gap-3 flex-wrap">
         <Link href={`/reconcile/${weekEnding}`}>
-          <Button variant="ghost" size="sm">
-            <ArrowLeft className="w-4 h-4 mr-1.5" strokeWidth={1.75} />
+          <Button variant="quiet" size="sm">
+            <ArrowLeft className="w-4 h-4 mr-1.5" />
             Back to reconciliation
           </Button>
         </Link>
 
         <div className="flex items-center gap-2 flex-wrap">
           <Button variant="secondary" size="sm" onClick={handlePrint}>
-            <Printer className="w-4 h-4 mr-1.5" strokeWidth={1.75} />
+            <Printer className="w-4 h-4 mr-1.5" />
             Print return
           </Button>
 
@@ -52,7 +54,7 @@ export function ReportPreviewView({
                 className="inline-block"
               >
                 <Button variant="secondary" size="sm">
-                  <Download className="w-4 h-4 mr-1.5" strokeWidth={1.75} />
+                  <Download className="w-4 h-4 mr-1.5" />
                   Word (.docx)
                 </Button>
               </a>
@@ -63,7 +65,7 @@ export function ReportPreviewView({
                 className="inline-block"
               >
                 <Button variant="primary" size="sm">
-                  <Download className="w-4 h-4 mr-1.5" strokeWidth={1.75} />
+                  <Download className="w-4 h-4 mr-1.5" />
                   PDF (.pdf)
                 </Button>
               </a>
@@ -72,180 +74,210 @@ export function ReportPreviewView({
         </div>
       </div>
 
-      {/* Page preview document */}
-      <div className="bg-surface border border-border print:border-none rounded-panel p-8 sm:p-14 max-w-3xl mx-auto space-y-8 select-text">
+      {/* Page-like column preview document */}
+      <div className="bg-paper border border-rule print:border-none rounded-[2px] p-8 sm:p-14 max-w-3xl mx-auto shadow-none space-y-8 select-text">
         {/* Document Header */}
-        <div className="space-y-1 pb-4 border-b border-border">
-          <h1 className="text-heading font-semibold text-text">
+        <div className="space-y-1 pb-4 border-b-2 border-rule-strong">
+          <h1 className="text-2xl font-serif font-normal text-ink">
             {reportData.churchName}
           </h1>
-          <p className="text-caption font-medium text-muted">
-            {reportData.presbyteryName}
+          <p className="text-xs font-mono uppercase tracking-widest text-ink-soft font-semibold">
+            {reportData.parentBodyName}
           </p>
-          <div className="pt-2 flex items-center justify-between gap-2 text-caption text-text">
-            <span className="font-medium">Weekly financial return • {reportData.weekRange}</span>
-            <span className="text-muted">
-              {isSubmitted ? `Report version ${reportData.version}` : "Draft return preview"}
+          <div className="pt-2 flex items-center justify-between gap-2 text-xs font-mono text-ink">
+            <span>WEEKLY FINANCIAL RETURN • {reportData.weekRange}</span>
+            <span className="text-ink-soft">
+              {isSubmitted ? `Report Version ${reportData.version}` : "Draft Return Preview"}
             </span>
           </div>
         </div>
 
-        {/* Income Table */}
+        {/* Ruled Income Table */}
         <div className="space-y-2">
-          <table className="w-full text-left text-caption">
-            <thead className="border-b border-border bg-page">
+          <table className="w-full text-left text-xs font-mono">
+            <thead className="border-b-2 border-rule-strong">
               <tr>
-                <th className="py-2.5 px-3 text-muted font-medium">
-                  Giving category
+                <th className="py-2.5 pr-4 text-ink-soft font-semibold uppercase tracking-wider">
+                  Giving Category
                 </th>
-                <th className="py-2.5 px-3 text-right text-muted font-medium">
-                  Cash counted
+                <th className="py-2.5 px-3 text-right text-ink-soft font-semibold uppercase tracking-wider">
+                  Cash Counted
                 </th>
-                <th className="py-2.5 px-3 text-right text-muted font-medium">
-                  Mobile money
+                <th className="py-2.5 px-3 text-right text-ink-soft font-semibold uppercase tracking-wider">
+                  Mobile Money
                 </th>
-                <th className="py-2.5 px-3 text-right text-muted font-medium">
-                  Total
+                <th className="py-2.5 pl-3 text-right text-ink-soft font-semibold uppercase tracking-wider">
+                  Total Received
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-border">
-              {reportData.incomeCategories.map((c) => (
-                <tr key={c.name}>
-                  <td className="py-2 px-3 text-text font-medium">{c.name}</td>
-                  <td className="py-2 px-3 text-right tabular-nums text-text tnum">{c.cashFormatted}</td>
-                  <td className="py-2 px-3 text-right tabular-nums text-text tnum">{c.momoFormatted}</td>
-                  <td className="py-2 px-3 text-right tabular-nums font-medium text-text tnum">{c.totalFormatted}</td>
+            <tbody className="divide-y divide-rule">
+              {reportData.incomeCategories.map((cat, idx) => (
+                <tr key={idx}>
+                  <td className="py-2.5 pr-4 text-ink font-medium">
+                    {cat.name}
+                  </td>
+                  <td className="py-2.5 px-3 text-right tabular-nums text-ink">
+                    {cat.cashFormatted}
+                  </td>
+                  <td className="py-2.5 px-3 text-right tabular-nums text-ink">
+                    {cat.momoFormatted}
+                  </td>
+                  <td className="py-2.5 pl-3 text-right tabular-nums font-semibold text-ink">
+                    {cat.totalFormatted}
+                  </td>
                 </tr>
               ))}
             </tbody>
-            <tfoot className="border-t border-border bg-page font-medium text-text text-caption">
+            <tfoot className="border-t-2 border-rule-strong border-b-2 font-bold text-ink text-sm">
               <tr>
-                <td className="py-2.5 px-3">Total income</td>
-                <td className="py-2.5 px-3 text-right tabular-nums tnum">{reportData.totals.cashFormatted}</td>
-                <td className="py-2.5 px-3 text-right tabular-nums tnum">{reportData.totals.momoFormatted}</td>
-                <td className="py-2.5 px-3 text-right tabular-nums tnum">{reportData.totals.expectedFormatted}</td>
+                <td className="py-3 pr-4">TOTAL INCOME</td>
+                <td className="py-3 px-3 text-right tabular-nums">
+                  {reportData.totals.cashFormatted}
+                </td>
+                <td className="py-3 px-3 text-right tabular-nums">
+                  {reportData.totals.momoFormatted}
+                </td>
+                <td className="py-3 pl-3 text-right tabular-nums">
+                  {reportData.totals.expectedFormatted}
+                </td>
               </tr>
             </tfoot>
           </table>
         </div>
 
-        {/* Parallel Run / Variance Note */}
+        {/* Parallel Run & Variance Note if any */}
         {reportData.totals.bookFormatted && (
-          <div className="p-4 border border-border rounded-panel space-y-2 text-caption">
-            <div className="flex items-center justify-between">
-              <span className="font-medium text-text">Recorded in books (parallel run)</span>
-              <span className="tabular-nums font-medium text-text tnum">{reportData.totals.bookFormatted}</span>
-            </div>
-            {reportData.totals.varianceFormatted && (
-              <div className="flex items-center justify-between text-muted">
-                <span>Variance</span>
-                <span className="tabular-nums tnum">{reportData.totals.varianceFormatted}</span>
-              </div>
-            )}
+          <div className="pt-4 border-t border-rule space-y-1.5 text-xs font-mono">
+            <p className="font-semibold uppercase tracking-wider text-ink-soft">
+              Parallel Run Verification
+            </p>
+            <p className="text-ink">
+              Physical Paper Book Total:{" "}
+              <strong className="tabular-nums">{reportData.totals.bookFormatted}</strong>
+              {" • "}
+              Status: <strong>{reportData.totals.varianceLabel || "Balanced"}</strong>
+            </p>
             {reportData.varianceReason && (
-              <p className="pt-1 text-muted border-t border-border">
-                Explanation: {reportData.varianceReason}
+              <p className="text-ink-soft italic pt-1">
+                Variance Explanation: &ldquo;{reportData.varianceReason}&rdquo;
               </p>
             )}
           </div>
         )}
 
-        {/* Expenses Section if present */}
-        {reportData.expenseCategories.length > 0 && (
-          <div className="pt-6 border-t border-border space-y-3 text-caption">
-            <h3 className="text-lead font-semibold text-text">
-              Disbursements and expenses
+        {/* Phase 6: District Remittance Line */}
+        {reportData.districtAmountDueFormatted && (
+          <div className="pt-4 border-t border-rule flex items-center justify-between text-xs font-mono">
+            <div>
+              <p className="font-semibold uppercase tracking-wider text-ink-soft">
+                District Allocation Due
+              </p>
+              <p className="text-[11px] text-ink-soft">
+                Computed from percentage rules active on this week-ending date
+              </p>
+            </div>
+            <p className="text-base font-semibold text-ink tabular-nums">
+              {reportData.districtAmountDueFormatted}
+            </p>
+          </div>
+        )}
+
+        {/* Phase 5: Expenses Section if present */}
+        {reportData.expenseCategories.length > 0 && reportData.expenseTotals && (
+          <div className="pt-6 border-t border-rule space-y-3">
+            <h3 className="font-serif text-lg font-normal text-ink">
+              Disbursements & Expenses
             </h3>
-            <table className="w-full text-left text-caption">
-              <thead className="border-b border-border bg-page">
-                <tr>
-                  <th className="py-2 px-3 text-muted font-medium">Category</th>
-                  <th className="py-2 px-3 text-right text-muted font-medium">Cash</th>
-                  <th className="py-2 px-3 text-right text-muted font-medium">Mobile money</th>
-                  <th className="py-2 px-3 text-right text-muted font-medium">Bank</th>
-                  <th className="py-2 px-3 text-right text-muted font-medium">Total</th>
+            <table className="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr className="border-b border-rule font-mono uppercase tracking-wider text-[11px] text-ink-soft">
+                  <th className="py-2 pr-4 font-normal">Expense Category</th>
+                  <th className="py-2 px-2 text-right font-normal">Cash</th>
+                  <th className="py-2 px-2 text-right font-normal">MoMo</th>
+                  <th className="py-2 px-2 text-right font-normal">Bank</th>
+                  <th className="py-2 pl-2 text-right font-normal">Total</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border">
+              <tbody className="divide-y divide-rule font-mono">
                 {reportData.expenseCategories.map((ec) => (
                   <tr key={ec.name}>
-                    <td className="py-2 px-3 text-text">{ec.name}</td>
-                    <td className="py-2 px-3 text-right tabular-nums text-text tnum">{ec.cashFormatted}</td>
-                    <td className="py-2 px-3 text-right tabular-nums text-text tnum">{ec.momoFormatted}</td>
-                    <td className="py-2 px-3 text-right tabular-nums text-text tnum">{ec.bankFormatted}</td>
-                    <td className="py-2 px-3 text-right tabular-nums font-medium text-text tnum">{ec.totalFormatted}</td>
+                    <td className="py-2 pr-4 text-ink font-sans">{ec.name}</td>
+                    <td className="py-2 px-2 text-right tabular-nums text-ink">{ec.cashFormatted}</td>
+                    <td className="py-2 px-2 text-right tabular-nums text-ink">{ec.momoFormatted}</td>
+                    <td className="py-2 px-2 text-right tabular-nums text-ink">{ec.bankFormatted}</td>
+                    <td className="py-2 pl-2 text-right tabular-nums font-semibold text-ink">{ec.totalFormatted}</td>
                   </tr>
                 ))}
               </tbody>
-              <tfoot className="border-t border-border bg-page font-medium text-text text-caption">
+              <tfoot className="border-t-2 border-rule-strong border-b-2 font-bold font-mono text-ink text-xs">
                 <tr>
-                  <td className="py-2.5 px-3">Total expenses</td>
-                  <td className="py-2.5 px-3 text-right tabular-nums tnum">{reportData.expenseTotals?.cashFormatted || "—"}</td>
-                  <td className="py-2.5 px-3 text-right tabular-nums tnum">{reportData.expenseTotals?.momoFormatted || "—"}</td>
-                  <td className="py-2.5 px-3 text-right tabular-nums tnum">{reportData.expenseTotals?.bankFormatted || "—"}</td>
-                  <td className="py-2.5 px-3 text-right tabular-nums tnum">{reportData.expenseTotals?.grandTotalFormatted || "—"}</td>
+                  <td className="py-2.5 pr-4 font-sans">TOTAL EXPENSES</td>
+                  <td className="py-2.5 px-2 text-right tabular-nums">{reportData.expenseTotals.cashFormatted}</td>
+                  <td className="py-2.5 px-2 text-right tabular-nums">{reportData.expenseTotals.momoFormatted}</td>
+                  <td className="py-2.5 px-2 text-right tabular-nums">{reportData.expenseTotals.bankFormatted}</td>
+                  <td className="py-2.5 pl-2 text-right tabular-nums">{reportData.expenseTotals.grandTotalFormatted}</td>
                 </tr>
               </tfoot>
             </table>
           </div>
         )}
 
-        {/* Banking & Held Funds Section if present */}
+        {/* Phase 5: Banking & Held Funds Section if present */}
         {reportData.banking && (
-          <div className="pt-6 border-t border-border space-y-3 text-caption">
-            <h3 className="text-lead font-semibold text-text">
-              Bank deposits and held funds
+          <div className="pt-6 border-t border-rule space-y-3 font-mono text-xs">
+            <h3 className="font-serif text-lg font-normal text-ink font-sans">
+              Bank Deposits & Held Funds
             </h3>
             {reportData.banking.deposits.length > 0 ? (
               <div className="space-y-1.5 pb-2">
-                <p className="text-muted font-medium">
-                  Deposits made ({reportData.banking.totalDepositedFormatted} total):
+                <p className="text-ink-soft uppercase tracking-wider text-[11px]">
+                  Deposits Made ({reportData.banking.totalDepositedFormatted} total):
                 </p>
                 {reportData.banking.deposits.map((d, idx) => (
-                  <p key={idx} className="text-text pl-2 border-l border-border">
-                    {d.dateFormatted} • {d.kindLabel} • <strong className="tnum">{d.amountFormatted}</strong> (Ref: {d.bankReference})
+                  <p key={idx} className="text-ink pl-2 border-l border-rule">
+                    {d.dateFormatted} • {d.kindLabel} • <strong>{d.amountFormatted}</strong> (Ref: {d.bankReference})
                   </p>
                 ))}
               </div>
             ) : (
-              <p className="text-muted">No deposits were recorded during this week.</p>
+              <p className="text-ink-soft italic">No deposits were recorded during this week.</p>
             )}
-            <div className="p-3 bg-page border border-border rounded-panel flex justify-between items-center text-caption">
-              <span>Cash held: <strong className="tnum">{reportData.banking.cashHeldFormatted}</strong></span>
-              <span>Mobile money held: <strong className="tnum">{reportData.banking.momoHeldFormatted}</strong></span>
-              <span>Total held: <strong className="tnum">{reportData.banking.totalHeldFormatted}</strong></span>
+            <div className="p-3 bg-ink/[0.02] border border-rule rounded-[2px] flex justify-between items-center text-xs">
+              <span>Cash Held: <strong>{reportData.banking.cashHeldFormatted}</strong></span>
+              <span>MoMo Held: <strong>{reportData.banking.momoHeldFormatted}</strong></span>
+              <span>Total Held: <strong>{reportData.banking.totalHeldFormatted}</strong></span>
             </div>
           </div>
         )}
 
         {/* Attestation & Signature Lines */}
-        <div className="pt-8 border-t border-border space-y-8">
-          <div className="text-caption text-muted space-y-1">
+        <div className="pt-10 border-t border-rule space-y-8">
+          <div className="text-xs font-mono text-ink-soft space-y-1">
             <p>
               Submitted by: {reportData.preparedByName} on {reportData.submittedAtFormatted}
             </p>
-            <p>
-              Certified true and correct record of all collections and banking.
+            <p className="text-[11px]">
+              Certified true and correct record of all assembly collections and banking.
             </p>
           </div>
 
           <div className="grid grid-cols-2 gap-12 pt-6">
             <div className="space-y-1.5">
-              <div className="border-b border-border pb-6 text-caption text-text font-medium">
+              <div className="border-b border-rule pb-6 text-xs text-ink font-medium">
                 {reportData.preparedByName}
               </div>
-              <p className="text-caption text-muted font-medium">
+              <p className="text-[11px] font-mono uppercase tracking-wider text-ink-soft">
                 Finance Secretary
               </p>
             </div>
 
             <div className="space-y-1.5">
-              <div className="border-b border-border pb-6 text-caption text-muted">
+              <div className="border-b border-rule pb-6 text-xs text-ink-soft">
                 &nbsp;
               </div>
-              <p className="text-caption text-muted font-medium">
-                Treasurer
+              <p className="text-[11px] font-mono uppercase tracking-wider text-ink-soft">
+                Assembly Treasurer
               </p>
             </div>
           </div>

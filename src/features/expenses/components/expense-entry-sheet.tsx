@@ -5,12 +5,10 @@ import { Sheet } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { TextField } from "@/components/ui/text-field";
 import { AmountInput } from "@/components/ui/amount-input";
-import { InlineAlert } from "@/components/ui/inline-alert";
 import { useToast } from "@/components/ui/toast";
 import { ExpensePaymentMethod, AttachmentEntityType } from "@prisma/client";
 import { AttachmentUploader } from "@/features/attachments/components/attachment-uploader";
 import { createExpenseAction, createExpenseCategoryAction } from "../actions";
-import { toDecimal } from "@/lib/money";
 
 export interface ExpenseCategoryItem {
   id: string;
@@ -87,8 +85,7 @@ export function ExpenseEntrySheet({
       return;
     }
 
-    const dec = toDecimal(amount);
-    if (!dec || dec.lte(0)) {
+    if (!amount || parseFloat(amount) <= 0) {
       setErrorMessage("Enter a valid expense amount.");
       return;
     }
@@ -112,6 +109,7 @@ export function ExpenseEntrySheet({
             ? "Expense submitted to treasurer for approval."
             : "Expense draft saved.",
         });
+        // Reset form
         setPayee("");
         setDescription("");
         setAmount("");
@@ -128,17 +126,19 @@ export function ExpenseEntrySheet({
     <Sheet
       isOpen={isOpen}
       onClose={onClose}
-      title="Record expense"
-      description="Record an expense with payee, description, approval evidence, and receipt photo."
+      title="Record Assembly Expense"
+      description="Record支出with payee, description, approval evidence, and receipt photo."
     >
-      <div className="space-y-4 py-2">
+      <div className="space-y-5 py-2">
         {errorMessage && (
-          <InlineAlert variant="danger" title={errorMessage} />
+          <div className="p-3 bg-variance/10 border border-variance text-variance rounded-[2px] text-xs font-mono">
+            {errorMessage}
+          </div>
         )}
 
         {/* Date Input */}
         <TextField
-          label="Expense date"
+          label="Expense Date"
           type="date"
           value={expenseDate}
           onChange={(e) => setExpenseDate(e.target.value)}
@@ -148,13 +148,13 @@ export function ExpenseEntrySheet({
         {/* Category Select + Inline Creator */}
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
-            <label htmlFor="expense-category-id" className="text-caption font-medium text-muted">
-              Expense category <span className="text-bad-ink">*</span>
+            <label className="text-xs font-mono uppercase tracking-wider text-ink-soft">
+              Expense Category <span className="text-variance">*</span>
             </label>
             <button
               type="button"
               onClick={() => setIsCreatingCategory(!isCreatingCategory)}
-              className="text-caption text-accent hover:underline min-h-[44px] flex items-center"
+              className="text-xs font-mono text-ink-soft hover:text-ink underline"
             >
               {isCreatingCategory ? "Select existing" : "+ New category"}
             </button>
@@ -163,10 +163,9 @@ export function ExpenseEntrySheet({
           {!isCreatingCategory ? (
             categories.length > 0 ? (
               <select
-                id="expense-category-id"
                 value={categoryId}
                 onChange={(e) => setCategoryId(e.target.value)}
-                className="w-full h-10 px-3 border border-border rounded-control bg-page text-text text-body focus:outline-none focus:border-accent"
+                className="w-full h-10 px-3 border border-rule rounded-[2px] bg-paper text-ink text-sm focus:outline-none focus:border-ink"
               >
                 {categories.map((c) => (
                   <option key={c.id} value={c.id}>
@@ -175,15 +174,15 @@ export function ExpenseEntrySheet({
                 ))}
               </select>
             ) : (
-              <div className="p-3 border border-dashed border-border rounded-control text-caption text-muted">
+              <div className="p-3 border border-dashed border-rule rounded-[2px] text-xs text-ink-soft">
                 No expense categories yet. Click &quot;+ New category&quot; to create the first one.
               </div>
             )
           ) : (
-            <div className="p-3 border border-border rounded-control space-y-2 bg-surface">
+            <div className="p-3 border border-rule rounded-[2px] space-y-2 bg-ink/[0.02]">
               <TextField
-                label="New category name"
-                placeholder="e.g. Utility bills, Stationery, Mission"
+                label="New Category Name"
+                placeholder="e.g. Utility Bills, Stationery, Mission"
                 value={newCategoryName}
                 onChange={(e) => setNewCategoryName(e.target.value)}
                 error={categoryError || undefined}
@@ -191,7 +190,7 @@ export function ExpenseEntrySheet({
               <div className="flex justify-end gap-2 pt-1">
                 <Button
                   type="button"
-                  variant="secondary"
+                  variant="outline"
                   size="sm"
                   onClick={() => setIsCreatingCategory(false)}
                 >
@@ -204,7 +203,7 @@ export function ExpenseEntrySheet({
                   isLoading={isPending}
                   onClick={handleCreateCategory}
                 >
-                  Save category
+                  Save Category
                 </Button>
               </div>
             </div>
@@ -213,8 +212,8 @@ export function ExpenseEntrySheet({
 
         {/* Payee */}
         <TextField
-          label="Payee / recipient"
-          placeholder="e.g. ECG Power, Local Vendor"
+          label="Payee / Recipient"
+          placeholder="e.g. ECG Power, Rev. Minister, Local Vendor"
           value={payee}
           onChange={(e) => setPayee(e.target.value)}
           required
@@ -222,32 +221,32 @@ export function ExpenseEntrySheet({
 
         {/* Description */}
         <div className="space-y-1">
-          <label className="text-caption font-medium text-muted">
-            Description / purpose <span className="text-bad-ink">*</span>
+          <label className="text-xs font-mono uppercase tracking-wider text-ink-soft">
+            Description / Purpose <span className="text-variance">*</span>
           </label>
           <textarea
             rows={2}
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder="Explain what the funds were spent on"
-            className="w-full p-2.5 border border-border rounded-control bg-page text-text text-body focus:outline-none focus:border-accent resize-none"
+            className="w-full p-2.5 border border-rule rounded-[2px] bg-paper text-ink text-sm focus:outline-none focus:border-ink resize-none"
             required
           />
         </div>
 
         {/* Amount Input */}
         <AmountInput
-          label="Amount"
+          label="Amount (GH₵)"
           value={amount}
           onChange={(val) => setAmount(val)}
           placeholder="0.00"
           required
         />
 
-        {/* Payment Method */}
+        {/* Payment Method - Three text options */}
         <div className="space-y-1.5">
-          <label className="text-caption font-medium text-muted">
-            Payment method <span className="text-bad-ink">*</span>
+          <label className="text-xs font-mono uppercase tracking-wider text-ink-soft">
+            Payment Method <span className="text-variance">*</span>
           </label>
           <div className="grid grid-cols-3 gap-2">
             {[
@@ -261,10 +260,10 @@ export function ExpenseEntrySheet({
                   key={method.id}
                   type="button"
                   onClick={() => setPaymentMethod(method.id)}
-                  className={`py-2 px-3 text-caption font-medium rounded-control border text-center transition-colors min-h-[44px] ${
+                  className={`py-2 px-3 text-xs font-medium rounded-[2px] border text-center transition-colors ${
                     isSelected
-                      ? "border-accent bg-accent text-on-accent"
-                      : "border-border bg-page text-muted hover:border-border-strong"
+                      ? "border-ink bg-ink text-paper"
+                      : "border-rule bg-paper text-ink hover:border-ink-soft"
                   }`}
                 >
                   {method.label}
@@ -277,19 +276,19 @@ export function ExpenseEntrySheet({
         {/* Attachment Uploader */}
         <AttachmentUploader
           entityType={AttachmentEntityType.EXPENSE}
-          label="Receipt or voucher photo"
+          label="Receipt or Voucher Photo"
           onAttachmentUploaded={(id) => setAttachmentId(id)}
         />
 
         {/* Action Buttons */}
-        <div className="pt-4 border-t border-border flex items-center justify-end gap-3">
+        <div className="pt-4 border-t border-rule flex items-center justify-end gap-3">
           <Button
             type="button"
-            variant="secondary"
+            variant="outline"
             onClick={() => handleSave(false)}
             isLoading={isPending}
           >
-            Save as draft
+            Save as Draft
           </Button>
           <Button
             type="button"
@@ -297,7 +296,7 @@ export function ExpenseEntrySheet({
             onClick={() => handleSave(true)}
             isLoading={isPending}
           >
-            Submit for approval
+            Submit for Approval
           </Button>
         </div>
       </div>

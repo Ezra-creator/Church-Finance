@@ -98,7 +98,7 @@ export class CsvStatementParser implements StatementParser {
   async inspect(
     buffer: Buffer,
     headerRow: number = 1
-  ): Promise<{ headers: string[]; previewRows: Record<string, string>[] }> {
+  ): Promise<{ headers: string[]; sampleRows: Record<string, string>[] }> {
     const content = buffer.toString("utf-8");
     const parseResult = Papa.parse<string[]>(content, {
       preview: 20,
@@ -109,15 +109,15 @@ export class CsvStatementParser implements StatementParser {
     const headerIndex = Math.max(0, headerRow - 1);
 
     if (rawRows.length <= headerIndex) {
-      return { headers: [], previewRows: [] };
+      return { headers: [], sampleRows: [] };
     }
 
     const headers = rawRows[headerIndex]
       .map((h) => String(h || "").trim())
       .filter((h) => h.length > 0);
 
-    const previewRows: Record<string, string>[] = [];
-    for (let i = headerIndex + 1; i < rawRows.length && previewRows.length < 5; i++) {
+    const sampleRows: Record<string, string>[] = [];
+    for (let i = headerIndex + 1; i < rawRows.length && sampleRows.length < 5; i++) {
       const line = rawRows[i];
       if (!line || line.every((cell) => String(cell || "").trim() === "")) continue;
 
@@ -128,9 +128,9 @@ export class CsvStatementParser implements StatementParser {
           rowObj[cleanHeader] = String(line[colIdx] ?? "").trim();
         }
       });
-      previewRows.push(rowObj);
+      sampleRows.push(rowObj);
     }
 
-    return { headers, previewRows };
+    return { headers, sampleRows };
   }
 }

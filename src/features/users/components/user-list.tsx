@@ -2,21 +2,18 @@
 
 import React, { useState } from "react";
 import { Role } from "@prisma/client";
-import { Badge } from "@/components/ui/badge";
+import { StatusMark } from "@/components/ui/status-mark";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { InlineAlert } from "@/components/ui/inline-alert";
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
-import { formatRole } from "@/lib/format";
-import { formatAccraDate } from "@/lib/dates";
+import { formatRole, formatStatus } from "@/lib/format";
 import {
   changeUserRoleAction,
   toggleUserStatusAction,
   resetPasswordAction,
 } from "../actions";
 import { useToast } from "@/components/ui/toast";
-import { KeyRound, UserCheck, UserX, Copy, Check, Shield } from "lucide-react";
+import { KeyRound, ShieldAlert, UserCheck, UserX, Copy, Check } from "lucide-react";
 
 export interface UserItem {
   id: string;
@@ -35,15 +32,18 @@ export interface UserListProps {
 }
 
 export function UserList({ users, currentUserId }: UserListProps) {
-  const { addToast } = useToast();
+  const { showToast } = useToast();
 
+  // Role change state
   const [roleChangeTarget, setRoleChangeTarget] = useState<UserItem | null>(null);
   const [selectedRole, setSelectedRole] = useState<Role>(Role.TREASURER);
   const [isRoleChanging, setIsRoleChanging] = useState(false);
 
+  // Status toggle state
   const [statusTarget, setStatusTarget] = useState<UserItem | null>(null);
   const [isStatusChanging, setIsStatusChanging] = useState(false);
 
+  // Reset password state
   const [resetTarget, setResetTarget] = useState<UserItem | null>(null);
   const [isResetting, setIsResetting] = useState(false);
   const [newTempPassword, setNewTempPassword] = useState<string | null>(null);
@@ -65,11 +65,11 @@ export function UserList({ users, currentUserId }: UserListProps) {
     setIsRoleChanging(false);
 
     if (!res.success) {
-      addToast({ type: "error", message: res.error.message });
+      showToast(res.error.message, "variance");
       return;
     }
 
-    addToast({ type: "success", message: `Role updated to ${formatRole(selectedRole)}.` });
+    showToast(`Role updated to ${formatRole(selectedRole)}`, "balanced");
     setRoleChangeTarget(null);
   };
 
@@ -83,16 +83,16 @@ export function UserList({ users, currentUserId }: UserListProps) {
     setIsStatusChanging(false);
 
     if (!res.success) {
-      addToast({ type: "error", message: res.error.message });
+      showToast(res.error.message, "variance");
       return;
     }
 
-    addToast({
-      type: "success",
-      message: nextActive
-        ? `Reactivated ${statusTarget.name}.`
-        : `Deactivated ${statusTarget.name}.`,
-    });
+    showToast(
+      nextActive
+        ? `Reactivated ${statusTarget.name}`
+        : `Deactivated ${statusTarget.name}`,
+      "balanced"
+    );
     setStatusTarget(null);
   };
 
@@ -104,13 +104,13 @@ export function UserList({ users, currentUserId }: UserListProps) {
     setIsResetting(false);
 
     if (!res.success) {
-      addToast({ type: "error", message: res.error.message });
+      showToast(res.error.message, "variance");
       setResetTarget(null);
       return;
     }
 
     setNewTempPassword(res.data.temporaryPassword);
-    addToast({ type: "success", message: "Temporary password generated." });
+    showToast("Password reset. Temporary password generated.", "balanced");
   };
 
   const handleCopyTempPassword = async () => {
@@ -118,139 +118,23 @@ export function UserList({ users, currentUserId }: UserListProps) {
       await navigator.clipboard.writeText(newTempPassword);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-      addToast({ type: "neutral", message: "Password copied to clipboard." });
+      showToast("Password copied to clipboard", "neutral");
     }
   };
 
   return (
     <div className="space-y-4">
-      {/* Desktop Table */}
-      <div className="hidden sm:block border border-border rounded-panel overflow-hidden bg-surface">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Email</TableHead>
-              <TableHead>Role</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Last sign-in</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {users.map((user) => {
-              const isSelf = user.id === currentUserId;
-              const isLastActiveSecretary =
-                user.role === Role.FINANCE_SECRETARY &&
-                user.active &&
-                activeSecretaries.length <= 1;
+      {/* Officers list table */}
+      <div className="border border-rule rounded-[2px] divide-y divide-rule bg-paper">
+        {/* Header */}
+        <div className="hidden sm:grid grid-cols-12 px-4 py-2.5 text-xs uppercase tracking-wider font-medium text-ink-soft bg-ink/[0.02]">
+          <div className="col-span-4">Officer</div>
+          <div className="col-span-3">Role</div>
+          <div className="col-span-2">Status</div>
+          <div className="col-span-3 text-right">Actions</div>
+        </div>
 
-              return (
-                <TableRow key={user.id}>
-                  <TableCell className="font-medium text-text">
-                    <div className="flex items-center gap-2">
-                      <span>{user.name}</span>
-                      {isSelf && (
-                        <span className="text-caption text-muted px-1.5 py-0.5 rounded-control bg-hover">
-                          You
-                        </span>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-muted">
-                    {user.email}
-                  </TableCell>
-                  <TableCell>
-                    <div>
-                      <span className="text-body text-text">
-                        {formatRole(user.role)}
-                      </span>
-                      {user.mustChangePassword && (
-                        <span className="block text-caption text-warn-ink">
-                          Pending password change
-                        </span>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge
-                      variant={user.active ? "balanced" : "neutral"}
-                      label={user.active ? "Active" : "Inactive"}
-                    />
-                  </TableCell>
-                  <TableCell className="text-muted text-caption">
-                    {user.lastLoginAt
-                      ? formatAccraDate(new Date(user.lastLoginAt), {
-                          day: "numeric",
-                          month: "short",
-                          year: "numeric",
-                        })
-                      : "Never"}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setRoleChangeTarget(user);
-                          setSelectedRole(user.role);
-                        }}
-                        title="Change role"
-                      >
-                        <Shield className="w-3.5 h-3.5 mr-1" strokeWidth={1.75} />
-                        Role
-                      </Button>
-
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setResetTarget(user)}
-                        title="Reset password"
-                      >
-                        <KeyRound className="w-3.5 h-3.5 mr-1" strokeWidth={1.75} />
-                        Reset
-                      </Button>
-
-                      {user.active ? (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          disabled={isSelf || isLastActiveSecretary}
-                          onClick={() => setStatusTarget(user)}
-                          className="text-bad-ink hover:text-bad-ink hover:bg-bad-tint disabled:opacity-30"
-                          title={
-                            isSelf
-                              ? "You cannot deactivate your own account"
-                              : isLastActiveSecretary
-                              ? "Cannot deactivate the last active finance secretary"
-                              : "Deactivate user"
-                          }
-                        >
-                          <UserX className="w-3.5 h-3.5" strokeWidth={1.75} />
-                        </Button>
-                      ) : (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setStatusTarget(user)}
-                          className="text-ok-ink hover:text-ok-ink hover:bg-ok-tint"
-                          title="Reactivate user"
-                        >
-                          <UserCheck className="w-3.5 h-3.5" strokeWidth={1.75} />
-                        </Button>
-                      )}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
-      </div>
-
-      {/* Mobile Stacked Rows */}
-      <div className="sm:hidden border border-border rounded-panel bg-surface divide-y divide-border">
+        {/* Rows */}
         {users.map((user) => {
           const isSelf = user.id === currentUserId;
           const isLastActiveSecretary =
@@ -259,63 +143,96 @@ export function UserList({ users, currentUserId }: UserListProps) {
             activeSecretaries.length <= 1;
 
           return (
-            <div key={user.id} className="p-3.5 space-y-2">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-1.5 min-w-0">
-                  <span className="font-medium text-body text-text truncate">
+            <div
+              key={user.id}
+              className="p-4 sm:py-3 sm:px-4 flex flex-col sm:grid sm:grid-cols-12 sm:items-center gap-3 text-sm hover:bg-ink/[0.01] transition-colors"
+            >
+              {/* Officer details */}
+              <div className="sm:col-span-4 flex flex-col min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium text-ink truncate">
                     {user.name}
                   </span>
                   {isSelf && (
-                    <span className="text-caption text-muted px-1.5 py-0.5 rounded-control bg-hover flex-shrink-0">
+                    <span className="text-[10px] px-1.5 py-0.2 border border-rule font-mono text-ink-soft">
                       You
                     </span>
                   )}
                 </div>
-                <Badge
-                  variant={user.active ? "balanced" : "neutral"}
-                  label={user.active ? "Active" : "Inactive"}
+                <span className="text-xs text-ink-soft truncate font-mono">
+                  {user.email}
+                </span>
+              </div>
+
+              {/* Role */}
+              <div className="sm:col-span-3">
+                <span className="text-xs text-ink font-mono font-medium">
+                  {formatRole(user.role)}
+                </span>
+                {user.mustChangePassword && (
+                  <p className="text-[10px] text-attention">
+                    Pending password change
+                  </p>
+                )}
+              </div>
+
+              {/* Status */}
+              <div className="sm:col-span-2">
+                <StatusMark
+                  tone={user.active ? "balanced" : "variance"}
+                  label={formatStatus(user.active)}
                 />
               </div>
 
-              <div className="flex items-center justify-between gap-2 text-caption text-muted">
-                <span className="truncate">{user.email}</span>
-                <span className="flex-shrink-0">{formatRole(user.role)}</span>
-              </div>
-
-              <div className="flex items-center justify-end gap-1.5 pt-1 border-t border-border">
+              {/* Actions */}
+              <div className="sm:col-span-3 flex items-center sm:justify-end gap-1.5 pt-2 sm:pt-0 border-t sm:border-t-0 border-rule/50">
                 <Button
-                  variant="secondary"
+                  variant="quiet"
                   size="sm"
                   onClick={() => {
                     setRoleChangeTarget(user);
                     setSelectedRole(user.role);
                   }}
+                  title="Change officer role"
                 >
                   Role
                 </Button>
+
                 <Button
-                  variant="secondary"
+                  variant="quiet"
                   size="sm"
                   onClick={() => setResetTarget(user)}
+                  title="Reset password"
                 >
-                  Reset password
+                  <KeyRound className="w-3.5 h-3.5" />
                 </Button>
+
                 {user.active ? (
                   <Button
-                    variant="danger"
+                    variant="quiet"
                     size="sm"
                     disabled={isSelf || isLastActiveSecretary}
                     onClick={() => setStatusTarget(user)}
+                    className="text-variance hover:text-variance hover:bg-variance/10 disabled:opacity-30"
+                    title={
+                      isSelf
+                        ? "You cannot deactivate your own account"
+                        : isLastActiveSecretary
+                        ? "Cannot deactivate the last active finance secretary"
+                        : "Deactivate user"
+                    }
                   >
-                    Deactivate
+                    <UserX className="w-3.5 h-3.5" />
                   </Button>
                 ) : (
                   <Button
-                    variant="secondary"
+                    variant="quiet"
                     size="sm"
                     onClick={() => setStatusTarget(user)}
+                    className="text-balanced hover:text-balanced hover:bg-balanced/10"
+                    title="Reactivate user"
                   >
-                    Reactivate
+                    <UserCheck className="w-3.5 h-3.5" />
                   </Button>
                 )}
               </div>
@@ -326,19 +243,13 @@ export function UserList({ users, currentUserId }: UserListProps) {
 
       {/* Role Change Modal */}
       {roleChangeTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-scrim">
-          <div className="w-full max-w-sm bg-surface border border-border p-6 rounded-panel shadow-overlay space-y-4">
-            <div className="space-y-1">
-              <h3 className="text-lead font-semibold text-text">
-                Change role for {roleChangeTarget.name}
-              </h3>
-              <p className="text-caption text-muted">
-                Assign a new system role and permission set.
-              </p>
-            </div>
-
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/30">
+          <div className="w-full max-w-sm bg-paper border border-ink p-5 rounded-[2px] space-y-4">
+            <h3 className="text-base font-serif font-normal text-ink">
+              Change Role for {roleChangeTarget.name}
+            </h3>
             <Select
-              label="Select role"
+              label="Select Role"
               value={selectedRole}
               onChange={(e) => setSelectedRole(e.target.value as Role)}
             >
@@ -348,14 +259,14 @@ export function UserList({ users, currentUserId }: UserListProps) {
               <option value={Role.TREASURER}>
                 {formatRole(Role.TREASURER)}
               </option>
-              <option value={Role.PRESBYTERY_VIEWER}>
-                {formatRole(Role.PRESBYTERY_VIEWER)}
+              <option value={Role.REVIEWER}>
+                {formatRole(Role.REVIEWER)}
               </option>
             </Select>
 
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-rule">
               <Button
-                variant="ghost"
+                variant="secondary"
                 size="sm"
                 onClick={() => setRoleChangeTarget(null)}
                 disabled={isRoleChanging}
@@ -368,7 +279,7 @@ export function UserList({ users, currentUserId }: UserListProps) {
                 onClick={handleRoleChangeConfirm}
                 isLoading={isRoleChanging}
               >
-                Save changes
+                Save role
               </Button>
             </div>
           </div>
@@ -388,7 +299,7 @@ export function UserList({ users, currentUserId }: UserListProps) {
           }
           description={
             statusTarget.active
-              ? `Deactivating will revoke access immediately. You can reactivate this account at any time.`
+              ? `Deactivating will revoke access to PUCA Finance immediately. You can reactivate this account at any time.`
               : `Reactivating will restore sign in access for this officer.`
           }
           confirmLabel={statusTarget.active ? "Deactivate officer" : "Reactivate officer"}
@@ -397,62 +308,56 @@ export function UserList({ users, currentUserId }: UserListProps) {
         />
       )}
 
-      {/* Reset Password Confirmation */}
+      {/* Reset Password Confirmation & Result Dialog */}
       {resetTarget && !newTempPassword && (
         <ConfirmDialog
           isOpen={true}
           onClose={() => setResetTarget(null)}
           onConfirm={handleResetPasswordConfirm}
           title={`Reset password for ${resetTarget.name}`}
-          description={`A new temporary password will be generated. The officer will be required to change it on their next sign in.`}
+          description={`A new temporary password will be generated. The user will be required to change it upon next sign in.`}
           confirmLabel="Reset password"
           isLoading={isResetting}
         />
       )}
 
-      {/* Temporary Password Display */}
+      {/* Show reset temporary password once */}
       {newTempPassword && resetTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-scrim">
-          <div className="w-full max-w-md bg-surface border border-border p-6 rounded-panel shadow-overlay space-y-4">
-            <div className="space-y-1">
-              <h3 className="text-lead font-semibold text-text">
-                Password reset complete
-              </h3>
-              <p className="text-caption text-muted">
-                Temporary credentials for {resetTarget.email}:
-              </p>
-            </div>
-
-            <InlineAlert variant="info" title="Temporary password">
-              <div className="flex items-center justify-between pt-1">
-                <span className="font-medium text-body text-text select-all">
-                  {newTempPassword}
-                </span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleCopyTempPassword}
-                  className="h-8 px-2 text-caption"
-                >
-                  {copied ? (
-                    <span className="flex items-center gap-1 text-ok-ink">
-                      <Check className="w-3.5 h-3.5" strokeWidth={1.75} /> Copied
-                    </span>
-                  ) : (
-                    <span className="flex items-center gap-1">
-                      <Copy className="w-3.5 h-3.5" strokeWidth={1.75} /> Copy
-                    </span>
-                  )}
-                </Button>
-              </div>
-            </InlineAlert>
-
-            <p className="text-caption text-muted">
-              This password is shown once only. Send it to the user directly.
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/30">
+          <div className="w-full max-w-sm bg-paper border border-ink p-5 rounded-[2px] space-y-4">
+            <h3 className="text-base font-serif font-normal text-ink">
+              Password Reset Complete
+            </h3>
+            <p className="text-xs text-ink-soft">
+              Temporary password for <span className="font-medium text-ink">{resetTarget.email}</span>:
             </p>
-
+            <div className="flex items-center justify-between p-2.5 bg-ink/5 border border-rule rounded-[2px]">
+              <code className="font-mono text-sm font-semibold tracking-wider text-ink">
+                {newTempPassword}
+              </code>
+              <Button
+                variant="quiet"
+                size="sm"
+                onClick={handleCopyTempPassword}
+                className="min-h-[32px] px-2 text-xs"
+              >
+                {copied ? (
+                  <span className="flex items-center gap-1 text-balanced">
+                    <Check className="w-3.5 h-3.5" /> Copied
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1">
+                    <Copy className="w-3.5 h-3.5" /> Copy
+                  </span>
+                )}
+              </Button>
+            </div>
+            <p className="text-[11px] text-attention">
+              This password is shown once only. Ensure you provide it to the user.
+            </p>
             <Button
               variant="primary"
+              size="sm"
               className="w-full"
               onClick={() => {
                 setResetTarget(null);

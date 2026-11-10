@@ -41,8 +41,8 @@ describe("Snapshot Immutability and Export Consistency", () => {
   const snapshot: ReconciliationSnapshot = {
     weekEnding: "2026-10-18",
     weekRange: "Monday, 12 Oct 2026 – Sunday, 18 Oct 2026",
-    churchName: "Presbyterian Church of Ghana — PUCA Congregation",
-    presbyteryName: "Ga West Presbytery",
+    churchName: "PUCA English Assembly",
+    parentBodyName: "The Church of Pentecost",
     preparedById: "user_sec",
     preparedByName: "Jane Doe (Finance Secretary)",
     submittedAt: "2026-10-18T18:00:00.000Z",

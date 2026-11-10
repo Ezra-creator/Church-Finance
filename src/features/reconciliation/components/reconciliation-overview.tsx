@@ -3,18 +3,10 @@
 import React, { useTransition } from "react";
 import Link from "next/link";
 import { Role } from "@prisma/client";
-import { ArrowRight } from "lucide-react";
-import { PageHeader } from "@/components/ui/page-header";
+import { Scale, ArrowRight, CheckCircle2, FileText, ToggleLeft, ToggleRight, Download } from "lucide-react";
+import { RuleHeading } from "@/components/ui/rule-heading";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { StatusMark, StatusTone } from "@/components/ui/status-mark";
 import { formatCedi } from "@/lib/money";
 import { useToast } from "@/components/ui/toast";
 import { WeekOverviewItem } from "../queries";
@@ -42,152 +34,163 @@ export function ReconciliationOverview({
   const currentWeek = weeks.find((w) => w.isCurrentWeek) || weeks[0];
   const pastWeeks = weeks.filter((w) => !w.isCurrentWeek);
 
+  const handleToggleParallelRun = () => {
+    if (!isSecretaryOrTreasurer) return;
+
+    startTransition(async () => {
+      const res = await toggleParallelRunSettingAction(!parallelRunActive);
+      if (!res.success) {
+        addToast("error", res.error.message);
+        return;
+      }
+
+      addToast(
+        "success",
+        res.data.parallelRunActive
+          ? "Parallel run active: paper book comparison field enabled."
+          : "Parallel run retired: digital system operating standalone."
+      );
+    });
+  };
+
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Reconcile"
-        description="Check each week's cash and Mobile money before submitting."
+    <div className="space-y-8 max-w-4xl mx-auto">
+      {/* Page Header */}
+      <RuleHeading
+        eyebrow="Weekly Reconciliation"
+        title="Weekly Accounts Reconciliation"
+        description="Consolidate physical cash counts and classified Mobile Money collections into weekly audited financial reports."
         action={
-          parallelRunActive ? (
-            <Badge variant="neutral" label="Parallel run active" />
+          isSecretaryOrTreasurer ? (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleToggleParallelRun}
+                disabled={isPending}
+                className="text-xs font-mono px-2.5 py-1 rounded-[2px] border border-rule hover:border-ink bg-paper flex items-center gap-1.5 transition-colors"
+                title="Toggle paper book comparison field"
+              >
+                {parallelRunActive ? (
+                  <>
+                    <ToggleRight className="w-4 h-4 text-balanced" />
+                    <span>Parallel run active</span>
+                  </>
+                ) : (
+                  <>
+                    <ToggleLeft className="w-4 h-4 text-ink-soft" />
+                    <span>Standalone mode</span>
+                  </>
+                )}
+              </button>
+            </div>
           ) : undefined
         }
       />
 
-      {/* This week section */}
+      {/* CURRENT WEEK BANNER */}
       {currentWeek && (
-        <div className="p-6 bg-surface border border-border rounded-panel space-y-4">
+        <div className="p-6 bg-paper border-2 border-ink rounded-[2px] space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="space-y-1">
-              <span className="text-caption font-medium text-muted">
-                This week
+              <span className="text-[10px] font-mono uppercase tracking-widest text-ink-soft font-semibold">
+                Current Week Range
               </span>
-              <h2 className="text-lead font-semibold text-text">
+              <h2 className="text-xl sm:text-2xl font-serif font-normal text-ink">
                 {currentWeek.formattedRange}
               </h2>
             </div>
 
             <div className="flex items-center gap-2 flex-wrap">
               {currentWeek.status === "SUBMITTED" ? (
-                <Badge variant="balanced" label={`Submitted (v${currentWeek.reportVersion})`} />
+                <StatusMark
+                  tone="balanced"
+                  label={`Submitted (v${currentWeek.reportVersion})`}
+                />
               ) : currentWeek.status === "READY" ? (
-                <Badge variant="balanced" label="Ready to submit" />
+                <StatusMark tone="balanced" label="Ready to submit" />
               ) : (
-                <Badge variant="attention" label="In progress" />
+                <StatusMark tone="attention" label="Reconciliation in progress" />
               )}
             </div>
           </div>
 
-          <div className="pt-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-border">
-            <p className="text-caption text-muted">
+          <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-rule">
+            <p className="text-xs text-ink-soft">
               {currentWeek.status === "SUBMITTED"
                 ? "This week has been finalized and submitted."
-                : "Verify cash and statement payments before submitting."}
+                : "Count cash, classify statement payments, and verify totals before submission."}
             </p>
 
             <Link href={`/reconcile/${currentWeek.weekEnding}`}>
               <Button variant="primary">
                 {currentWeek.status === "SUBMITTED"
-                  ? "View submitted report"
-                  : "Reconcile this week"}
-                <ArrowRight className="w-4 h-4 ml-1.5" strokeWidth={1.75} />
+                  ? "View submitted return"
+                  : "Reconcile current week"}
+                <ArrowRight className="w-4 h-4 ml-1.5" />
               </Button>
             </Link>
           </div>
         </div>
       )}
 
-      {/* Previous Weeks Table */}
+      {/* PAST WEEKS RULED LIST */}
       <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lead font-semibold text-text">
-            Previous weeks
+        <div className="flex items-center justify-between pb-2 border-b-2 border-rule-strong">
+          <h3 className="text-xs uppercase tracking-wider font-semibold font-mono text-ink-soft">
+            Previous Weeks
           </h3>
-          <span className="text-caption text-muted">
+          <span className="text-xs font-mono text-ink-soft">
             {pastWeeks.length} past periods recorded
           </span>
         </div>
 
-        {/* Desktop Table */}
-        <div className="hidden sm:block border border-border rounded-panel overflow-hidden bg-surface">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Week range</TableHead>
-                <TableHead>Week ending</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Expected total</TableHead>
-                <TableHead className="w-10"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {pastWeeks.map((week) => {
-                const isSubmitted = week.status === "SUBMITTED";
-                const isReady = week.status === "READY";
-                return (
-                  <TableRow key={week.weekEnding}>
-                    <TableCell className="font-medium text-text">
-                      <Link
-                        href={`/reconcile/${week.weekEnding}`}
-                        className="hover:underline text-text"
-                      >
-                        {week.formattedRange}
-                      </Link>
-                    </TableCell>
-                    <TableCell className="text-muted text-caption">
-                      {week.weekEnding}
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={isSubmitted ? "balanced" : isReady ? "attention" : "neutral"}
-                        label={isSubmitted ? `Submitted v${week.reportVersion}` : isReady ? "Ready" : "Draft"}
-                      />
-                    </TableCell>
-                    <TableCell className="text-right text-text font-medium tnum">
-                      {week.expectedTotal ? formatCedi(week.expectedTotal) : "—"}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Link
-                        href={`/reconcile/${week.weekEnding}`}
-                        aria-label={`View reconciliation for ${week.formattedRange}`}
-                      >
-                        <ArrowRight className="w-4 h-4 text-muted hover:text-text inline-block" strokeWidth={1.75} aria-hidden="true" />
-                      </Link>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </div>
-
-        {/* Mobile Stacked List */}
-        <div className="sm:hidden border border-border rounded-panel divide-y divide-border bg-surface">
+        <div className="divide-y divide-rule border border-rule rounded-[2px] bg-paper">
           {pastWeeks.map((week) => {
-            const isSubmitted = week.status === "SUBMITTED";
-            const isReady = week.status === "READY";
+            let tone: StatusTone = "neutral";
+            let statusLabel = "Unopened";
+
+            if (week.status === "SUBMITTED") {
+              tone = "balanced";
+              statusLabel = `Submitted v${week.reportVersion}`;
+            } else if (week.status === "READY") {
+              tone = "attention";
+              statusLabel = "Ready";
+            } else if (week.status === "DRAFT") {
+              tone = "neutral";
+              statusLabel = "Draft";
+            }
+
             return (
               <Link
                 key={week.weekEnding}
                 href={`/reconcile/${week.weekEnding}`}
-                className="block p-3.5 hover:bg-page transition-colors"
+                className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 hover:bg-ink/[0.015] transition-colors gap-2"
               >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-body font-medium text-text truncate">
+                {/* Left: Week Range */}
+                <div className="min-w-0 space-y-0.5">
+                  <p className="text-sm font-medium text-ink truncate">
                     {week.formattedRange}
-                  </span>
-                  <span className="text-body font-medium text-text tnum">
-                    {week.expectedTotal ? formatCedi(week.expectedTotal) : "—"}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between gap-2 mt-1">
-                  <span className="text-caption text-muted">
+                  </p>
+                  <p className="text-xs font-mono text-ink-soft">
                     Week ending {week.weekEnding}
-                  </span>
-                  <Badge
-                    variant={isSubmitted ? "balanced" : isReady ? "attention" : "neutral"}
-                    label={isSubmitted ? `Submitted v${week.reportVersion}` : isReady ? "Ready" : "Draft"}
-                  />
+                  </p>
+                </div>
+
+                {/* Right: Status Mark, Totals & Link */}
+                <div className="flex items-center justify-between sm:justify-end gap-6 flex-shrink-0">
+                  <StatusMark tone={tone} label={statusLabel} />
+
+                  {week.expectedTotal ? (
+                    <div className="font-mono text-sm tabular-nums text-right font-semibold text-ink">
+                      {formatCedi(week.expectedTotal)}
+                    </div>
+                  ) : (
+                    <div className="font-mono text-xs tabular-nums text-right text-ink-soft">
+                      —
+                    </div>
+                  )}
+
+                  <ArrowRight className="w-4 h-4 text-ink-soft hidden sm:block" />
                 </div>
               </Link>
             );

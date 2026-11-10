@@ -1,10 +1,13 @@
+"use client";
+
 import React from "react";
-import { clsx } from "clsx";
-import { twMerge } from "tailwind-merge";
+import { Button } from "./button";
 
 export interface EmptyStateProps {
   title: string;
   description: string;
+  actionLabel?: string;
+  onAction?: () => void;
   action?: React.ReactNode;
   className?: string;
 }
@@ -12,25 +15,26 @@ export interface EmptyStateProps {
 export function EmptyState({
   title,
   description,
+  actionLabel,
+  onAction,
   action,
   className,
 }: EmptyStateProps) {
   return (
-    <div
-      className={twMerge(
-        clsx(
-          "flex flex-col items-start justify-start text-left p-6 border border-border rounded-panel bg-surface",
-          className
-        )
-      )}
-    >
-      <h3 className="text-body font-medium text-text leading-tight">
+    <div className={`p-8 text-left bg-surface border border-border rounded-panel ${className || ""}`}>
+      <h3 className="text-[16px] font-semibold text-text leading-[24px]">
         {title}
       </h3>
-      <p className="text-caption text-muted mt-1 leading-normal max-w-md">
+      <p className="text-[14px] text-muted leading-[20px] mt-1 mb-4">
         {description}
       </p>
-      {action && <div className="mt-4">{action}</div>}
+      {action ? (
+        <div>{action}</div>
+      ) : actionLabel && onAction ? (
+        <Button variant="secondary" onClick={onAction}>
+          {actionLabel}
+        </Button>
+      ) : null}
     </div>
   );
 }

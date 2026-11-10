@@ -23,7 +23,7 @@ export interface DepositItem {
   depositDate: Date;
 }
 
-export interface HeldMoneyLedger {
+export interface HeldMoneySummary {
   // Cash breakdown
   cashCounted: Prisma.Decimal;
   cashExpenses: Prisma.Decimal;
@@ -52,7 +52,7 @@ export function calculateHeldMoney(params: {
   momoIncomes: MomoIncomeItem[];
   paidExpenses: ExpenseItem[];
   deposits: DepositItem[];
-}): HeldMoneyLedger {
+}): HeldMoneySummary {
   const zero = new Prisma.Decimal(0);
 
   // 1. Calculate Cash Counted

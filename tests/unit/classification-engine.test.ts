@@ -137,7 +137,7 @@ describe("Classification Engine", () => {
 
       const res = classifyTransaction(
         MomoTransactionDirection.IN,
-        "Parish support fund",
+        "Assembly support fund",
         conflictingRules
       );
       expect(res.status).toBe(MomoTransactionStatus.NEEDS_REVIEW);

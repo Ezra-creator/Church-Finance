@@ -6,12 +6,12 @@ import {
 import { generateReconciliationDocx } from "@/features/reconciliation/exports/docx-generator";
 import { generateReconciliationPdf } from "@/features/reconciliation/exports/pdf-generator";
 
-describe("Presbytery Report - Phase 5 Expenses & Banking Extension", () => {
+describe("Reconciliation Report - Phase 5 Expenses & Banking Extension", () => {
   const phase5Snapshot: ReconciliationSnapshot = {
     weekEnding: "2026-10-18",
     weekRange: "12 Oct 2026 – 18 Oct 2026",
-    churchName: "Presbyterian Church of Ghana — PUCA Congregation",
-    presbyteryName: "Ga West Presbytery",
+    churchName: "PUCA English Assembly",
+    parentBodyName: "The Church of Pentecost",
     preparedById: "user_sec",
     preparedByName: "Adwoa Mansa",
     submittedAt: "2026-10-18T18:00:00.000Z",
@@ -102,8 +102,8 @@ describe("Presbytery Report - Phase 5 Expenses & Banking Extension", () => {
     const phase4Snapshot: ReconciliationSnapshot = {
       weekEnding: "2026-10-11",
       weekRange: "05 Oct 2026 – 11 Oct 2026",
-      churchName: "PUCA Congregation",
-      presbyteryName: "Ga West Presbytery",
+      churchName: "PUCA English Assembly",
+      parentBodyName: "The Church of Pentecost",
       preparedById: "user_sec",
       preparedByName: "Adwoa Mansa",
       submittedAt: "2026-10-11T18:00:00.000Z",

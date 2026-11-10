@@ -5,12 +5,11 @@ import { useRouter } from "next/navigation";
 import { TextField } from "@/components/ui/text-field";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { InlineAlert } from "@/components/ui/inline-alert";
 import { setupChurchAction } from "../actions";
 
 export interface ChurchSetupModalProps {
   isConfigured: boolean;
-  canConfigure: boolean;
+  canConfigure: boolean; // only FINANCE_SECRETARY can configure
 }
 
 export function ChurchSetupModal({
@@ -18,8 +17,9 @@ export function ChurchSetupModal({
   canConfigure,
 }: ChurchSetupModalProps) {
   const router = useRouter();
-  const [churchName, setChurchName] = useState("");
-  const [presbyteryName, setPresbyteryName] = useState("");
+  const [assemblyName, setAssemblyName] = useState("PUCA English Assembly");
+  const [parentBodyName, setParentBodyName] = useState("The Church of Pentecost");
+  const [assemblyAbbreviation, setAssemblyAbbreviation] = useState("PUCA");
   const [weekEndsOn, setWeekEndsOn] = useState("0");
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -30,16 +30,21 @@ export function ChurchSetupModal({
     e.preventDefault();
     setErrorMessage(null);
 
-    if (!churchName.trim() || !presbyteryName.trim()) {
-      setErrorMessage("Enter the church and district names.");
+    if (!assemblyName.trim() || !parentBodyName.trim()) {
+      setErrorMessage("Enter the assembly and parent body names.");
       return;
     }
 
     setIsLoading(true);
 
     const result = await setupChurchAction({
-      churchName: churchName.trim(),
-      presbyteryName: presbyteryName.trim(),
+      assemblyName: assemblyName.trim(),
+      parentBodyName: parentBodyName.trim(),
+      assemblyAbbreviation: assemblyAbbreviation.trim() || "PUCA",
+      signatoryTitles: ["Finance Secretary", "Assembly Treasurer"],
+      currency: "GHS",
+      timezone: "Africa/Accra",
+      weekStartsOn: "Sunday",
       weekEndsOn: parseInt(weekEndsOn, 10),
     });
 
@@ -58,54 +63,73 @@ export function ChurchSetupModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="setup-title"
-        className="w-full max-w-[480px] bg-surface border border-border p-6 sm:p-8 rounded-panel shadow-overlay space-y-6"
+        className="w-full max-w-lg bg-surface border border-border-strong p-6 sm:p-8 rounded-panel"
       >
-        <div className="space-y-1">
+        <div className="pb-4 border-b border-border mb-5">
+          <p className="text-[12px] font-medium text-muted">
+            Initial System Setup
+          </p>
           <h2
             id="setup-title"
-            className="text-title font-semibold text-text"
+            className="text-[22px] font-semibold text-text leading-[28px] mt-1"
           >
-            Church setup
+            Configure assembly details
           </h2>
-          <p className="text-body text-muted">
-            Register your church and district details to begin recording finances.
+          <p className="text-[13px] text-muted mt-1 leading-relaxed">
+            Please configure your local assembly details to begin recording finances.
           </p>
         </div>
 
         {!canConfigure ? (
-          <InlineAlert variant="warn" title="First-time setup must be performed by a Finance Secretary. Ask your Finance Secretary to sign in and register the church." />
+          <div className="p-4 bg-warn-tint border border-warn/30 text-warn-ink text-[13px] leading-relaxed rounded-control">
+            First-time setup must be performed by a Finance Secretary. Please ask your Finance Secretary to sign in and configure the assembly.
+          </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
             {errorMessage && (
-              <InlineAlert variant="danger" title={errorMessage} />
+              <div
+                role="alert"
+                className="p-3 bg-bad-tint border border-bad/30 text-bad-ink text-[13px] rounded-control"
+              >
+                {errorMessage}
+              </div>
             )}
 
             <TextField
-              label="Church or congregation name"
+              label="Assembly Name"
               required
-              value={churchName}
-              onChange={(e) => setChurchName(e.target.value)}
-              placeholder="e.g. Hope Community Church"
+              value={assemblyName}
+              onChange={(e) => setAssemblyName(e.target.value)}
+              placeholder="e.g. PUCA English Assembly"
               disabled={isLoading}
             />
 
             <TextField
-              label="District or supervisory body"
+              label="Parent Body / Denomination"
               required
-              value={presbyteryName}
-              onChange={(e) => setPresbyteryName(e.target.value)}
-              placeholder="e.g. Accra District"
+              value={parentBodyName}
+              onChange={(e) => setParentBodyName(e.target.value)}
+              placeholder="e.g. The Church of Pentecost"
+              disabled={isLoading}
+            />
+
+            <TextField
+              label="Assembly Abbreviation"
+              required
+              value={assemblyAbbreviation}
+              onChange={(e) => setAssemblyAbbreviation(e.target.value)}
+              placeholder="e.g. PUCA"
               disabled={isLoading}
             />
 
             <Select
-              label="Financial week ends on"
+              label="Financial Week Ends On"
               value={weekEndsOn}
               onChange={(e) => setWeekEndsOn(e.target.value)}
               disabled={isLoading}
-              hint="Determines the weekly accounting closing cycle."
+              detail="Determines the weekly accounting closing cycle."
             >
-              <option value="0">Sunday (standard)</option>
+              <option value="0">Sunday (Standard)</option>
               <option value="1">Monday</option>
               <option value="2">Tuesday</option>
               <option value="3">Wednesday</option>
@@ -114,14 +138,15 @@ export function ChurchSetupModal({
               <option value="6">Saturday</option>
             </Select>
 
-            <div className="pt-2">
+            <div className="pt-3">
               <Button
                 type="submit"
                 variant="primary"
+                size="lg"
                 className="w-full"
                 isLoading={isLoading}
               >
-                Complete church setup
+                Save and start
               </Button>
             </div>
           </form>

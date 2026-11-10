@@ -173,19 +173,29 @@ export async function setupChurch(
       where: { id: "singleton" },
     });
 
+    const signatoryTitlesStr = JSON.stringify(input.signatoryTitles || []);
+
+    const data = {
+      assemblyName: input.assemblyName,
+      parentBodyName: input.parentBodyName,
+      assemblyAbbreviation: input.assemblyAbbreviation,
+      districtName: input.districtName || null,
+      areaName: input.areaName || null,
+      reportRecipientName: input.reportRecipientName || null,
+      signatoryTitles: signatoryTitlesStr,
+      currency: input.currency || "GHS",
+      timezone: input.timezone || "Africa/Accra",
+      weekStartsOn: input.weekStartsOn || "Sunday",
+      weekEndsOn: input.weekEndsOn ?? 0,
+    };
+
     const settings = await tx.churchSettings.upsert({
       where: { id: "singleton" },
       create: {
         id: "singleton",
-        churchName: input.churchName,
-        presbyteryName: input.presbyteryName,
-        weekEndsOn: input.weekEndsOn,
+        ...data,
       },
-      update: {
-        churchName: input.churchName,
-        presbyteryName: input.presbyteryName,
-        weekEndsOn: input.weekEndsOn,
-      },
+      update: data,
     });
 
     return {
@@ -197,15 +207,13 @@ export async function setupChurch(
         entityId: "singleton",
         before: existing
           ? {
-              churchName: existing.churchName,
-              presbyteryName: existing.presbyteryName,
-              weekEndsOn: existing.weekEndsOn,
+              assemblyName: existing.assemblyName,
+              parentBodyName: existing.parentBodyName,
             }
           : null,
         after: {
-          churchName: settings.churchName,
-          presbyteryName: settings.presbyteryName,
-          weekEndsOn: settings.weekEndsOn,
+          assemblyName: settings.assemblyName,
+          parentBodyName: settings.parentBodyName,
         },
       },
     };

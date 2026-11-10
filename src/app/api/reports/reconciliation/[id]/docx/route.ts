@@ -21,13 +21,13 @@ export async function GET(
       return new NextResponse("Reconciliation period not found.", { status: 404 });
     }
 
-    // Presbytery Viewer can only access submitted reports
+    // Reviewer can only access submitted reports
     if (
-      user.role === Role.PRESBYTERY_VIEWER &&
+      user.role === Role.REVIEWER &&
       period.status !== ReconciliationStatus.SUBMITTED
     ) {
       return new NextResponse(
-        "Presbytery Viewers are permitted to download finalized, submitted reports only.",
+        "Reviewers are permitted to download finalized, submitted reports only.",
         { status: 403 }
       );
     }

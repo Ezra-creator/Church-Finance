@@ -2,18 +2,31 @@
 
 import React, { useState, useMemo, useTransition } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Role, MomoTransactionStatus } from "@prisma/client";
-import { Search } from "lucide-react";
-import { PageHeader } from "@/components/ui/page-header";
+import {
+  Upload,
+  Tag,
+  SlidersHorizontal,
+  ArrowUpRight,
+  ArrowDownLeft,
+  Search,
+  Check,
+} from "lucide-react";
+import { SectionTitle } from "@/components/ui/section-title";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
-import { SegmentedControl } from "@/components/ui/segmented-control";
-import { MoneyText } from "@/components/ui/money-text";
+import { Select } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/components/ui/toast";
 import { formatAccraDate } from "@/lib/dates";
+import { formatMoney } from "@/lib/money";
 import { plural } from "@/lib/plural";
-import { classifySingleTransactionAction, bulkClassifyTransactionsAction } from "../actions";
+import {
+  classifySingleTransactionAction,
+  bulkClassifyTransactionsAction,
+} from "@/features/momo/actions";
 
 export interface MomoTransactionItem {
   id: string;
@@ -37,408 +50,424 @@ export interface MomoTransactionListProps {
   userRole: Role;
 }
 
-function getWeekKeyAndLabel(dateObj: Date): { key: string; label: string } {
-  const d = new Date(dateObj);
-  const day = d.getDay();
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-  const monday = new Date(d.setDate(diff));
-  monday.setHours(0, 0, 0, 0);
-
-  const sunday = new Date(monday);
-  sunday.setDate(monday.getDate() + 6);
-
-  const key = monday.toISOString().slice(0, 10);
-  const label = `${formatAccraDate(monday, { day: "numeric", month: "short" })} · ${formatAccraDate(sunday, { day: "numeric", month: "short", year: "numeric" })}`;
-  return { key, label };
-}
+type TabFilter = "ALL" | "NEEDS_REVIEW" | "CLASSIFIED";
 
 export function MomoTransactionList({
   transactions: initialTransactions,
   categories,
-  needsReviewCount,
+  needsReviewCount: initialNeedsReviewCount,
   userRole,
 }: MomoTransactionListProps) {
-  const [transactions, setTransactions] = useState<MomoTransactionItem[]>(initialTransactions);
-  const [selectedStatus, setSelectedStatus] = useState<string>("ALL");
-  const [selectedCategory, setSelectedCategory] = useState<string>("ALL");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [bulkCategoryId, setBulkCategoryId] = useState<string>("");
-  const [isPending, startTransition] = useTransition();
+  const router = useRouter();
   const { addToast } = useToast();
+  const [isPending, startTransition] = useTransition();
 
-  const canEdit = userRole === Role.FINANCE_SECRETARY || userRole === Role.TREASURER;
+  const [transactions, setTransactions] = useState<MomoTransactionItem[]>(
+    initialTransactions
+  );
+  const [activeTab, setActiveTab] = useState<TabFilter>("ALL");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<string>("ALL");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkCategoryId, setBulkCategoryId] = useState<string>("");
 
-  // Status counts for segmented control using plural()
-  const statusCounts = useMemo(() => {
-    let review = 0;
-    let auto = 0;
-    let confirmed = 0;
-    let ignored = 0;
+  const canEdit =
+    userRole === Role.FINANCE_SECRETARY || userRole === Role.TREASURER;
+
+  // Counts for tabs
+  const tabCounts = useMemo(() => {
+    let needsReview = 0;
+    let classified = 0;
     for (const tx of transactions) {
-      if (tx.status === MomoTransactionStatus.NEEDS_REVIEW) review++;
-      else if (tx.status === MomoTransactionStatus.AUTO) auto++;
-      else if (tx.status === MomoTransactionStatus.CONFIRMED) confirmed++;
-      else if (tx.status === MomoTransactionStatus.IGNORED) ignored++;
+      if (tx.status === MomoTransactionStatus.NEEDS_REVIEW) {
+        needsReview++;
+      } else if (
+        tx.status === MomoTransactionStatus.AUTO ||
+        tx.status === MomoTransactionStatus.CONFIRMED
+      ) {
+        classified++;
+      }
     }
     return {
       all: transactions.length,
-      review,
-      auto,
-      confirmed,
-      ignored,
+      needsReview,
+      classified,
     };
   }, [transactions]);
 
   // Filter transactions
   const filtered = useMemo(() => {
+    const q = searchQuery.toLowerCase().trim();
     return transactions.filter((tx) => {
-      if (selectedStatus !== "ALL" && tx.status !== selectedStatus) {
-        return false;
+      // Tab filter
+      if (activeTab === "NEEDS_REVIEW") {
+        if (tx.status !== MomoTransactionStatus.NEEDS_REVIEW) return false;
+      } else if (activeTab === "CLASSIFIED") {
+        if (
+          tx.status !== MomoTransactionStatus.AUTO &&
+          tx.status !== MomoTransactionStatus.CONFIRMED
+        )
+          return false;
       }
+
+      // Category dropdown filter
       if (selectedCategory !== "ALL") {
-        if (!tx.category || tx.category.id !== selectedCategory) {
+        if (!tx.category || tx.category.id !== selectedCategory) return false;
+      }
+
+      // Search query filter
+      if (q) {
+        const counterparty = (
+          tx.member?.fullName ||
+          tx.counterpartyName ||
+          tx.counterpartyPhone ||
+          ""
+        ).toLowerCase();
+        const ref = (tx.externalRef || "").toLowerCase();
+        const desc = (tx.rawDescription || "").toLowerCase();
+        if (
+          !counterparty.includes(q) &&
+          !ref.includes(q) &&
+          !desc.includes(q)
+        ) {
           return false;
         }
       }
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase().trim();
-        const matchesName = tx.counterpartyName?.toLowerCase().includes(q);
-        const matchesPhone = tx.counterpartyPhone?.toLowerCase().includes(q);
-        const matchesRef = tx.externalRef?.toLowerCase().includes(q);
-        const matchesDesc = tx.rawDescription.toLowerCase().includes(q);
-        if (!matchesName && !matchesPhone && !matchesRef && !matchesDesc) {
-          return false;
-        }
-      }
+
       return true;
     });
-  }, [transactions, selectedStatus, selectedCategory, searchQuery]);
+  }, [transactions, activeTab, selectedCategory, searchQuery]);
 
-  // Group filtered transactions by week
-  const groupedByWeek = useMemo(() => {
-    const groups: Array<{ key: string; label: string; items: MomoTransactionItem[] }> = [];
-    const map = new Map<string, { label: string; items: MomoTransactionItem[] }>();
+  // Selection handlers
+  const handleToggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
-    for (const tx of filtered) {
-      const { key, label } = getWeekKeyAndLabel(new Date(tx.occurredAt));
-      let entry = map.get(key);
-      if (!entry) {
-        entry = { label, items: [] };
-        map.set(key, entry);
-      }
-      entry.items.push(tx);
+  const handleSelectAll = () => {
+    if (selectedIds.size === filtered.length && filtered.length > 0) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filtered.map((tx) => tx.id)));
     }
+  };
 
-    const sortedKeys = Array.from(map.keys()).sort((a, b) => b.localeCompare(a));
-    for (const key of sortedKeys) {
-      const val = map.get(key)!;
-      groups.push({ key, label: val.label, items: val.items });
-    }
+  const handleClearSelection = () => {
+    setSelectedIds(new Set());
+  };
 
-    return groups;
-  }, [filtered]);
-
-  // Optimistic inline category assignment with rollback
-  const handleCategoryChange = (txId: string, newCategoryId: string) => {
-    const original = [...transactions];
-    const targetCat = categories.find((c) => c.id === newCategoryId);
-
-    // Optimistic update
-    setTransactions((prev) =>
-      prev.map((tx) =>
-        tx.id === txId
-          ? {
-              ...tx,
-              category: targetCat || null,
-              status: MomoTransactionStatus.CONFIRMED,
-            }
-          : tx
-      )
-    );
+  // Inline category update
+  const handleInlineClassify = (txId: string, catId: string) => {
+    if (!canEdit || !catId) return;
 
     startTransition(async () => {
       const res = await classifySingleTransactionAction({
         transactionId: txId,
-        categoryId: newCategoryId,
+        categoryId: catId,
       });
 
       if (!res.success) {
-        // Rollback
-        setTransactions(original);
         addToast("error", res.error.message);
-      } else {
-        addToast("success", "Category assigned and confirmed");
+        return;
       }
+
+      const targetCat = categories.find((c) => c.id === catId);
+      setTransactions((prev) =>
+        prev.map((tx) => {
+          if (tx.id === txId) {
+            return {
+              ...tx,
+              status: MomoTransactionStatus.CONFIRMED,
+              category: targetCat
+                ? { id: targetCat.id, name: targetCat.name, code: targetCat.code }
+                : tx.category,
+            };
+          }
+          return tx;
+        })
+      );
+      addToast("success", "Payment classified");
     });
   };
 
-  // Bulk category assign
-  const handleBulkAssign = () => {
-    if (!bulkCategoryId || selectedIds.length === 0) return;
+  // Bulk classify
+  const handleBulkApplyCategory = () => {
+    if (!canEdit || !bulkCategoryId || selectedIds.size === 0) return;
 
-    const original = [...transactions];
-    const targetCat = categories.find((c) => c.id === bulkCategoryId);
-
-    setTransactions((prev) =>
-      prev.map((tx) =>
-        selectedIds.includes(tx.id)
-          ? {
-              ...tx,
-              category: targetCat || null,
-              status: MomoTransactionStatus.CONFIRMED,
-            }
-          : tx
-      )
-    );
-
-    const idsToUpdate = [...selectedIds];
-    setSelectedIds([]);
-
+    const ids = Array.from(selectedIds);
     startTransition(async () => {
       const res = await bulkClassifyTransactionsAction({
-        transactionIds: idsToUpdate,
+        transactionIds: ids,
         categoryId: bulkCategoryId,
       });
+
       if (!res.success) {
-        setTransactions(original);
         addToast("error", res.error.message);
-      } else {
-        addToast("success", `${plural(idsToUpdate.length, "payment")} updated`);
+        return;
       }
+
+      const targetCat = categories.find((c) => c.id === bulkCategoryId);
+      setTransactions((prev) =>
+        prev.map((tx) => {
+          if (selectedIds.has(tx.id)) {
+            return {
+              ...tx,
+              status: MomoTransactionStatus.CONFIRMED,
+              category: targetCat
+                ? { id: targetCat.id, name: targetCat.name, code: targetCat.code }
+                : tx.category,
+            };
+          }
+          return tx;
+        })
+      );
+
+      addToast(
+        "success",
+        `Updated ${plural(ids.length, "payment", "payments")}`
+      );
+      setSelectedIds(new Set());
+      setBulkCategoryId("");
     });
-  };
-
-  // Toggle selection
-  const toggleSelect = (id: string) => {
-    setSelectedIds((prev) =>
-      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
-    );
-  };
-
-  const toggleSelectAll = () => {
-    if (selectedIds.length === filtered.length) {
-      setSelectedIds([]);
-    } else {
-      setSelectedIds(filtered.map((t) => t.id));
-    }
-  };
-
-  const getStatusBadge = (status: MomoTransactionStatus) => {
-    switch (status) {
-      case MomoTransactionStatus.CONFIRMED:
-      case MomoTransactionStatus.AUTO:
-        return <Badge variant="Balanced">Confirmed</Badge>;
-      case MomoTransactionStatus.NEEDS_REVIEW:
-        return <Badge variant="Needs attention">Needs review</Badge>;
-      default:
-        return <Badge variant="Neutral">Ignored</Badge>;
-    }
   };
 
   return (
-    <div className="space-y-6 text-left">
+    <div className="space-y-6 pb-24">
       {/* Page Header */}
-      <PageHeader
-        title="Mobile money"
-        description="Mobile money statements and automatic payment classification."
-        action={
-          <div className="flex items-center gap-2 flex-wrap">
-            <Link href="/money/momo/rules">
-              <Button variant="secondary" size="sm">
-                Rules
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-border">
+        <div>
+          <h1 className="text-[24px] sm:text-[28px] font-semibold text-text leading-[34px]">
+            Mobile money
+          </h1>
+          <p className="text-[14px] text-muted leading-[20px] mt-0.5">
+            Assembly mobile money payments, automatic classification, and review.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2 flex-wrap">
+          <Link href="/money/momo/rules">
+            <Button variant="secondary" size="sm">
+              <SlidersHorizontal className="w-4 h-4 mr-1.5" />
+              Rules
+            </Button>
+          </Link>
+
+          <Link href="/money/momo/review">
+            <Button variant="secondary" size="sm">
+              <Tag className="w-4 h-4 mr-1.5" />
+              Needs review
+              {tabCounts.needsReview > 0 && (
+                <span className="ml-1.5 px-2 py-0.5 bg-warn-tint text-warn-ink font-semibold rounded-control text-[12px] num">
+                  {tabCounts.needsReview}
+                </span>
+              )}
+            </Button>
+          </Link>
+
+          {canEdit && (
+            <Link href="/money/momo/import">
+              <Button variant="primary" size="sm">
+                <Upload className="w-4 h-4 mr-1.5" />
+                Import statement
               </Button>
             </Link>
+          )}
+        </div>
+      </div>
 
-            <Link href="/money/momo/review">
-              <Button
-                variant={needsReviewCount > 0 ? "secondary" : "ghost"}
-                size="sm"
-              >
-                Needs review {needsReviewCount > 0 ? `(${needsReviewCount})` : ""}
-              </Button>
-            </Link>
+      {/* Filter Row: Segmented Tab Bar + Search + Category Select */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        {/* Segmented Control */}
+        <div className="inline-flex p-1 bg-surface border border-border rounded-control self-start">
+          <button
+            type="button"
+            onClick={() => setActiveTab("ALL")}
+            className={`px-3 py-1.5 text-[13px] font-medium rounded-control transition-colors ${
+              activeTab === "ALL"
+                ? "bg-brand text-on-brand shadow-sm"
+                : "text-muted hover:text-text"
+            }`}
+          >
+            All <span className="num ml-1">({tabCounts.all})</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("NEEDS_REVIEW")}
+            className={`px-3 py-1.5 text-[13px] font-medium rounded-control transition-colors ${
+              activeTab === "NEEDS_REVIEW"
+                ? "bg-brand text-on-brand shadow-sm"
+                : "text-muted hover:text-text"
+            }`}
+          >
+            Needs a category{" "}
+            <span className="num ml-1">({tabCounts.needsReview})</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("CLASSIFIED")}
+            className={`px-3 py-1.5 text-[13px] font-medium rounded-control transition-colors ${
+              activeTab === "CLASSIFIED"
+                ? "bg-brand text-on-brand shadow-sm"
+                : "text-muted hover:text-text"
+            }`}
+          >
+            Classified <span className="num ml-1">({tabCounts.classified})</span>
+          </button>
+        </div>
 
-            {canEdit && (
+        {/* Search and Category Filter */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+          <div className="relative min-w-[240px]">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search counterparty or reference..."
+              className="w-full h-[40px] pl-9 pr-3 bg-surface border border-border-strong rounded-control text-[14px] text-text placeholder:text-muted focus:border-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand focus-visible:outline-offset-2"
+            />
+            <Search className="w-4 h-4 text-muted absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+          </div>
+
+          <div className="w-[180px]">
+            <Select
+              value={selectedCategory}
+              onChange={(e) => setSelectedCategory(e.target.value)}
+              options={[
+                { value: "ALL", label: "All categories" },
+                ...categories.map((c) => ({ value: c.id, label: c.name })),
+              ]}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Transaction Table */}
+      {transactions.length === 0 ? (
+        <EmptyState
+          title="No Mobile Money transactions"
+          description="Statements have not been imported yet. Upload an MTN MoMo or Vodafone Cash statement to begin automatic classification."
+          action={
+            canEdit ? (
               <Link href="/money/momo/import">
-                <Button variant="primary" size="sm">
+                <Button variant="primary">
+                  <Upload className="w-4 h-4 mr-1.5" />
                   Import statement
                 </Button>
               </Link>
-            )}
-          </div>
-        }
-      />
-
-      {/* Segmented control with counts via plural() */}
-      <div className="overflow-x-auto pb-1">
-        <SegmentedControl
-          value={selectedStatus}
-          onChange={(v) => setSelectedStatus(v)}
-          options={[
-            { value: "ALL", label: `All (${plural(statusCounts.all, "transaction")})` },
-            {
-              value: MomoTransactionStatus.NEEDS_REVIEW,
-              label: `Needs review (${plural(statusCounts.review, "transaction")})`,
-            },
-            {
-              value: MomoTransactionStatus.CONFIRMED,
-              label: `Confirmed (${plural(statusCounts.confirmed + statusCounts.auto, "transaction")})`,
-            },
-            {
-              value: MomoTransactionStatus.IGNORED,
-              label: `Ignored (${plural(statusCounts.ignored, "transaction")})`,
-            },
-          ]}
+            ) : undefined
+          }
         />
-      </div>
-
-      {/* Filter and Search Bar */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3 bg-surface border border-border rounded-panel">
-        <div className="flex flex-1 items-center gap-3">
-          {/* Search Field */}
-          <div className="relative flex-1 max-w-sm">
-            <input
-              type="search"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search by payer, phone or ref..."
-              className="w-full h-10 pl-9 pr-3 bg-surface border border-border rounded-control text-body text-text placeholder:text-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-            />
-            <Search className="w-4 h-4 text-muted absolute left-3 top-1/2 -translate-y-1/2 stroke-[1.75]" />
-          </div>
-
-          {/* Category Filter */}
-          <select
-            value={selectedCategory}
-            onChange={(e) => setSelectedCategory(e.target.value)}
-            className="h-10 px-3 bg-surface border border-border rounded-control text-body text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-          >
-            <option value="ALL">All categories</option>
-            {categories.map((cat) => (
-              <option key={cat.id} value={cat.id}>
-                {cat.name}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="text-caption text-muted">
-          Showing {plural(filtered.length, "payment")}
-        </div>
-      </div>
-
-      {/* Bulk Action Bar */}
-      {selectedIds.length > 0 && canEdit && (
-        <div className="p-3 bg-hover border border-border rounded-panel flex flex-wrap items-center justify-between gap-3">
-          <span className="text-label font-medium text-text">
-            {plural(selectedIds.length, "payment")} selected
-          </span>
-
-          <div className="flex items-center gap-2">
-            <select
-              value={bulkCategoryId}
-              onChange={(e) => setBulkCategoryId(e.target.value)}
-              className="h-9 px-3 bg-surface border border-border rounded-control text-label text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-            >
-              <option value="">Assign category...</option>
-              {categories.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-
-            <Button
-              variant="primary"
-              size="sm"
-              disabled={!bulkCategoryId || isPending}
-              onClick={handleBulkAssign}
-            >
-              Apply
-            </Button>
-
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setSelectedIds([])}
-            >
-              Clear
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {/* Grouped Table by Week */}
-      {filtered.length === 0 ? (
+      ) : filtered.length === 0 ? (
         <EmptyState
-          title="No transactions match this filter"
-          description="Adjust your search criteria or import statements from your mobile money provider."
+          title="No matching payments found"
+          description="Try adjusting your tab, category filter, or search keywords."
+          actionLabel="Clear filters"
+          onAction={() => {
+            setActiveTab("ALL");
+            setSelectedCategory("ALL");
+            setSearchQuery("");
+          }}
         />
       ) : (
-        <div className="space-y-6">
-          {groupedByWeek.map((group) => (
-            <div key={group.key} className="space-y-2">
-              <div className="flex items-center justify-between px-1">
-                <h3 className="text-lead font-semibold text-text">
-                  Week of {group.label}
-                </h3>
-                <span className="text-caption text-muted">
-                  {plural(group.items.length, "payment")}
-                </span>
-              </div>
+        <div className="border border-border rounded-panel bg-surface overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="border-b border-border text-[12px] font-medium text-muted bg-hover/50">
+                {canEdit && (
+                  <th className="py-3 px-4 w-10">
+                    <Checkbox
+                      checked={
+                        selectedIds.size === filtered.length &&
+                        filtered.length > 0
+                      }
+                      onChange={handleSelectAll}
+                      aria-label="Select all payments"
+                    />
+                  </th>
+                )}
+                <th className="py-3 px-4">Date & Time</th>
+                <th className="py-3 px-4">Counterparty / Reference</th>
+                <th className="py-3 px-4">Category</th>
+                <th className="py-3 px-4 text-right">Amount</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border text-[14px]">
+              {filtered.map((tx) => {
+                const txDate = new Date(tx.occurredAt);
+                const isOut = tx.direction === "OUT";
+                const isSelected = selectedIds.has(tx.id);
 
-              <div className="border border-border rounded-panel bg-surface overflow-hidden divide-y divide-border">
-                {group.items.map((tx) => (
-                  <div
+                return (
+                  <tr
                     key={tx.id}
-                    className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-hover transition-colors duration-120"
+                    className={`hover:bg-hover transition-colors ${
+                      isSelected ? "bg-hover/80" : ""
+                    }`}
                   >
-                    <div className="flex items-start gap-3 flex-1 min-w-0">
-                      {canEdit && (
-                        <input
-                          type="checkbox"
-                          checked={selectedIds.includes(tx.id)}
-                          onChange={() => toggleSelect(tx.id)}
-                          className="mt-1 w-4 h-4 rounded-control border-border text-accent focus-visible:ring-accent"
-                          aria-label={`Select transaction ${tx.externalRef || tx.id}`}
+                    {canEdit && (
+                      <td className="py-3 px-4">
+                        <Checkbox
+                          checked={isSelected}
+                          onChange={() => handleToggleSelect(tx.id)}
+                          aria-label={`Select payment from ${
+                            tx.counterpartyName || "Unknown"
+                          }`}
                         />
-                      )}
-
-                      <div className="space-y-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-body font-medium text-text">
-                            {tx.counterpartyName || "Anonymous payer"}
-                          </span>
-                          {tx.counterpartyPhone && (
-                            <span className="text-caption text-muted tnum tabular-nums">
-                              {tx.counterpartyPhone}
-                            </span>
-                          )}
-                          {getStatusBadge(tx.status)}
-                        </div>
-
-                        <p className="text-caption text-muted truncate">
-                          {tx.rawDescription}
-                        </p>
-                        {tx.externalRef && (
-                          <span className="text-caption text-muted block tnum tabular-nums">
-                            Ref: {tx.externalRef}
-                          </span>
+                      </td>
+                    )}
+                    <td className="py-3 px-4 whitespace-nowrap">
+                      <div className="text-text font-medium text-[13px]">
+                        {formatAccraDate(txDate, {
+                          day: "numeric",
+                          month: "short",
+                        })}
+                      </div>
+                      <div className="text-[12px] text-muted num">
+                        {txDate.toLocaleTimeString("en-GB", {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                          hour12: false,
+                        })}
+                      </div>
+                    </td>
+                    <td className="py-3 px-4 min-w-[200px]">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="font-medium text-text">
+                          {tx.member?.fullName ||
+                            tx.counterpartyName ||
+                            tx.counterpartyPhone ||
+                            "Unknown Counterparty"}
+                        </span>
+                        {tx.member && (
+                          <Badge variant="neutral">Member</Badge>
                         )}
                       </div>
-                    </div>
-
-                    <div className="flex items-center gap-4 self-end sm:self-auto flex-shrink-0">
-                      {/* Inline Category Select */}
+                      <div className="text-[12px] text-muted truncate max-w-sm">
+                        {tx.externalRef && (
+                          <span className="font-medium num mr-1.5">
+                            ref:{tx.externalRef}
+                          </span>
+                        )}
+                        <span>{tx.rawDescription}</span>
+                      </div>
+                    </td>
+                    <td className="py-3 px-4 min-w-[180px]">
                       {canEdit ? (
                         <select
                           value={tx.category?.id || ""}
-                          onChange={(e) => handleCategoryChange(tx.id, e.target.value)}
-                          className="h-9 px-2.5 bg-surface border border-border rounded-control text-caption text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-                          aria-label="Assign giving category"
+                          onChange={(e) =>
+                            handleInlineClassify(tx.id, e.target.value)
+                          }
+                          disabled={isPending}
+                          className="w-full h-[36px] px-2 bg-surface border border-border rounded-control text-[13px] text-text focus:border-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand cursor-pointer"
                         >
-                          <option value="">Select category...</option>
+                          <option value="" disabled>
+                            Select category...
+                          </option>
                           {categories.map((c) => (
                             <option key={c.id} value={c.id}>
                               {c.name}
@@ -446,22 +475,65 @@ export function MomoTransactionList({
                           ))}
                         </select>
                       ) : (
-                        <span className="text-body text-muted">
+                        <span className="text-[13px] text-text font-medium">
                           {tx.category?.name || "Uncategorized"}
                         </span>
                       )}
-
-                      <div className="text-right">
-                        <div className="text-body font-semibold text-text tnum tabular-nums">
-                          <MoneyText amount={tx.amount.toString()} />
-                        </div>
+                    </td>
+                    <td className="py-3 px-4 text-right whitespace-nowrap">
+                      <div
+                        className={`text-[15px] font-semibold num ${
+                          isOut ? "text-bad-ink" : "text-text"
+                        }`}
+                      >
+                        {isOut ? "-" : ""}
+                        {formatMoney(tx.amount.toString())}
                       </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Floating Bottom Bulk Action Bar */}
+      {selectedIds.size > 0 && (
+        <div className="fixed bottom-16 lg:bottom-0 left-0 right-0 lg:left-sidebar bg-surface border-t border-border p-4 z-30 shadow-lg flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <span className="text-[14px] font-semibold text-text num">
+              {plural(selectedIds.size, "payment", "payments")} selected
+            </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleClearSelection}
+              className="text-muted text-[13px]"
+            >
+              Clear selection
+            </Button>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <div className="w-[200px]">
+              <Select
+                value={bulkCategoryId}
+                onChange={(e) => setBulkCategoryId(e.target.value)}
+                options={[
+                  { value: "", label: "Assign category..." },
+                  ...categories.map((c) => ({ value: c.id, label: c.name })),
+                ]}
+              />
             </div>
-          ))}
+            <Button
+              variant="primary"
+              disabled={!bulkCategoryId || isPending}
+              onClick={handleBulkApplyCategory}
+            >
+              {isPending ? "Applying..." : "Apply category"}
+            </Button>
+          </div>
         </div>
       )}
     </div>

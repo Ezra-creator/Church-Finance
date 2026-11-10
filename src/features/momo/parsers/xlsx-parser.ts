@@ -112,7 +112,7 @@ export class XlsxStatementParser implements StatementParser {
   async inspect(
     buffer: Buffer,
     headerRow: number = 1
-  ): Promise<{ headers: string[]; previewRows: Record<string, string>[] }> {
+  ): Promise<{ headers: string[]; sampleRows: Record<string, string>[] }> {
     const workbook = XLSX.read(buffer, {
       type: "buffer",
       cellDates: true,
@@ -120,7 +120,7 @@ export class XlsxStatementParser implements StatementParser {
 
     const sheetName = workbook.SheetNames[0];
     if (!sheetName) {
-      return { headers: [], previewRows: [] };
+      return { headers: [], sampleRows: [] };
     }
 
     const worksheet = workbook.Sheets[sheetName];
@@ -133,15 +133,15 @@ export class XlsxStatementParser implements StatementParser {
 
     const headerIndex = Math.max(0, headerRow - 1);
     if (rawData.length <= headerIndex) {
-      return { headers: [], previewRows: [] };
+      return { headers: [], sampleRows: [] };
     }
 
     const headers = (rawData[headerIndex] || [])
       .map((h) => String(h || "").trim())
       .filter((h) => h.length > 0);
 
-    const previewRows: Record<string, string>[] = [];
-    for (let i = headerIndex + 1; i < rawData.length && previewRows.length < 5; i++) {
+    const sampleRows: Record<string, string>[] = [];
+    for (let i = headerIndex + 1; i < rawData.length && sampleRows.length < 5; i++) {
       const line = rawData[i] || [];
       if (line.every((cell) => String(cell || "").trim() === "")) continue;
 
@@ -152,9 +152,9 @@ export class XlsxStatementParser implements StatementParser {
           rowObj[cleanHeader] = String(line[colIdx] ?? "").trim();
         }
       });
-      previewRows.push(rowObj);
+      sampleRows.push(rowObj);
     }
 
-    return { headers, previewRows };
+    return { headers, sampleRows };
   }
 }

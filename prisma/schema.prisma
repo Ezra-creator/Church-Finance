@@ -10,7 +10,7 @@ generator client {
 enum Role {
   FINANCE_SECRETARY
   TREASURER
-  PRESBYTERY_VIEWER
+  REVIEWER
 }
 
 enum DenominationKind {
@@ -173,13 +173,21 @@ model GivingCategory {
 }
 
 model ChurchSettings {
-  id                String   @id @default("singleton")
-  churchName        String
-  presbyteryName    String
-  weekEndsOn        Int      @default(0)
-  parallelRunActive Boolean  @default(true)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id                   String   @id @default("singleton")
+  assemblyName         String   @default("PUCA English Assembly")
+  parentBodyName       String   @default("The Church of Pentecost")
+  assemblyAbbreviation String   @default("PUCA")
+  districtName         String?
+  areaName             String?
+  reportRecipientName  String?
+  signatoryTitles      String   @default("[]")
+  currency             String   @default("GHS")
+  timezone             String   @default("Africa/Accra")
+  weekStartsOn         String   @default("Sunday")
+  weekEndsOn           Int      @default(0)
+  parallelRunActive    Boolean  @default(true)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 
   @@map("church_settings")
 }

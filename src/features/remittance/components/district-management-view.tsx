@@ -8,31 +8,33 @@ import {
   Role,
   DistrictRemittanceStatus,
 } from "@prisma/client";
-import { StatBlock } from "@/components/ui/stat-block";
-import { PageHeader } from "@/components/ui/page-header";
+import {
+  Coins,
+  CheckCircle2,
+  Clock,
+  Plus,
+  ArrowRight,
+  ShieldAlert,
+  Percent,
+  Calendar,
+  History,
+} from "lucide-react";
+import { RuleHeading } from "@/components/ui/rule-heading";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { StatusMark } from "@/components/ui/status-mark";
 import { Sheet } from "@/components/ui/sheet";
 import { TextField } from "@/components/ui/text-field";
 import { Select } from "@/components/ui/select";
 import { EmptyState } from "@/components/ui/empty-state";
-import { InlineAlert } from "@/components/ui/inline-alert";
-import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
-} from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
-import { formatCedi, toDecimal } from "@/lib/money";
+import { formatCedi } from "@/lib/money";
 import { formatAccraDate, nowUtc, toAccraDateString } from "@/lib/dates";
-import { plural } from "@/lib/plural";
 import { recordRemittancePaymentAction } from "@/features/remittance/actions";
-import { createAllocationRuleAction } from "@/features/allocation/actions";
+import {
+  createAllocationRuleAction,
+  closeAllocationRuleAction,
+} from "@/features/allocation/actions";
 import { DistrictRemittanceSummary } from "@/features/remittance/service";
-import Decimal from "decimal.js";
 
 interface DistrictRemittanceWithPeriod extends DistrictRemittance {
   period: {
@@ -98,11 +100,11 @@ export function DistrictManagementView({
     userRole === Role.FINANCE_SECRETARY || userRole === Role.TREASURER;
 
   const openPaymentSheet = (rem: DistrictRemittanceWithPeriod) => {
-    const due = toDecimal(rem.amountDue) || new Decimal(0);
-    const paid = toDecimal(rem.amountPaid) || new Decimal(0);
-    const remaining = Decimal.max(0, due.minus(paid));
+    const due = parseFloat(rem.amountDue.toString());
+    const paid = parseFloat(rem.amountPaid.toString());
+    const remaining = Math.max(0, due - paid);
     setSelectedRemittance(rem);
-    setPaymentAmount(remaining.toString());
+    setPaymentAmount(remaining.toFixed(2));
     setPaymentDate(toAccraDateString(nowUtc()));
     setPaymentReference("");
     setPaymentError(null);
@@ -126,7 +128,7 @@ export function DistrictManagementView({
         return;
       }
 
-      addToast({ type: "success", message: "District remittance payment recorded." });
+      addToast("success", "District remittance payment recorded successfully.");
       setSelectedRemittance(null);
       window.location.reload();
     });
@@ -148,195 +150,155 @@ export function DistrictManagementView({
         return;
       }
 
-      addToast({ type: "success", message: "District allocation rule established." });
+      addToast("success", "District allocation rule established.");
       setIsRuleSheetOpen(false);
       window.location.reload();
     });
   };
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="District"
-        description="Track weekly assessment allocations and payments to the district."
-      />
+    <div className="space-y-8">
+      {/* Page Header with Total Outstanding in Large Mono */}
+      <div className="pb-6 border-b border-rule flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <div>
+          <p className="text-[10px] uppercase tracking-widest font-mono text-ink-soft">
+            Headquarters & District Obligations
+          </p>
+          <h1 className="text-3xl font-serif font-normal text-ink mt-1">
+            District Remittances
+          </h1>
+          <p className="text-xs text-ink-soft mt-1">
+            Track weekly assessment allocations owed to the district and record payment disbursements.
+          </p>
+        </div>
 
-      {/* Outstanding StatBlock */}
-      <StatBlock
-        label="Total outstanding due"
-        value={formatCedi(summary.totalOutstanding)}
-        hint={`${summary.countOutstanding} ${plural(summary.countOutstanding, "period", "periods")} awaiting settlement`}
-      />
+        {/* Large Mono Outstanding Notice */}
+        <div className="p-4 border border-rule bg-paper rounded-[2px] min-w-[240px]">
+          <p className="text-[10px] uppercase font-mono tracking-wider text-ink-soft">
+            Total Outstanding Due
+          </p>
+          <p className="text-3xl font-mono font-bold text-ink mt-0.5 tabular-nums">
+            {formatCedi(summary.totalOutstanding)}
+          </p>
+          <p className="text-[11px] font-mono text-ink-soft mt-1">
+            {summary.countOutstanding} period{summary.countOutstanding === 1 ? "" : "s"} awaiting settlement
+          </p>
+        </div>
+      </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-border text-body">
+      <div className="flex border-b border-rule text-xs font-mono">
         <button
           type="button"
           onClick={() => setActiveTab("remittances")}
-          className={`px-4 py-2.5 font-medium border-b-2 transition-colors min-h-[44px] ${
+          className={`px-4 py-2.5 font-medium border-b-2 transition-colors ${
             activeTab === "remittances"
-              ? "border-accent text-accent"
-              : "border-transparent text-muted hover:text-text"
+              ? "border-ink text-ink font-semibold"
+              : "border-transparent text-ink-soft hover:text-ink"
           }`}
         >
-          Weekly remittances ({remittances.length})
+          Weekly Remittances ({remittances.length})
         </button>
         <button
           type="button"
           onClick={() => setActiveTab("rules")}
-          className={`px-4 py-2.5 font-medium border-b-2 transition-colors min-h-[44px] ${
+          className={`px-4 py-2.5 font-medium border-b-2 transition-colors ${
             activeTab === "rules"
-              ? "border-accent text-accent"
-              : "border-transparent text-muted hover:text-text"
+              ? "border-ink text-ink font-semibold"
+              : "border-transparent text-ink-soft hover:text-ink"
           }`}
         >
-          Allocation rules ({rules.length})
+          Allocation Rules ({rules.length})
         </button>
       </div>
 
-      {/* TAB 1: REMITTANCE RECORDS */}
+      {/* TAB 1: REMITTANCES TABLE */}
       {activeTab === "remittances" && (
         <div className="space-y-4">
           {remittances.length === 0 ? (
             <EmptyState
               title="No district remittances recorded"
-              description="District obligations are automatically computed when weekly reconciliation periods are submitted."
+              description="District obligations are automatically computed and created when weekly reconciliation periods are submitted."
             />
           ) : (
-            <>
-              {/* Desktop Table View */}
-              <div className="hidden sm:block border border-border rounded-panel overflow-hidden bg-surface">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Week ending</TableHead>
-                      <TableHead className="text-right">Amount due</TableHead>
-                      <TableHead className="text-right">Amount paid</TableHead>
-                      <TableHead className="text-right">Balance due</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Action</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {remittances.map((rem) => {
-                      const due = toDecimal(rem.amountDue) || new Decimal(0);
-                      const paid = toDecimal(rem.amountPaid) || new Decimal(0);
-                      const balance = due.minus(paid);
-                      const isFullyPaid = rem.status === DistrictRemittanceStatus.PAID;
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="border-b border-rule font-mono uppercase tracking-wider text-[11px] text-ink-soft">
+                    <th className="py-2.5 pr-4 font-normal">Week Ending</th>
+                    <th className="py-2.5 px-3 text-right font-normal">Amount Due</th>
+                    <th className="py-2.5 px-3 text-right font-normal">Amount Paid</th>
+                    <th className="py-2.5 px-3 text-right font-normal">Balance Due</th>
+                    <th className="py-2.5 px-3 font-normal">Status</th>
+                    <th className="py-2.5 pl-3 text-right font-normal">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-rule font-mono">
+                  {remittances.map((rem) => {
+                    const dueNum = parseFloat(rem.amountDue.toString());
+                    const paidNum = parseFloat(rem.amountPaid.toString());
+                    const balance = dueNum - paidNum;
+                    const isFullyPaid = rem.status === DistrictRemittanceStatus.PAID;
 
-                      const statusVariant =
-                        rem.status === DistrictRemittanceStatus.PAID
-                          ? "balanced"
-                          : rem.status === DistrictRemittanceStatus.PART_PAID
-                          ? "attention"
-                          : "neutral";
+                    const statusTone =
+                      rem.status === DistrictRemittanceStatus.PAID
+                        ? "balanced"
+                        : rem.status === DistrictRemittanceStatus.PART_PAID
+                        ? "neutral"
+                        : "variance";
 
-                      const statusLabel =
-                        rem.status === DistrictRemittanceStatus.PAID
-                          ? "Paid in full"
-                          : rem.status === DistrictRemittanceStatus.PART_PAID
-                          ? "Part-paid"
-                          : "Due";
+                    const statusLabel =
+                      rem.status === DistrictRemittanceStatus.PAID
+                        ? "Paid in full"
+                        : rem.status === DistrictRemittanceStatus.PART_PAID
+                        ? "Part-paid"
+                        : "Due";
 
-                      return (
-                        <TableRow key={rem.id}>
-                          <TableCell className="text-text">
-                            <span className="font-medium">
-                              {formatAccraDate(rem.period.weekEnding)}
-                            </span>
-                            <span className="text-caption text-muted ml-2 tnum">
-                              (v{rem.period.reportVersion})
-                            </span>
-                          </TableCell>
-                          <TableCell className="text-right tnum font-medium text-text">
-                            {formatCedi(rem.amountDue)}
-                          </TableCell>
-                          <TableCell className="text-right tnum text-muted">
-                            {formatCedi(rem.amountPaid)}
-                          </TableCell>
-                          <TableCell className="text-right tnum text-muted">
-                            {isFullyPaid ? "—" : formatCedi(balance)}
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant={statusVariant} label={statusLabel} />
-                          </TableCell>
-                          <TableCell className="text-right">
-                            {canManage && !isFullyPaid && (
-                              <Button
-                                variant="secondary"
-                                size="sm"
-                                onClick={() => openPaymentSheet(rem)}
-                              >
-                                Record payment
-                              </Button>
-                            )}
-                            {isFullyPaid && (
-                              <span className="text-muted text-caption">
-                                Settled
-                              </span>
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
-
-              {/* Mobile Collapsed Row View */}
-              <div className="sm:hidden border border-border rounded-panel divide-y divide-border bg-surface">
-                {remittances.map((rem) => {
-                  const due = toDecimal(rem.amountDue) || new Decimal(0);
-                  const paid = toDecimal(rem.amountPaid) || new Decimal(0);
-                  const balance = due.minus(paid);
-                  const isFullyPaid = rem.status === DistrictRemittanceStatus.PAID;
-
-                  const statusVariant =
-                    rem.status === DistrictRemittanceStatus.PAID
-                      ? "balanced"
-                      : rem.status === DistrictRemittanceStatus.PART_PAID
-                      ? "attention"
-                      : "neutral";
-
-                  const statusLabel =
-                    rem.status === DistrictRemittanceStatus.PAID
-                      ? "Paid in full"
-                      : rem.status === DistrictRemittanceStatus.PART_PAID
-                      ? "Part-paid"
-                      : "Due";
-
-                  return (
-                    <div key={rem.id} className="p-3.5 space-y-2">
-                      <div className="flex items-baseline justify-between gap-2">
-                        <span className="font-medium text-body text-text">
-                          {formatAccraDate(rem.period.weekEnding)}
-                        </span>
-                        <span className="text-body font-medium text-text tnum">
+                    return (
+                      <tr key={rem.id} className="hover:bg-ink/[0.02]">
+                        <td className="py-3 pr-4 text-ink font-sans">
+                          <span className="font-medium">
+                            {formatAccraDate(rem.period.weekEnding)}
+                          </span>
+                          <span className="text-[10px] font-mono text-ink-soft ml-2">
+                            (v{rem.period.reportVersion})
+                          </span>
+                        </td>
+                        <td className="py-3 px-3 text-right tabular-nums text-ink font-semibold">
                           {formatCedi(rem.amountDue)}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between text-caption text-muted">
-                        <span className="tnum">
-                          Balance: {isFullyPaid ? "Settled" : formatCedi(balance)}
-                        </span>
-                        <Badge variant={statusVariant} label={statusLabel} />
-                      </div>
-                      {canManage && !isFullyPaid && (
-                        <div className="pt-1.5 flex justify-end border-t border-border">
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            onClick={() => openPaymentSheet(rem)}
-                          >
-                            Record payment
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </>
+                        </td>
+                        <td className="py-3 px-3 text-right tabular-nums text-ink">
+                          {formatCedi(rem.amountPaid)}
+                        </td>
+                        <td className="py-3 px-3 text-right tabular-nums text-ink">
+                          {isFullyPaid ? "-" : formatCedi(balance.toFixed(2))}
+                        </td>
+                        <td className="py-3 px-3">
+                          <StatusMark tone={statusTone} label={statusLabel} />
+                        </td>
+                        <td className="py-3 pl-3 text-right">
+                          {canManage && !isFullyPaid && (
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => openPaymentSheet(rem)}
+                              className="text-xs"
+                            >
+                              Record payment
+                            </Button>
+                          )}
+                          {isFullyPaid && (
+                            <span className="text-ink-soft text-[11px] font-mono">
+                              Settled
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
       )}
@@ -344,79 +306,85 @@ export function DistrictManagementView({
       {/* TAB 2: ALLOCATION RULES */}
       {activeTab === "rules" && (
         <div className="space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-border">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-rule">
             <div>
-              <h2 className="text-lead font-semibold text-text">
-                District assessment percentages
+              <h2 className="text-base font-serif font-normal text-ink">
+                District Assessment Percentages
               </h2>
-              <p className="text-caption text-muted">
+              <p className="text-xs text-ink-soft">
                 Percentage of weekly category revenue designated for district remittance.
               </p>
             </div>
             {canManage && (
               <Button variant="primary" onClick={() => setIsRuleSheetOpen(true)}>
+                <Plus className="w-4 h-4 mr-1.5" />
                 Add or change rule
               </Button>
             )}
           </div>
 
-          <InlineAlert
-            variant="info"
-            title="Effective date guarantee: Rules never overwrite history. When you change a percentage, the existing active rule is closed on the prior day and the new percentage takes effect on the chosen date. Past reconciliation periods retain their locked calculations."
-          />
+          {/* Plain Explanation Banner */}
+          <div className="p-3.5 bg-paper border border-rule text-xs font-mono space-y-1 text-ink-soft rounded-[2px]">
+            <p className="font-semibold text-ink">Effective Date Guarantee:</p>
+            <p>
+              Rules never overwrite history. When you change a percentage, the existing active
+              rule is closed on the prior day and the new percentage takes effect on the chosen
+              date. All past submitted reconciliation periods retain their locked, historical calculations.
+            </p>
+          </div>
 
           {rules.length === 0 ? (
             <EmptyState
               title="No allocation rules configured"
-              description="No default percentages are configured. Set allocation percentage rules for giving categories to automatically calculate weekly amounts due."
+              description="No default percentages are seeded. Set allocation percentage rules for giving categories (e.g. Tithe) to automatically calculate weekly amounts due."
               action={
                 canManage ? (
                   <Button variant="secondary" onClick={() => setIsRuleSheetOpen(true)}>
-                    Configure rule
+                    Configure first rule
                   </Button>
                 ) : undefined
               }
             />
           ) : (
-            <div className="border border-border rounded-panel overflow-hidden bg-surface">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Giving category</TableHead>
-                    <TableHead className="text-right">District %</TableHead>
-                    <TableHead>Effective from</TableHead>
-                    <TableHead>Effective to</TableHead>
-                    <TableHead>Status</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="border-b border-rule font-mono uppercase tracking-wider text-[11px] text-ink-soft">
+                    <th className="py-2.5 pr-4 font-normal">Giving Category</th>
+                    <th className="py-2.5 px-3 text-right font-normal">District %</th>
+                    <th className="py-2.5 px-3 font-normal">Effective From</th>
+                    <th className="py-2.5 px-3 font-normal">Effective To</th>
+                    <th className="py-2.5 pl-3 font-normal">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-rule font-mono">
                   {rules.map((rule) => {
                     const isActive = rule.effectiveTo === null;
                     return (
-                      <TableRow key={rule.id}>
-                        <TableCell className="font-medium text-text">
+                      <tr key={rule.id} className="hover:bg-ink/[0.02]">
+                        <td className="py-2.5 pr-4 text-ink font-sans font-medium">
                           {rule.category.name}
-                        </TableCell>
-                        <TableCell className="text-right tnum font-medium text-text">
+                        </td>
+                        <td className="py-2.5 px-3 text-right tabular-nums font-semibold text-ink">
                           {rule.percentage.toString()}%
-                        </TableCell>
-                        <TableCell className="tnum text-muted">
+                        </td>
+                        <td className="py-2.5 px-3 text-ink">
                           {formatAccraDate(rule.effectiveFrom)}
-                        </TableCell>
-                        <TableCell className="tnum text-muted">
+                        </td>
+                        <td className="py-2.5 px-3 text-ink-soft">
                           {rule.effectiveTo ? formatAccraDate(rule.effectiveTo) : "Current / Open"}
-                        </TableCell>
-                        <TableCell>
-                          <Badge
-                            variant={isActive ? "balanced" : "neutral"}
+                        </td>
+                        <td className="py-2.5 pl-3">
+                          <StatusMark
+                            tone={isActive ? "balanced" : "neutral"}
                             label={isActive ? "Active" : "Closed"}
                           />
-                        </TableCell>
-                      </TableRow>
+                        </td>
+                      </tr>
                     );
                   })}
-                </TableBody>
-              </Table>
+                </tbody>
+              </table>
             </div>
           )}
         </div>
@@ -427,52 +395,52 @@ export function DistrictManagementView({
         <Sheet
           isOpen={true}
           onClose={() => setSelectedRemittance(null)}
-          title="Record district payment"
+          title="Record District Payment"
           description={`Record funds disbursed to the district for the week ending ${formatAccraDate(
             selectedRemittance.period.weekEnding
           )}.`}
         >
           <form onSubmit={handleRecordPayment} className="space-y-4 py-2">
             {paymentError && (
-              <InlineAlert variant="danger" title={paymentError} />
+              <div className="p-3 bg-red-50 text-red-700 text-xs font-mono rounded-[2px]">
+                {paymentError}
+              </div>
             )}
 
             {/* Summary Box */}
-            <div className="p-3 bg-page border border-border rounded-panel space-y-1.5 text-caption text-muted">
+            <div className="p-3 bg-paper border border-rule space-y-1.5 text-xs font-mono">
               <div className="flex justify-between">
-                <span>Total assessment:</span>
-                <span className="font-medium text-text tnum">{formatCedi(selectedRemittance.amountDue)}</span>
+                <span className="text-ink-soft">Total Assessment:</span>
+                <span className="font-semibold">{formatCedi(selectedRemittance.amountDue)}</span>
               </div>
               <div className="flex justify-between">
-                <span>Previously paid:</span>
-                <span className="tnum">{formatCedi(selectedRemittance.amountPaid)}</span>
+                <span className="text-ink-soft">Previously Paid:</span>
+                <span>{formatCedi(selectedRemittance.amountPaid)}</span>
               </div>
-              <div className="flex justify-between pt-1 border-t border-border font-medium text-text">
-                <span>Remaining balance due:</span>
-                <span className="tnum">
+              <div className="flex justify-between pt-1 border-t border-rule font-bold">
+                <span>Remaining Balance Due:</span>
+                <span className="text-ink">
                   {formatCedi(
-                    Decimal.max(
-                      0,
-                      (toDecimal(selectedRemittance.amountDue) || new Decimal(0)).minus(
-                        toDecimal(selectedRemittance.amountPaid) || new Decimal(0)
-                      )
-                    )
+                    (
+                      parseFloat(selectedRemittance.amountDue.toString()) -
+                      parseFloat(selectedRemittance.amountPaid.toString())
+                    ).toFixed(2)
                   )}
                 </span>
               </div>
             </div>
 
             <TextField
-              label="Payment amount (GH₵)"
-              type="text"
-              inputMode="decimal"
+              label="Payment Amount (GH₵)"
+              type="number"
+              step="0.01"
               value={paymentAmount}
               onChange={(e) => setPaymentAmount(e.target.value)}
               required
             />
 
             <TextField
-              label="Payment date"
+              label="Payment Date"
               type="date"
               value={paymentDate}
               onChange={(e) => setPaymentDate(e.target.value)}
@@ -480,7 +448,7 @@ export function DistrictManagementView({
             />
 
             <TextField
-              label="Payment reference or cheque number"
+              label="Payment Reference / Cheque #"
               type="text"
               placeholder="e.g. CHQ-48291, MoMo Ref, or Bank Slip #"
               value={paymentReference}
@@ -489,20 +457,20 @@ export function DistrictManagementView({
 
             {/* Payment History if any */}
             {selectedRemittance.payments.length > 0 && (
-              <div className="pt-2 border-t border-border space-y-1">
-                <p className="text-caption text-muted">
-                  Previous partial payments
+              <div className="pt-2 border-t border-rule space-y-1">
+                <p className="text-[11px] font-mono uppercase tracking-wider text-ink-soft">
+                  Previous Partial Payments
                 </p>
                 <div className="space-y-1">
                   {selectedRemittance.payments.map((p) => (
                     <div
                       key={p.id}
-                      className="flex justify-between text-caption text-muted"
+                      className="flex justify-between text-xs font-mono text-ink-soft"
                     >
-                      <span className="tnum">
+                      <span>
                         {formatAccraDate(p.paidOn)} {p.reference ? `(${p.reference})` : ""}
                       </span>
-                      <strong className="text-text tnum">{formatCedi(p.amount)}</strong>
+                      <strong className="text-ink">{formatCedi(p.amount)}</strong>
                     </div>
                   ))}
                 </div>
@@ -519,7 +487,7 @@ export function DistrictManagementView({
                 Cancel
               </Button>
               <Button type="submit" variant="primary" className="flex-1" disabled={isPending}>
-                {isPending ? "Recording..." : "Confirm payment"}
+                {isPending ? "Recording..." : "Confirm Payment"}
               </Button>
             </div>
           </form>
@@ -530,16 +498,18 @@ export function DistrictManagementView({
       <Sheet
         isOpen={isRuleSheetOpen}
         onClose={() => setIsRuleSheetOpen(false)}
-        title="Add or change allocation rule"
+        title="Add or Change Allocation Rule"
         description="Set the percentage of category revenue to be remitted to the district."
       >
         <form onSubmit={handleSaveRule} className="space-y-4 py-2">
           {ruleError && (
-            <InlineAlert variant="danger" title={ruleError} />
+            <div className="p-3 bg-red-50 text-red-700 text-xs font-mono rounded-[2px]">
+              {ruleError}
+            </div>
           )}
 
           <Select
-            label="Giving category"
+            label="Giving Category"
             value={ruleCategoryId}
             onChange={(e) => setRuleCategoryId(e.target.value)}
             options={categories.map((c) => ({
@@ -549,7 +519,7 @@ export function DistrictManagementView({
           />
 
           <TextField
-            label="District allocation percentage (%)"
+            label="District Allocation Percentage (%)"
             type="number"
             step="0.01"
             min="0.01"
@@ -560,17 +530,20 @@ export function DistrictManagementView({
           />
 
           <TextField
-            label="Effective from date"
+            label="Effective From Date"
             type="date"
             value={ruleEffectiveFrom}
             onChange={(e) => setRuleEffectiveFrom(e.target.value)}
             required
           />
 
-          <InlineAlert
-            variant="info"
-            title="Automatic closure: If an open rule already exists for this category, it will automatically be closed the day before this new rule begins."
-          />
+          <div className="p-3 bg-paper border border-rule text-xs font-mono text-ink-soft space-y-1">
+            <p className="font-semibold text-ink">Automatic Closure:</p>
+            <p>
+              If an open rule already exists for this category, it will automatically be closed
+              the day before this new rule begins.
+            </p>
+          </div>
 
           <div className="pt-4 flex gap-2">
             <Button
@@ -582,7 +555,7 @@ export function DistrictManagementView({
               Cancel
             </Button>
             <Button type="submit" variant="primary" className="flex-1" disabled={isPending}>
-              {isPending ? "Saving..." : "Save rule"}
+              {isPending ? "Saving..." : "Save Rule"}
             </Button>
           </div>
         </form>

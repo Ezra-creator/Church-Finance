@@ -1,97 +1,65 @@
 import React from "react";
 import { clsx } from "clsx";
-import { twMerge } from "tailwind-merge";
 import { Check, AlertTriangle, Clock } from "lucide-react";
-import { formatMoney, toDecimal, CediValue } from "@/lib/money";
 
-export type BadgeVariant =
-  | "Balanced"
-  | "Mismatch"
-  | "Needs attention"
-  | "Neutral"
-  | "balanced"
-  | "mismatch"
-  | "attention"
-  | "success"
-  | "danger"
-  | "warning"
-  | "neutral"
-  | "accent";
+export type StatusTone = "balanced" | "mismatch" | "attention" | "neutral" | "variance" | string;
+export type BadgeVariant = "balanced" | "mismatch" | "attention" | "neutral";
 
-export type BadgeTone = BadgeVariant;
-
-export interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
+export interface BadgeProps {
   variant?: BadgeVariant;
-  tone?: BadgeVariant;
-  label?: string;
-  difference?: CediValue | null;
-  amount?: CediValue | null;
+  tone?: StatusTone;
+  label?: React.ReactNode;
   children?: React.ReactNode;
+  className?: string;
 }
 
-export function Badge({
-  variant,
-  tone,
-  label,
-  difference,
-  amount,
-  className,
-  children,
-  ...props
-}: BadgeProps) {
-  const raw = variant || tone || "Neutral";
+export function Badge({ variant, tone, label, children, className }: BadgeProps) {
+  let effectiveVariant: BadgeVariant = "neutral";
+  const t = tone || variant;
+  if (t === "balanced") effectiveVariant = "balanced";
+  else if (t === "mismatch" || t === "variance") effectiveVariant = "mismatch";
+  else if (t === "attention") effectiveVariant = "attention";
+  else effectiveVariant = "neutral";
 
-  let resolvedVariant: "Balanced" | "Mismatch" | "Needs attention" | "Neutral" = "Neutral";
-  if (raw === "Balanced" || raw === "balanced" || raw === "success" || raw === "accent") {
-    resolvedVariant = "Balanced";
-  } else if (raw === "Mismatch" || raw === "mismatch" || raw === "danger") {
-    resolvedVariant = "Mismatch";
-  } else if (raw === "Needs attention" || raw === "attention" || raw === "warning") {
-    resolvedVariant = "Needs attention";
-  } else {
-    resolvedVariant = "Neutral";
-  }
+  const config = {
+    balanced: {
+      bg: "bg-ok-tint",
+      text: "text-ok-ink",
+      icon: <Check className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true" />,
+    },
+    mismatch: {
+      bg: "bg-bad-tint",
+      text: "text-bad-ink",
+      icon: <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true" />,
+    },
+    attention: {
+      bg: "bg-warn-tint",
+      text: "text-warn-ink",
+      icon: <Clock className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true" />,
+    },
+    neutral: {
+      bg: "bg-hover",
+      text: "text-muted",
+      icon: null,
+    },
+  }[effectiveVariant];
 
-  let icon = <Clock className="w-3.5 h-3.5 stroke-[1.75]" aria-hidden="true" />;
-  let defaultText = "Neutral";
-  let colorClasses = "bg-hover text-muted border border-border";
-
-  if (resolvedVariant === "Balanced") {
-    icon = <Check className="w-3.5 h-3.5 stroke-[1.75]" aria-hidden="true" />;
-    defaultText = "Balanced";
-    colorClasses = "bg-ok-tint text-ok-ink border border-ok";
-  } else if (resolvedVariant === "Mismatch") {
-    icon = <AlertTriangle className="w-3.5 h-3.5 stroke-[1.75]" aria-hidden="true" />;
-    defaultText = "Mismatch";
-    colorClasses = "bg-bad-tint text-bad-ink border border-bad";
-
-    const diff = difference ?? amount;
-    if (diff !== undefined && diff !== null) {
-      const dec = toDecimal(diff);
-      const isNeg = dec.isNegative();
-      const absDec = isNeg ? dec.negated() : dec;
-      const formatted = formatMoney(absDec);
-      defaultText = isNeg ? `Short by ${formatted}` : `Over by ${formatted}`;
-    }
-  } else if (resolvedVariant === "Needs attention") {
-    icon = <Clock className="w-3.5 h-3.5 stroke-[1.75]" aria-hidden="true" />;
-    defaultText = "Needs attention";
-    colorClasses = "bg-warn-tint text-warn-ink border border-warn";
-  }
+  const content = children ?? label;
 
   return (
     <span
-      className={twMerge(
-        clsx(
-          "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-control text-caption font-medium select-none",
-          colorClasses,
-          className
-        )
+      className={clsx(
+        "inline-flex items-center h-[24px] px-2 rounded-control text-[12px] font-medium leading-none gap-1 select-none",
+        config.bg,
+        config.text,
+        className
       )}
-      {...props}
     >
-      {icon}
-      <span>{children ?? label ?? defaultText}</span>
+      {config.icon}
+      <span>{content}</span>
     </span>
   );
 }
+
+// Re-export StatusMark for existing usages
+export const StatusMark = Badge;

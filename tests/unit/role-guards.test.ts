@@ -50,7 +50,7 @@ describe("Role & Session Guards", () => {
           id: "usr_123",
           name: "Viewer",
           email: "viewer@puca.local",
-          role: Role.PRESBYTERY_VIEWER,
+          role: Role.REVIEWER,
           mustChangePassword: false,
         },
         expires: new Date().toISOString(),

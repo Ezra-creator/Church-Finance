@@ -6,8 +6,7 @@ import { formatAccraDateTime } from "@/lib/dates";
 import { Button } from "@/components/ui/button";
 import { TextField } from "@/components/ui/text-field";
 import { Select } from "@/components/ui/select";
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, Filter } from "lucide-react";
 import { formatRole } from "@/lib/format";
 
 export interface AuditItem {
@@ -48,6 +47,7 @@ export function AuditTable({
 
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
+  // Filters from query params
   const currentEntityType = searchParams.get("entityType") || "";
   const currentStartDate = searchParams.get("startDate") || "";
   const currentEndDate = searchParams.get("endDate") || "";
@@ -82,65 +82,22 @@ export function AuditTable({
     setExpandedId((prev) => (prev === id ? null : id));
   };
 
-  const renderObjectDiff = (data: unknown, comparison: unknown, isAfter: boolean) => {
-    if (!data || typeof data !== "object") {
-      return (
-        <span className="text-caption text-muted">
-          {data === null || data === undefined ? "(none)" : String(data)}
-        </span>
-      );
-    }
-
-    const obj = data as Record<string, unknown>;
-    const compObj = (comparison && typeof comparison === "object" ? comparison : {}) as Record<string, unknown>;
-    const keys = Object.keys(obj);
-
-    if (keys.length === 0) {
-      return <span className="text-caption text-muted">(empty)</span>;
-    }
-
-    return (
-      <div className="space-y-1 text-caption">
-        {keys.map((key) => {
-          const val = obj[key];
-          const compVal = compObj[key];
-          const isChanged = JSON.stringify(val) !== JSON.stringify(compVal);
-
-          return (
-            <div
-              key={key}
-              className={`p-1.5 rounded-control transition-colors ${
-                isChanged
-                  ? "bg-accent-tint text-accent font-medium"
-                  : "text-muted"
-              }`}
-            >
-              <span className="font-medium mr-1.5 text-text">{key}:</span>
-              <span>
-                {val === null || val === undefined
-                  ? "null"
-                  : typeof val === "object"
-                  ? JSON.stringify(val)
-                  : String(val)}
-              </span>
-            </div>
-          );
-        })}
-      </div>
-    );
-  };
-
   return (
     <div className="space-y-6">
       {/* Filter Bar */}
-      <div className="p-4 border border-border rounded-panel bg-surface space-y-4">
+      <div className="p-4 border border-rule rounded-[2px] bg-paper space-y-4">
+        <div className="flex items-center gap-2 text-xs uppercase tracking-wider font-medium text-ink-soft">
+          <Filter className="w-3.5 h-3.5" />
+          Filter Audit Log
+        </div>
+
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <Select
-            label="Entity type"
+            label="Entity Type"
             value={selectedEntity}
             onChange={(e) => setSelectedEntity(e.target.value)}
           >
-            <option value="">All entity types</option>
+            <option value="">All Entities</option>
             {entityTypes.map((type) => (
               <option key={type} value={type}>
                 {type}
@@ -149,23 +106,23 @@ export function AuditTable({
           </Select>
 
           <TextField
-            label="From date"
+            label="From Date"
             type="date"
             value={startDate}
             onChange={(e) => setStartDate(e.target.value)}
           />
 
           <TextField
-            label="To date"
+            label="To Date"
             type="date"
             value={endDate}
             onChange={(e) => setEndDate(e.target.value)}
           />
         </div>
 
-        <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
+        <div className="flex items-center justify-end gap-2 pt-2 border-t border-rule">
           <Button
-            variant="ghost"
+            variant="quiet"
             size="sm"
             onClick={clearFilters}
           >
@@ -182,181 +139,131 @@ export function AuditTable({
       </div>
 
       {/* Audit Log Table */}
-      {items.length === 0 ? (
-        <div className="p-8 text-center text-body text-muted border border-border rounded-panel bg-surface">
-          No audit records match the selected criteria.
+      <div className="border border-rule rounded-[2px] divide-y divide-rule bg-paper">
+        {/* Header */}
+        <div className="hidden md:grid grid-cols-12 px-4 py-2.5 text-xs uppercase tracking-wider font-medium text-ink-soft bg-ink/[0.02]">
+          <div className="col-span-3">Timestamp</div>
+          <div className="col-span-3">Action</div>
+          <div className="col-span-3">Officer</div>
+          <div className="col-span-3 text-right">Entity</div>
         </div>
-      ) : (
-        <>
-          {/* Desktop Table */}
-          <div className="hidden sm:block border border-border rounded-panel overflow-hidden bg-surface">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-10"></TableHead>
-                  <TableHead>Time</TableHead>
-                  <TableHead>Actor</TableHead>
-                  <TableHead>Action</TableHead>
-                  <TableHead>Entity</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {items.map((entry) => {
-                  const isExpanded = expandedId === entry.id;
 
-                  return (
-                    <React.Fragment key={entry.id}>
-                      <TableRow
-                        onClick={() => toggleExpand(entry.id)}
-                        className="cursor-pointer"
-                      >
-                        <TableCell className="w-10 pr-0">
-                          {isExpanded ? (
-                            <ChevronDown className="w-4 h-4 text-muted" strokeWidth={1.75} />
-                          ) : (
-                            <ChevronRight className="w-4 h-4 text-muted" strokeWidth={1.75} />
-                          )}
-                        </TableCell>
-                        <TableCell className="text-text text-caption tnum whitespace-nowrap">
-                          {formatAccraDateTime(entry.createdAt)}
-                        </TableCell>
-                        <TableCell>
-                          {entry.actor ? (
-                            <div>
-                              <span className="text-body font-medium text-text block truncate">
-                                {entry.actor.name}
-                              </span>
-                              <span className="text-caption text-muted">
-                                {formatRole(entry.actor.role)}
-                              </span>
-                            </div>
-                          ) : (
-                            <span className="text-caption text-muted">System</span>
-                          )}
-                        </TableCell>
-                        <TableCell className="font-medium text-text text-body">
-                          {entry.action}
-                        </TableCell>
-                        <TableCell className="text-muted text-caption">
-                          {entry.entityType}
-                        </TableCell>
-                      </TableRow>
-
-                      {/* Expandable Before / After Diff */}
-                      {isExpanded && (
-                        <TableRow className="bg-page hover:bg-page">
-                          <TableCell colSpan={5} className="p-4">
-                            <div className="space-y-3">
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div className="border border-border rounded-panel p-3 bg-surface space-y-2">
-                                  <span className="text-caption font-medium text-muted block">
-                                    Before
-                                  </span>
-                                  {renderObjectDiff(entry.before, entry.after, false)}
-                                </div>
-
-                                <div className="border border-border rounded-panel p-3 bg-surface space-y-2">
-                                  <span className="text-caption font-medium text-muted block">
-                                    After
-                                  </span>
-                                  {renderObjectDiff(entry.after, entry.before, true)}
-                                </div>
-                              </div>
-
-                              {entry.reason && (
-                                <p className="text-caption text-muted">
-                                  <span className="font-medium text-text">Reason: </span>
-                                  {entry.reason}
-                                </p>
-                              )}
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </React.Fragment>
-                  );
-                })}
-              </TableBody>
-            </Table>
+        {items.length === 0 ? (
+          <div className="p-8 text-center text-xs text-ink-soft font-mono">
+            No audit records match the selected criteria.
           </div>
+        ) : (
+          items.map((entry) => {
+            const isExpanded = expandedId === entry.id;
 
-          {/* Mobile Collapsed Two-Line Rows */}
-          <div className="sm:hidden border border-border rounded-panel bg-surface divide-y divide-border">
-            {items.map((entry) => {
-              const isExpanded = expandedId === entry.id;
+            return (
+              <div key={entry.id} className="transition-colors">
+                <button
+                  type="button"
+                  onClick={() => toggleExpand(entry.id)}
+                  className="w-full p-4 md:py-3 md:px-4 flex flex-col md:grid md:grid-cols-12 md:items-center gap-2 text-left hover:bg-ink/[0.01] transition-colors cursor-pointer select-none"
+                >
+                  {/* Timestamp */}
+                  <div className="md:col-span-3 flex items-center gap-2">
+                    {isExpanded ? (
+                      <ChevronDown className="w-3.5 h-3.5 text-ink-soft flex-shrink-0" />
+                    ) : (
+                      <ChevronRight className="w-3.5 h-3.5 text-ink-soft flex-shrink-0" />
+                    )}
+                    <span className="font-mono text-xs text-ink">
+                      {formatAccraDateTime(entry.createdAt)}
+                    </span>
+                  </div>
 
-              return (
-                <div key={entry.id} className="divide-y divide-border">
-                  <button
-                    type="button"
-                    onClick={() => toggleExpand(entry.id)}
-                    className="w-full p-3.5 flex flex-col gap-1.5 text-left hover:bg-page transition-colors cursor-pointer"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        {isExpanded ? (
-                          <ChevronDown className="w-3.5 h-3.5 text-muted flex-shrink-0" strokeWidth={1.75} />
-                        ) : (
-                          <ChevronRight className="w-3.5 h-3.5 text-muted flex-shrink-0" strokeWidth={1.75} />
-                        )}
-                        <span className="font-medium text-body text-text truncate">
-                          {entry.action}
+                  {/* Action */}
+                  <div className="md:col-span-3">
+                    <span className="font-mono text-xs font-medium text-ink">
+                      {entry.action}
+                    </span>
+                  </div>
+
+                  {/* Officer */}
+                  <div className="md:col-span-3">
+                    {entry.actor ? (
+                      <div className="flex flex-col">
+                        <span className="text-xs font-medium text-ink truncate">
+                          {entry.actor.name}
+                        </span>
+                        <span className="text-[10px] text-ink-soft truncate font-mono">
+                          {formatRole(entry.actor.role)}
                         </span>
                       </div>
-                      <span className="text-caption tnum text-muted flex-shrink-0">
-                        {formatAccraDateTime(entry.createdAt)}
+                    ) : (
+                      <span className="text-xs text-ink-soft font-mono italic">
+                        System
                       </span>
-                    </div>
+                    )}
+                  </div>
 
-                    <div className="flex items-center justify-between gap-2 text-caption text-muted pl-5">
-                      <span className="truncate">
-                        {entry.actor?.name || "System"}
-                        {entry.actor?.role ? ` (${formatRole(entry.actor.role)})` : ""}
-                      </span>
-                      <span className="text-muted flex-shrink-0">
-                        {entry.entityType}
-                      </span>
-                    </div>
-                  </button>
+                  {/* Entity */}
+                  <div className="md:col-span-3 md:text-right">
+                    <span className="text-xs font-mono text-ink-soft">
+                      {entry.entityType}
+                    </span>
+                  </div>
+                </button>
 
-                  {isExpanded && (
-                    <div className="p-3 bg-page space-y-3">
-                      <div className="space-y-3">
-                        <div className="border border-border rounded-panel p-3 bg-surface space-y-1.5">
-                          <span className="text-caption font-medium text-muted block">
-                            Before
+                {/* Expandable Before / After Diff */}
+                {isExpanded && (
+                  <div className="p-4 bg-ink/[0.02] border-t border-rule space-y-3 font-mono text-xs">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {/* Before State */}
+                      <div className="border border-rule p-3 bg-paper">
+                        <span className="text-[10px] uppercase tracking-wider font-semibold text-variance block mb-2">
+                          Before
+                        </span>
+                        {entry.before ? (
+                          <pre className="text-xs text-ink-soft overflow-x-auto whitespace-pre-wrap">
+                            {JSON.stringify(entry.before, null, 2)}
+                          </pre>
+                        ) : (
+                          <span className="text-xs text-ink-soft/60 italic">
+                            (none)
                           </span>
-                          {renderObjectDiff(entry.before, entry.after, false)}
-                        </div>
-
-                        <div className="border border-border rounded-panel p-3 bg-surface space-y-1.5">
-                          <span className="text-caption font-medium text-muted block">
-                            After
-                          </span>
-                          {renderObjectDiff(entry.after, entry.before, true)}
-                        </div>
+                        )}
                       </div>
 
-                      {entry.reason && (
-                        <p className="text-caption text-muted">
-                          <span className="font-medium text-text">Reason: </span>
-                          {entry.reason}
-                        </p>
-                      )}
+                      {/* After State */}
+                      <div className="border border-rule p-3 bg-paper">
+                        <span className="text-[10px] uppercase tracking-wider font-semibold text-balanced block mb-2">
+                          After
+                        </span>
+                        {entry.after ? (
+                          <pre className="text-xs text-ink-soft overflow-x-auto whitespace-pre-wrap">
+                            {JSON.stringify(entry.after, null, 2)}
+                          </pre>
+                        ) : (
+                          <span className="text-xs text-ink-soft/60 italic">
+                            (none)
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </>
-      )}
+
+                    {entry.reason && (
+                      <div className="text-xs text-ink-soft pt-1">
+                        <span className="font-semibold text-ink">Reason: </span>
+                        {entry.reason}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })
+        )}
+      </div>
 
       {/* Pagination Footer */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-between text-caption text-muted pt-2">
+        <div className="flex items-center justify-between text-xs text-ink-soft pt-2">
           <span>
-            Page {currentPage} of {totalPages} ({total} events)
+            Showing page {currentPage} of {totalPages} ({total} events)
           </span>
           <div className="flex items-center gap-2">
             <Button

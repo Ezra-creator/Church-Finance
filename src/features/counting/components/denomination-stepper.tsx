@@ -7,12 +7,14 @@ interface DenominationStepperProps {
   quantity: number;
   onChange: (qty: number) => void;
   disabled?: boolean;
+  name?: string;
 }
 
 export function DenominationStepper({
   quantity,
   onChange,
   disabled = false,
+  name = "denomination",
 }: DenominationStepperProps) {
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -42,18 +44,8 @@ export function DenominationStepper({
     if (intervalRef.current) clearInterval(intervalRef.current);
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "ArrowUp") {
-      e.preventDefault();
-      increment();
-    } else if (e.key === "ArrowDown") {
-      e.preventDefault();
-      decrement();
-    }
-  };
-
   return (
-    <div className="flex items-center border border-border rounded-control bg-surface overflow-hidden h-14 min-h-[56px]">
+    <div className="flex items-center gap-1.5">
       <button
         type="button"
         disabled={disabled || quantity <= 0}
@@ -63,25 +55,25 @@ export function DenominationStepper({
         onMouseLeave={stopRepeating}
         onTouchStart={() => startRepeating(decrement)}
         onTouchEnd={stopRepeating}
-        className="w-14 h-14 min-w-[56px] min-h-[56px] flex items-center justify-center text-text disabled:opacity-30 disabled:cursor-not-allowed hover:bg-hover transition-colors duration-120 select-none border-r border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-        aria-label="Decrease quantity"
+        className="w-[56px] h-[56px] flex items-center justify-center bg-surface border border-border-strong rounded-control text-text disabled:opacity-30 disabled:cursor-not-allowed hover:bg-hover active:bg-hover transition-colors select-none touch-target-qty"
+        aria-label={`Decrease ${name}`}
       >
-        <Minus className="w-4 h-4 stroke-[1.75]" />
+        <Minus className="w-5 h-5" aria-hidden="true" />
       </button>
 
       <input
         type="text"
         inputMode="numeric"
         pattern="[0-9]*"
-        value={quantity === 0 ? "" : String(quantity)}
-        placeholder="0"
         disabled={disabled}
-        onKeyDown={handleKeyDown}
+        value={quantity === 0 ? "" : quantity}
+        placeholder="0"
+        onFocus={(e) => e.target.select()}
         onChange={(e) => {
-          const val = parseInt(e.target.value.replace(/\D/g, ""), 10);
-          onChange(isNaN(val) || val < 0 ? 0 : val);
+          const val = parseInt(e.target.value.replace(/\D/g, "") || "0", 10);
+          onChange(isNaN(val) ? 0 : val);
         }}
-        className="w-16 h-14 text-center font-sans tnum tabular-nums text-body text-text bg-transparent outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        className="w-[80px] h-[56px] text-center text-[20px] font-semibold text-text bg-surface border border-border-strong rounded-control num focus:border-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand focus-visible:outline-offset-2"
       />
 
       <button
@@ -93,10 +85,10 @@ export function DenominationStepper({
         onMouseLeave={stopRepeating}
         onTouchStart={() => startRepeating(increment)}
         onTouchEnd={stopRepeating}
-        className="w-14 h-14 min-w-[56px] min-h-[56px] flex items-center justify-center text-text disabled:opacity-30 disabled:cursor-not-allowed hover:bg-hover transition-colors duration-120 select-none border-l border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-        aria-label="Increase quantity"
+        className="w-[56px] h-[56px] flex items-center justify-center bg-surface border border-border-strong rounded-control text-text disabled:opacity-30 disabled:cursor-not-allowed hover:bg-hover active:bg-hover transition-colors select-none touch-target-qty"
+        aria-label={`Increase ${name}`}
       >
-        <Plus className="w-4 h-4 stroke-[1.75]" />
+        <Plus className="w-5 h-5" aria-hidden="true" />
       </button>
     </div>
   );

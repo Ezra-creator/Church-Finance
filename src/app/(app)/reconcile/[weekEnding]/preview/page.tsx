@@ -42,8 +42,8 @@ export default async function ReportPreviewPage({
     snapshot = {
       weekEnding,
       weekRange: weekRange.formattedRange,
-      churchName: churchSettings.churchName,
-      presbyteryName: churchSettings.presbyteryName,
+      churchName: churchSettings.assemblyName,
+      parentBodyName: churchSettings.parentBodyName,
       preparedById: user.id,
       preparedByName: user.name || "Finance Secretary",
       submittedAt: new Date().toISOString(),

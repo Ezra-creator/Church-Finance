@@ -4,7 +4,7 @@ import { listMembers } from "@/features/members/queries";
 import { MemberManagementView } from "@/features/members/components/member-management-view";
 
 export const metadata = {
-  title: "Members — PUCA Finance",
+  title: "Assembly Members — PUCA Finance",
 };
 
 export default async function MembersPage() {

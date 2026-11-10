@@ -1,45 +1,55 @@
 import React, { Suspense } from "react";
+import { getPublicIdentity } from "@/lib/assembly";
 import { LoginForm } from "@/features/auth/components/login-form";
-import { getChurchSettings } from "@/features/auth/service";
 
-export const metadata = {
-  title: "Sign in · PUCA Finance",
-};
+export const dynamic = "force-dynamic";
+
+export async function generateMetadata() {
+  const { assemblyName } = await getPublicIdentity();
+  return {
+    title: `Sign in · ${assemblyName}`,
+  };
+}
 
 export default async function LoginPage() {
-  const settings = await getChurchSettings();
-  const churchName = settings?.churchName || "PUCA Finance";
+  const { assemblyName, parentBodyName } = await getPublicIdentity();
 
   return (
-    <div className="min-h-screen flex flex-col lg:flex-row bg-surface text-text text-left">
-      {/* Left Column: 44% width on desktop, page background color */}
-      <div className="w-full lg:w-[44%] bg-page p-8 lg:p-16 flex flex-col justify-between border-b lg:border-b-0 lg:border-r border-border">
-        <div className="space-y-4">
-          <div className="text-lead font-semibold text-text">
-            {churchName}
-          </div>
-          <p className="text-body text-muted max-w-sm">
-            Custody and financial records for Sunday collections, mobile money and bank deposits.
+    <div className="min-h-screen bg-page flex flex-col lg:flex-row">
+      {/* Mobile & Tablet Header Band (< 1024px) */}
+      <div className="block lg:hidden h-[120px] bg-brand text-on-brand p-6 flex flex-col justify-center">
+        <h1 className="text-[16px] font-semibold text-on-brand leading-[24px]">
+          {assemblyName}
+        </h1>
+        <p className="text-[14px] text-on-brand-soft leading-[20px] truncate">
+          {parentBodyName}
+        </p>
+      </div>
+
+      {/* Desktop Left Brand Column (>= 1024px, 44% width) */}
+      <div
+        data-brand-context="true"
+        className="hidden lg:flex w-[44%] min-h-screen bg-brand text-on-brand p-12 flex-col justify-between select-none"
+      >
+        <div>
+          <h1 className="text-[16px] font-semibold text-on-brand leading-[24px]">
+            {assemblyName}
+          </h1>
+          <p className="text-[14px] text-on-brand-soft leading-[20px] mt-0.5">
+            {parentBodyName}
           </p>
         </div>
-        <div className="hidden lg:block text-caption text-muted">
-          Authorized church finance officers only.
+        <div>
+          <p className="text-[16px] text-on-brand-soft leading-[24px]">
+            Record, reconcile and report the assembly&apos;s finances.
+          </p>
         </div>
       </div>
 
-      {/* Right Column: 56% width on desktop, surface background, form max-width 360px */}
-      <div className="w-full lg:w-[56%] bg-surface p-8 lg:p-16 flex items-center justify-center">
-        <div className="w-full max-w-form space-y-6">
-          <div className="space-y-1">
-            <h1 className="text-heading font-semibold text-text leading-tight">
-              Sign in
-            </h1>
-            <p className="text-body text-muted">
-              Enter your credentials to access the accounts.
-            </p>
-          </div>
-
-          <Suspense fallback={<div className="text-body text-muted">Loading...</div>}>
+      {/* Right Form Column (56% width on desktop, 100% on mobile) */}
+      <div className="flex-1 flex items-center justify-center p-6 md:p-12">
+        <div className="w-full max-w-[360px] text-left">
+          <Suspense fallback={<div className="text-[14px] text-muted">Loading...</div>}>
             <LoginForm />
           </Suspense>
         </div>

@@ -2,11 +2,9 @@
 
 import React, { createContext, useContext, useState, useCallback } from "react";
 import { clsx } from "clsx";
-import { X } from "lucide-react";
+import { X, AlertCircle } from "lucide-react";
 
-export type StatusTone = "balanced" | "variance" | "attention" | "neutral" | "success" | "danger" | "warning" | "ok" | "bad" | "warn";
-
-export type ToastTone = StatusTone | "success" | "error" | "ok" | "bad" | "warn";
+export type ToastTone = "neutral" | "balanced" | "mismatch" | "attention" | "success" | "error";
 
 export interface ToastOptions {
   type?: ToastTone;
@@ -17,11 +15,11 @@ export interface ToastOptions {
 export interface ToastMessage {
   id: string;
   message: string;
-  tone?: StatusTone;
+  isError: boolean;
 }
 
 interface ToastContextValue {
-  showToast: (message: string, tone?: StatusTone) => void;
+  showToast: (message: string, isErrorOrTone?: boolean | string) => void;
   addToast: {
     (tone: ToastTone, message: string): void;
     (options: ToastOptions): void;
@@ -33,89 +31,82 @@ const ToastContext = createContext<ToastContextValue | undefined>(undefined);
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
-  const removeToast = useCallback((id: string) => {
-    setToasts((prev) => prev.filter((t) => t.id !== id));
-  }, []);
-
-  const showToast = useCallback((message: string, tone: StatusTone = "neutral") => {
+  const showToast = useCallback((message: string, isErrorOrTone: boolean | string = false) => {
+    const isError =
+      typeof isErrorOrTone === "boolean"
+        ? isErrorOrTone
+        : isErrorOrTone === "error" ||
+          isErrorOrTone === "variance" ||
+          isErrorOrTone === "mismatch";
     const id = Math.random().toString(36).substring(2, 9);
-    setToasts((prev) => [...prev, { id, message, tone }]);
+    setToasts((prev) => [...prev, { id, message, isError }]);
 
-    setTimeout(() => {
-      setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 4500);
+    if (!isError) {
+      setTimeout(() => {
+        setToasts((prev) => prev.filter((t) => t.id !== id));
+      }, 4000);
+    }
   }, []);
 
   const addToast = useCallback(
     ((toneOrOptions: ToastTone | ToastOptions, messageParam?: string) => {
-      let resolvedTone: ToastTone = "neutral";
       let message = "";
+      let isError = false;
 
       if (typeof toneOrOptions === "object" && toneOrOptions !== null) {
-        resolvedTone = toneOrOptions.tone || toneOrOptions.type || "neutral";
+        const tone = toneOrOptions.tone || toneOrOptions.type || "neutral";
+        isError = tone === "error" || tone === "mismatch";
         message = toneOrOptions.message;
       } else {
-        resolvedTone = toneOrOptions;
+        isError = toneOrOptions === "error" || toneOrOptions === "mismatch";
         message = messageParam || "";
       }
 
-      const finalTone: StatusTone =
-        resolvedTone === "success"
-          ? "balanced"
-          : resolvedTone === "error"
-          ? "variance"
-          : resolvedTone;
-      showToast(message, finalTone);
+      showToast(message, isError);
     }) as ToastContextValue["addToast"],
     [showToast]
   );
 
-  const toneDot: Record<string, string> = {
-    balanced: "bg-ok",
-    success: "bg-ok",
-    ok: "bg-ok",
-    variance: "bg-bad",
-    danger: "bg-bad",
-    error: "bg-bad",
-    bad: "bg-bad",
-    attention: "bg-warn",
-    warning: "bg-warn",
-    warn: "bg-warn",
-    neutral: "bg-muted",
+  const dismissToast = (id: string) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
   };
 
   return (
     <ToastContext.Provider value={{ showToast, addToast }}>
       {children}
+      {/* Phone: top below top bar. Desktop: bottom-left. */}
       <div
         aria-live="polite"
-        className="fixed bottom-20 lg:bottom-6 right-4 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none"
+        className={clsx(
+          "fixed z-50 flex flex-col gap-2 max-w-[360px] w-full pointer-events-none p-4",
+          // Phone: top below top bar
+          "top-[56px] left-0 right-0 mx-auto",
+          // Desktop: bottom-left
+          "md:top-auto md:bottom-6 md:left-6 md:right-auto md:mx-0"
+        )}
       >
         {toasts.map((toast) => (
           <div
             key={toast.id}
             role="status"
             className={clsx(
-              "pointer-events-auto flex items-center gap-3 px-4 py-3 bg-surface border border-border text-text rounded-panel shadow-overlay"
+              "pointer-events-auto flex items-center justify-between gap-3 px-4 py-3 bg-surface border rounded-control shadow-overlay text-[14px] leading-[20px]",
+              toast.isError
+                ? "border-bad text-bad-ink bg-bad-tint"
+                : "border-border text-text bg-surface"
             )}
           >
-            <span
-              className={clsx(
-                "w-2 h-2 rounded-full flex-shrink-0",
-                toneDot[toast.tone || "neutral"]
-              )}
-              aria-hidden="true"
-            />
-            <span className="flex-1 text-body font-medium text-text">
-              {toast.message}
-            </span>
+            <div className="flex items-center gap-2">
+              {toast.isError && <AlertCircle className="w-4 h-4 flex-shrink-0 text-bad" aria-hidden="true" />}
+              <span>{toast.message}</span>
+            </div>
             <button
               type="button"
-              onClick={() => removeToast(toast.id)}
-              className="p-1 -mr-1 text-muted hover:text-text rounded-control focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-              aria-label="Close notification"
+              onClick={() => dismissToast(toast.id)}
+              aria-label="Dismiss notification"
+              className="p-1 -mr-1 text-muted hover:text-text rounded-control hover:bg-hover transition-colors touch-target flex items-center justify-center"
             >
-              <X className="w-4 h-4 stroke-[1.75]" />
+              <X className="w-4 h-4" aria-hidden="true" />
             </button>
           </div>
         ))}
