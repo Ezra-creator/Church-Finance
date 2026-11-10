@@ -1,0 +1,15 @@
+dist/
+build/
+electron/
+backups/
+*.exe
+*.rar
+*.zip
+*.log
+tests/
+playwright-report/
+test-results/
+.git/
+node_modules/
+.pnpm-store/
+
