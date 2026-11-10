@@ -20,7 +20,7 @@ export async function generateAnnualDocxBuffer(data: AnnualReportData): Promise<
       width: { size: 2400, type: WidthType.DXA },
       children: [
         new Paragraph({
-          children: [new TextRun({ text: "Giving Category", bold: true, size: 18, font: "Calibri" })],
+          children: [new TextRun({ text: "Giving Category", bold: true, size: 18, font: "Arial" })],
         }),
       ],
     }),
@@ -31,7 +31,7 @@ export async function generateAnnualDocxBuffer(data: AnnualReportData): Promise<
           children: [
             new Paragraph({
               alignment: AlignmentType.RIGHT,
-              children: [new TextRun({ text: m, bold: true, size: 16, font: "Calibri" })],
+              children: [new TextRun({ text: m, bold: true, size: 16, font: "Arial" })],
             }),
           ],
         })
@@ -41,7 +41,7 @@ export async function generateAnnualDocxBuffer(data: AnnualReportData): Promise<
       children: [
         new Paragraph({
           alignment: AlignmentType.RIGHT,
-          children: [new TextRun({ text: "Total", bold: true, size: 18, font: "Calibri" })],
+          children: [new TextRun({ text: "Total", bold: true, size: 18, font: "Arial" })],
         }),
       ],
     }),
@@ -61,7 +61,7 @@ export async function generateAnnualDocxBuffer(data: AnnualReportData): Promise<
           new TableCell({
             children: [
               new Paragraph({
-                children: [new TextRun({ text: cat.categoryName, size: 18, font: "Calibri" })],
+                children: [new TextRun({ text: cat.categoryName, size: 18, font: "Arial" })],
               }),
             ],
           }),
@@ -73,9 +73,9 @@ export async function generateAnnualDocxBuffer(data: AnnualReportData): Promise<
                     alignment: AlignmentType.RIGHT,
                     children: [
                       new TextRun({
-                        text: amt.isZero() ? "-" : amt.toFixed(0),
+                        text: amt.isZero() ? "-" : amt.round().toString(),
                         size: 16,
-                        font: "Consolas",
+                        font: "Arial",
                       }),
                     ],
                   }),
@@ -91,7 +91,7 @@ export async function generateAnnualDocxBuffer(data: AnnualReportData): Promise<
                     text: formatCedi(cat.rowTotal),
                     bold: true,
                     size: 18,
-                    font: "Consolas",
+                    font: "Arial",
                   }),
                 ],
               }),
@@ -109,7 +109,7 @@ export async function generateAnnualDocxBuffer(data: AnnualReportData): Promise<
         new TableCell({
           children: [
             new Paragraph({
-              children: [new TextRun({ text: "TOTAL INCOME", bold: true, size: 18, font: "Calibri" })],
+              children: [new TextRun({ text: "TOTAL INCOME", bold: true, size: 18, font: "Arial" })],
             }),
           ],
         }),
@@ -121,10 +121,10 @@ export async function generateAnnualDocxBuffer(data: AnnualReportData): Promise<
                   alignment: AlignmentType.RIGHT,
                   children: [
                     new TextRun({
-                      text: amt.isZero() ? "-" : amt.toFixed(0),
+                      text: amt.isZero() ? "-" : amt.round().toString(),
                       bold: true,
                       size: 16,
-                      font: "Consolas",
+                      font: "Arial",
                     }),
                   ],
                 }),
@@ -140,7 +140,7 @@ export async function generateAnnualDocxBuffer(data: AnnualReportData): Promise<
                   text: formatCedi(data.income.grandTotal),
                   bold: true,
                   size: 18,
-                  font: "Consolas",
+                  font: "Arial",
                 }),
               ],
             }),
@@ -157,23 +157,23 @@ export async function generateAnnualDocxBuffer(data: AnnualReportData): Promise<
       children: [
         new TableCell({
           width: { size: 4000, type: WidthType.DXA },
-          children: [new Paragraph({ children: [new TextRun({ text: "Expense Category", bold: true, size: 18, font: "Calibri" })] })],
+          children: [new Paragraph({ children: [new TextRun({ text: "Expense Category", bold: true, size: 18, font: "Arial" })] })],
         }),
         new TableCell({
           width: { size: 2000, type: WidthType.DXA },
-          children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: "Cash", bold: true, size: 18, font: "Calibri" })] })],
+          children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: "Cash", bold: true, size: 18, font: "Arial" })] })],
         }),
         new TableCell({
           width: { size: 2000, type: WidthType.DXA },
-          children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: "MoMo", bold: true, size: 18, font: "Calibri" })] })],
+          children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: "MoMo", bold: true, size: 18, font: "Arial" })] })],
         }),
         new TableCell({
           width: { size: 2000, type: WidthType.DXA },
-          children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: "Bank", bold: true, size: 18, font: "Calibri" })] })],
+          children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: "Bank", bold: true, size: 18, font: "Arial" })] })],
         }),
         new TableCell({
           width: { size: 2500, type: WidthType.DXA },
-          children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: "Total", bold: true, size: 18, font: "Calibri" })] })],
+          children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: "Total", bold: true, size: 18, font: "Arial" })] })],
         }),
       ],
     }),
@@ -183,11 +183,11 @@ export async function generateAnnualDocxBuffer(data: AnnualReportData): Promise<
     expRows.push(
       new TableRow({
         children: [
-          new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: exp.categoryName, size: 18, font: "Calibri" })] })] }),
-          new TableCell({ children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: formatCedi(exp.cashAmount), size: 18, font: "Consolas" })] })] }),
-          new TableCell({ children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: formatCedi(exp.momoAmount), size: 18, font: "Consolas" })] })] }),
-          new TableCell({ children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: formatCedi(exp.bankAmount), size: 18, font: "Consolas" })] })] }),
-          new TableCell({ children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: formatCedi(exp.totalAmount), bold: true, size: 18, font: "Consolas" })] })] }),
+          new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: exp.categoryName, size: 18, font: "Arial" })] })] }),
+          new TableCell({ children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: formatCedi(exp.cashAmount), size: 18, font: "Arial" })] })] }),
+          new TableCell({ children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: formatCedi(exp.momoAmount), size: 18, font: "Arial" })] })] }),
+          new TableCell({ children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: formatCedi(exp.bankAmount), size: 18, font: "Arial" })] })] }),
+          new TableCell({ children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: formatCedi(exp.totalAmount), bold: true, size: 18, font: "Arial" })] })] }),
         ],
       })
     );
@@ -197,11 +197,11 @@ export async function generateAnnualDocxBuffer(data: AnnualReportData): Promise<
   expRows.push(
     new TableRow({
       children: [
-        new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: "TOTAL DISBURSEMENTS", bold: true, size: 18, font: "Calibri" })] })] }),
-        new TableCell({ children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: formatCedi(data.expenses.cashTotal), bold: true, size: 18, font: "Consolas" })] })] }),
-        new TableCell({ children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: formatCedi(data.expenses.momoTotal), bold: true, size: 18, font: "Consolas" })] })] }),
-        new TableCell({ children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: formatCedi(data.expenses.bankTotal), bold: true, size: 18, font: "Consolas" })] })] }),
-        new TableCell({ children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: formatCedi(data.expenses.grandTotal), bold: true, size: 18, font: "Consolas" })] })] }),
+        new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: "TOTAL DISBURSEMENTS", bold: true, size: 18, font: "Arial" })] })] }),
+        new TableCell({ children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: formatCedi(data.expenses.cashTotal), bold: true, size: 18, font: "Arial" })] })] }),
+        new TableCell({ children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: formatCedi(data.expenses.momoTotal), bold: true, size: 18, font: "Arial" })] })] }),
+        new TableCell({ children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: formatCedi(data.expenses.bankTotal), bold: true, size: 18, font: "Arial" })] })] }),
+        new TableCell({ children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: formatCedi(data.expenses.grandTotal), bold: true, size: 18, font: "Arial" })] })] }),
       ],
     })
   );
@@ -216,7 +216,7 @@ export async function generateAnnualDocxBuffer(data: AnnualReportData): Promise<
                 text: data.churchName.toUpperCase(),
                 bold: true,
                 size: 28,
-                font: "Georgia",
+                font: "Arial",
               }),
             ],
           }),
@@ -227,8 +227,8 @@ export async function generateAnnualDocxBuffer(data: AnnualReportData): Promise<
                 text: `${data.presbyteryName}  |  ANNUAL FINANCIAL SUMMARY - ${data.year}`,
                 bold: true,
                 size: 20,
-                font: "Calibri",
-                color: "555555",
+                font: "Arial",
+                color: "5E6862",
               }),
             ],
           }),
@@ -237,7 +237,7 @@ export async function generateAnnualDocxBuffer(data: AnnualReportData): Promise<
           new Paragraph({
             spacing: { before: 200, after: 100 },
             children: [
-              new TextRun({ text: "1. Annual Income by Month and Category", bold: true, size: 22, font: "Georgia" }),
+              new TextRun({ text: "1. Annual Income by Month and Category", bold: true, size: 22, font: "Arial" }),
             ],
           }),
           new Table({
@@ -249,7 +249,7 @@ export async function generateAnnualDocxBuffer(data: AnnualReportData): Promise<
           new Paragraph({
             spacing: { before: 300, after: 100 },
             children: [
-              new TextRun({ text: "2. Annual Operating Disbursements & Expenses", bold: true, size: 22, font: "Georgia" }),
+              new TextRun({ text: "2. Annual Operating Disbursements & Expenses", bold: true, size: 22, font: "Arial" }),
             ],
           }),
           new Table({
@@ -261,14 +261,14 @@ export async function generateAnnualDocxBuffer(data: AnnualReportData): Promise<
           new Paragraph({
             spacing: { before: 300, after: 100 },
             children: [
-              new TextRun({ text: "3. Banking & District Obligations", bold: true, size: 22, font: "Georgia" }),
+              new TextRun({ text: "3. Banking & District Obligations", bold: true, size: 22, font: "Arial" }),
             ],
           }),
           new Paragraph({
             children: [
               new TextRun({
                 text: `Total Bank Deposits: ${formatCedi(data.deposits.totalDeposited)} (Cash: ${formatCedi(data.deposits.cashDepositsTotal)} | MoMo Transfers: ${formatCedi(data.deposits.momoTransfersTotal)})`,
-                font: "Calibri",
+                font: "Arial",
                 size: 20,
               }),
             ],
@@ -277,7 +277,7 @@ export async function generateAnnualDocxBuffer(data: AnnualReportData): Promise<
             children: [
               new TextRun({
                 text: `District Remittance Due: ${formatCedi(data.districtRemittance.totalDue)}  •  Paid: ${formatCedi(data.districtRemittance.totalPaid)}  •  Outstanding: ${formatCedi(data.districtRemittance.totalOutstanding)}`,
-                font: "Calibri",
+                font: "Arial",
                 size: 20,
               }),
             ],
@@ -291,13 +291,13 @@ export async function generateAnnualDocxBuffer(data: AnnualReportData): Promise<
                 text: `ANNUAL NET OPERATING POSITION: ${formatCedi(data.netOperatingSurplus)}`,
                 bold: true,
                 size: 22,
-                font: "Consolas",
+                font: "Arial",
               }),
               new TextRun({
                 text: ` (Total Income: ${formatCedi(data.income.grandTotal)}  -  Total Expenses: ${formatCedi(data.expenses.grandTotal)})`,
-                font: "Calibri",
+                font: "Arial",
                 size: 18,
-                color: "555555",
+                color: "5E6862",
               }),
             ],
           }),
@@ -307,8 +307,8 @@ export async function generateAnnualDocxBuffer(data: AnnualReportData): Promise<
             spacing: { before: 400 },
             children: [
               new TextRun({
-                text: "Verified & Approved By: ___________________________ (Finance Secretary)    ___________________________ (Parish Treasurer)",
-                font: "Calibri",
+                text: "Verified & Approved By: ___________________________ (Finance Secretary)    ___________________________ (Treasurer)",
+                font: "Arial",
                 size: 18,
               }),
             ],

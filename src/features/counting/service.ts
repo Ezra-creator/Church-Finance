@@ -6,7 +6,7 @@ import {
   saveIdempotentResponse,
 } from "@/features/idempotency/service";
 import { AppError } from "@/lib/errors";
-import { sumCedi } from "@/lib/money";
+import { sumCedi, formatMoney } from "@/lib/money";
 import { SaveCountSheetInput } from "./schemas";
 
 export async function saveCount(
@@ -110,11 +110,7 @@ export async function saveCount(
     if (existingEntriesTotal.greaterThan(computedTotal)) {
       throw new AppError(
         "VALIDATION_ERROR",
-        `Tithe count cannot be reduced to GH₵ ${computedTotal.toFixed(
-          2
-        )} because member tithe entries already total GH₵ ${existingEntriesTotal.toFixed(
-          2
-        )}. Adjust the tithe entries first.`
+        `Tithe count cannot be reduced to ${formatMoney(computedTotal)} because member tithe entries already total ${formatMoney(existingEntriesTotal)}. Adjust the tithe entries first.`
       );
     }
   }

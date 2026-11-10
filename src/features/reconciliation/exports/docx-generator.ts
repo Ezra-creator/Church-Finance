@@ -35,7 +35,7 @@ export async function generateReconciliationDocx(
                   text: "Giving Category",
                   bold: true,
                   size: 20,
-                  font: "Calibri",
+                  font: "Arial",
                 }),
               ],
             }),
@@ -51,7 +51,7 @@ export async function generateReconciliationDocx(
                   text: "Cash Counted",
                   bold: true,
                   size: 20,
-                  font: "Calibri",
+                  font: "Arial",
                 }),
               ],
             }),
@@ -67,7 +67,7 @@ export async function generateReconciliationDocx(
                   text: "Mobile Money",
                   bold: true,
                   size: 20,
-                  font: "Calibri",
+                  font: "Arial",
                 }),
               ],
             }),
@@ -83,7 +83,7 @@ export async function generateReconciliationDocx(
                   text: "Total",
                   bold: true,
                   size: 20,
-                  font: "Calibri",
+                  font: "Arial",
                 }),
               ],
             }),
@@ -105,7 +105,7 @@ export async function generateReconciliationDocx(
                   new TextRun({
                     text: cat.name,
                     size: 20,
-                    font: "Calibri",
+                    font: "Arial",
                   }),
                 ],
               }),
@@ -119,7 +119,7 @@ export async function generateReconciliationDocx(
                   new TextRun({
                     text: cat.cashFormatted,
                     size: 20,
-                    font: "Consolas",
+                    font: "Arial",
                   }),
                 ],
               }),
@@ -133,7 +133,7 @@ export async function generateReconciliationDocx(
                   new TextRun({
                     text: cat.momoFormatted,
                     size: 20,
-                    font: "Consolas",
+                    font: "Arial",
                   }),
                 ],
               }),
@@ -147,7 +147,7 @@ export async function generateReconciliationDocx(
                   new TextRun({
                     text: cat.totalFormatted,
                     size: 20,
-                    font: "Consolas",
+                    font: "Arial",
                   }),
                 ],
               }),
@@ -170,7 +170,7 @@ export async function generateReconciliationDocx(
                   text: "TOTAL INCOME",
                   bold: true,
                   size: 20,
-                  font: "Calibri",
+                  font: "Arial",
                 }),
               ],
             }),
@@ -185,7 +185,7 @@ export async function generateReconciliationDocx(
                   text: data.totals.cashFormatted,
                   bold: true,
                   size: 20,
-                  font: "Consolas",
+                  font: "Arial",
                 }),
               ],
             }),
@@ -200,7 +200,7 @@ export async function generateReconciliationDocx(
                   text: data.totals.momoFormatted,
                   bold: true,
                   size: 20,
-                  font: "Consolas",
+                  font: "Arial",
                 }),
               ],
             }),
@@ -215,7 +215,7 @@ export async function generateReconciliationDocx(
                   text: data.totals.expectedFormatted,
                   bold: true,
                   size: 20,
-                  font: "Consolas",
+                  font: "Arial",
                 }),
               ],
             }),
@@ -237,7 +237,7 @@ export async function generateReconciliationDocx(
             children: [
               new Paragraph({
                 children: [
-                  new TextRun({ text: "Expense Category", bold: true, size: 20, font: "Calibri" }),
+                  new TextRun({ text: "Expense Category", bold: true, size: 20, font: "Arial" }),
                 ],
               }),
             ],
@@ -248,7 +248,7 @@ export async function generateReconciliationDocx(
               new Paragraph({
                 alignment: AlignmentType.RIGHT,
                 children: [
-                  new TextRun({ text: "Cash", bold: true, size: 20, font: "Calibri" }),
+                  new TextRun({ text: "Cash", bold: true, size: 20, font: "Arial" }),
                 ],
               }),
             ],
@@ -259,7 +259,7 @@ export async function generateReconciliationDocx(
               new Paragraph({
                 alignment: AlignmentType.RIGHT,
                 children: [
-                  new TextRun({ text: "MoMo", bold: true, size: 20, font: "Calibri" }),
+                  new TextRun({ text: "MoMo", bold: true, size: 20, font: "Arial" }),
                 ],
               }),
             ],
@@ -270,7 +270,7 @@ export async function generateReconciliationDocx(
               new Paragraph({
                 alignment: AlignmentType.RIGHT,
                 children: [
-                  new TextRun({ text: "Bank", bold: true, size: 20, font: "Calibri" }),
+                  new TextRun({ text: "Bank", bold: true, size: 20, font: "Arial" }),
                 ],
               }),
             ],
@@ -281,7 +281,7 @@ export async function generateReconciliationDocx(
               new Paragraph({
                 alignment: AlignmentType.RIGHT,
                 children: [
-                  new TextRun({ text: "Total", bold: true, size: 20, font: "Calibri" }),
+                  new TextRun({ text: "Total", bold: true, size: 20, font: "Arial" }),
                 ],
               }),
             ],
@@ -295,19 +295,19 @@ export async function generateReconciliationDocx(
         new TableRow({
           children: [
             new TableCell({
-              children: [new Paragraph({ children: [new TextRun({ text: ec.name, size: 20, font: "Calibri" })] })],
+              children: [new Paragraph({ children: [new TextRun({ text: ec.name, size: 20, font: "Arial" })] })],
             }),
             new TableCell({
-              children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: ec.cashFormatted, size: 20, font: "Consolas" })] })],
+              children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: ec.cashFormatted, size: 20, font: "Arial" })] })],
             }),
             new TableCell({
-              children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: ec.momoFormatted, size: 20, font: "Consolas" })] })],
+              children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: ec.momoFormatted, size: 20, font: "Arial" })] })],
             }),
             new TableCell({
-              children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: ec.bankFormatted, size: 20, font: "Consolas" })] })],
+              children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: ec.bankFormatted, size: 20, font: "Arial" })] })],
             }),
             new TableCell({
-              children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: ec.totalFormatted, size: 20, font: "Consolas" })] })],
+              children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: ec.totalFormatted, size: 20, font: "Arial" })] })],
             }),
           ],
         })
@@ -318,19 +318,19 @@ export async function generateReconciliationDocx(
       new TableRow({
         children: [
           new TableCell({
-            children: [new Paragraph({ children: [new TextRun({ text: "TOTAL EXPENSES", bold: true, size: 20, font: "Calibri" })] })],
+            children: [new Paragraph({ children: [new TextRun({ text: "TOTAL EXPENSES", bold: true, size: 20, font: "Arial" })] })],
           }),
           new TableCell({
-            children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: data.expenseTotals.cashFormatted, bold: true, size: 20, font: "Consolas" })] })],
+            children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: data.expenseTotals.cashFormatted, bold: true, size: 20, font: "Arial" })] })],
           }),
           new TableCell({
-            children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: data.expenseTotals.momoFormatted, bold: true, size: 20, font: "Consolas" })] })],
+            children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: data.expenseTotals.momoFormatted, bold: true, size: 20, font: "Arial" })] })],
           }),
           new TableCell({
-            children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: data.expenseTotals.bankFormatted, bold: true, size: 20, font: "Consolas" })] })],
+            children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: data.expenseTotals.bankFormatted, bold: true, size: 20, font: "Arial" })] })],
           }),
           new TableCell({
-            children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: data.expenseTotals.grandTotalFormatted, bold: true, size: 20, font: "Consolas" })] })],
+            children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: data.expenseTotals.grandTotalFormatted, bold: true, size: 20, font: "Arial" })] })],
           }),
         ],
       })
@@ -342,16 +342,16 @@ export async function generateReconciliationDocx(
       {
         properties: {},
         children: [
-          // Church name & Presbytery as serif heading
+          // Church name & District as heading
           new Paragraph({
             heading: HeadingLevel.HEADING_1,
             children: [
               new TextRun({
                 text: data.churchName,
-                font: "Georgia",
+                font: "Arial",
                 size: 32,
                 bold: true,
-                color: "1C1B18",
+                color: "000000",
               }),
             ],
           }),
@@ -359,9 +359,9 @@ export async function generateReconciliationDocx(
             children: [
               new TextRun({
                 text: data.presbyteryName.toUpperCase(),
-                font: "Calibri",
+                font: "Arial",
                 size: 18,
-                color: "57534E",
+                color: "5E6862",
                 bold: true,
               }),
             ],
@@ -371,9 +371,9 @@ export async function generateReconciliationDocx(
             children: [
               new TextRun({
                 text: `WEEKLY FINANCIAL RETURN • ${data.weekRange}`,
-                font: "Calibri",
+                font: "Arial",
                 size: 20,
-                color: "1C1B18",
+                color: "000000",
               }),
             ],
           }),
@@ -394,7 +394,7 @@ export async function generateReconciliationDocx(
                       text: "Parallel Run Comparison",
                       bold: true,
                       size: 20,
-                      font: "Calibri",
+                      font: "Arial",
                     }),
                   ],
                 }),
@@ -402,7 +402,7 @@ export async function generateReconciliationDocx(
                   children: [
                     new TextRun({
                       text: `Paper Book Total: ${data.totals.bookFormatted}  •  System Total: ${data.totals.expectedFormatted}  •  Status: ${data.totals.varianceLabel || "Balanced"}`,
-                      font: "Consolas",
+                      font: "Arial",
                       size: 18,
                     }),
                   ],
@@ -414,7 +414,7 @@ export async function generateReconciliationDocx(
                         children: [
                           new TextRun({
                             text: `Variance Explanation: "${data.varianceReason}"`,
-                            font: "Calibri",
+                            font: "Arial",
                             italics: true,
                             size: 18,
                           }),
@@ -435,17 +435,17 @@ export async function generateReconciliationDocx(
                       text: "District Allocation Due: ",
                       bold: true,
                       size: 20,
-                      font: "Calibri",
+                      font: "Arial",
                     }),
                     new TextRun({
                       text: data.districtAmountDueFormatted,
                       bold: true,
-                      font: "Consolas",
+                      font: "Arial",
                       size: 20,
                     }),
                     new TextRun({
                       text: "  (Computed from active district percentage rules)",
-                      font: "Calibri",
+                      font: "Arial",
                       italics: true,
                       size: 18,
                       color: "555555",
@@ -465,8 +465,8 @@ export async function generateReconciliationDocx(
                       text: "Disbursements & Expenses",
                       bold: true,
                       size: 24,
-                      font: "Georgia",
-                      color: "1C1B18",
+                      font: "Arial",
+                      color: "000000",
                     }),
                   ],
                 }),
@@ -487,8 +487,8 @@ export async function generateReconciliationDocx(
                       text: "Bank Deposits & Held Funds",
                       bold: true,
                       size: 24,
-                      font: "Georgia",
-                      color: "1C1B18",
+                      font: "Arial",
+                      color: "000000",
                     }),
                   ],
                 }),
@@ -499,7 +499,7 @@ export async function generateReconciliationDocx(
                         children: [
                           new TextRun({
                             text: `Deposits Made During Week: ${data.banking.deposits.length} deposit(s), total ${data.banking.totalDepositedFormatted}`,
-                            font: "Calibri",
+                            font: "Arial",
                             size: 18,
                           }),
                         ],
@@ -511,7 +511,7 @@ export async function generateReconciliationDocx(
                             children: [
                               new TextRun({
                                 text: `  • ${d.dateFormatted}: ${d.kindLabel} (${d.amountFormatted}) Ref: ${d.bankReference}`,
-                                font: "Consolas",
+                                font: "Arial",
                                 size: 17,
                               }),
                             ],
@@ -524,7 +524,7 @@ export async function generateReconciliationDocx(
                         children: [
                           new TextRun({
                             text: "No bank deposits were recorded during this week.",
-                            font: "Calibri",
+                            font: "Arial",
                             size: 18,
                             italics: true,
                           }),
@@ -536,7 +536,7 @@ export async function generateReconciliationDocx(
                   children: [
                     new TextRun({
                       text: `Funds Held at Week End: Cash Held: ${data.banking.cashHeldFormatted}  •  MoMo Held: ${data.banking.momoHeldFormatted}  •  Total Held: ${data.banking.totalHeldFormatted}`,
-                      font: "Consolas",
+                      font: "Arial",
                       bold: true,
                       size: 18,
                     }),
@@ -553,7 +553,7 @@ export async function generateReconciliationDocx(
                 text: "Attestation & Submission",
                 bold: true,
                 size: 20,
-                font: "Calibri",
+                font: "Arial",
               }),
             ],
           }),
@@ -563,7 +563,7 @@ export async function generateReconciliationDocx(
             children: [
               new TextRun({
                 text: `Prepared & Submitted by: ${data.preparedByName} on ${data.submittedAtFormatted} (Report Version ${data.version})`,
-                font: "Calibri",
+                font: "Arial",
                 size: 18,
                 color: "57534E",
               }),
@@ -575,7 +575,7 @@ export async function generateReconciliationDocx(
             children: [
               new TextRun({
                 text: "Finance Secretary Signature: ____________________________________",
-                font: "Calibri",
+                font: "Arial",
                 size: 18,
               }),
             ],
@@ -585,8 +585,8 @@ export async function generateReconciliationDocx(
             spacing: { before: 300 },
             children: [
               new TextRun({
-                text: "Parish Treasurer Signature:  ____________________________________",
-                font: "Calibri",
+                text: "Treasurer Signature:  ____________________________________",
+                font: "Arial",
                 size: 18,
               }),
             ],

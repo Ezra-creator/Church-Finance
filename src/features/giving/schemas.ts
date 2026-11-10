@@ -19,7 +19,7 @@ export const addGivingEntrySchema = z
       );
     },
     {
-      message: "Please select a registered member or enter a visitor payer name.",
+      message: "Please select a member or enter a visitor payer name.",
       path: ["memberId"],
     }
   );

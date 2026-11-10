@@ -20,12 +20,12 @@ test.describe("PUCA Finance — Offline Collection Entry and Sync", () => {
       await serviceLink.click();
     } else {
       await page.click('button:has-text("Start a count")');
-      await page.waitForSelector('text=Start Cash Count');
+      await page.waitForSelector('text=/Start [Cc]ash [Cc]ount/i');
       await page.click('button:has-text("Open count ledger")');
     }
 
     await page.waitForURL("**/services/**", { timeout: 15000 });
-    await expect(page.locator("text=Physical Cash Verification")).toBeVisible();
+    await expect(page.locator("text=/Physical [Cc]ash [Vv]erification/i")).toBeVisible();
 
     // 3. Simulate network offline
     await context.setOffline(true);

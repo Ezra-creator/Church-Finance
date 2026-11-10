@@ -18,14 +18,12 @@ export async function generateAnnualPdfBuffer(data: AnnualReportData): Promise<U
 
   const fontSans = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const fontSansBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-  const fontMono = await pdfDoc.embedFont(StandardFonts.Courier);
-  const fontMonoBold = await pdfDoc.embedFont(StandardFonts.CourierBold);
-  const fontSerif = await pdfDoc.embedFont(StandardFonts.TimesRoman);
-  const fontSerifBold = await pdfDoc.embedFont(StandardFonts.TimesRomanBold);
+  const fontMono = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const fontMonoBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
-  const ink = rgb(0.11, 0.11, 0.09);
-  const inkSoft = rgb(0.45, 0.44, 0.41);
-  const ruleColor = rgb(0.85, 0.83, 0.79);
+  const ink = rgb(0, 0, 0);
+  const inkSoft = rgb(0.37, 0.41, 0.38);
+  const ruleColor = rgb(0.88, 0.90, 0.89);
 
   let y = height - margin;
 
@@ -41,7 +39,7 @@ export async function generateAnnualPdfBuffer(data: AnnualReportData): Promise<U
     x: margin,
     y,
     size: 13,
-    font: fontSerifBold,
+    font: fontSansBold,
     color: ink,
   });
   y -= 15;
@@ -273,7 +271,7 @@ export async function generateAnnualPdfBuffer(data: AnnualReportData): Promise<U
 
   // Authentication & Signatures
   ensureSpace(40);
-  currentPage.drawText("Finance Secretary Signature: __________________     Parish Treasurer Signature: __________________", {
+  currentPage.drawText("Finance Secretary Signature: __________________     Treasurer Signature: __________________", {
     x: margin,
     y,
     size: 8,

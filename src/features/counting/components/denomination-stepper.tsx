@@ -42,8 +42,18 @@ export function DenominationStepper({
     if (intervalRef.current) clearInterval(intervalRef.current);
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "ArrowUp") {
+      e.preventDefault();
+      increment();
+    } else if (e.key === "ArrowDown") {
+      e.preventDefault();
+      decrement();
+    }
+  };
+
   return (
-    <div className="flex items-center border border-rule rounded-[2px] bg-paper">
+    <div className="flex items-center border border-border rounded-control bg-surface overflow-hidden h-14 min-h-[56px]">
       <button
         type="button"
         disabled={disabled || quantity <= 0}
@@ -53,23 +63,25 @@ export function DenominationStepper({
         onMouseLeave={stopRepeating}
         onTouchStart={() => startRepeating(decrement)}
         onTouchEnd={stopRepeating}
-        className="w-11 h-11 flex items-center justify-center text-ink disabled:opacity-30 disabled:cursor-not-allowed hover:bg-ink/[0.05] transition-colors select-none active:bg-ink/10"
+        className="w-14 h-14 min-w-[56px] min-h-[56px] flex items-center justify-center text-text disabled:opacity-30 disabled:cursor-not-allowed hover:bg-hover transition-colors duration-120 select-none border-r border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
         aria-label="Decrease quantity"
       >
-        <Minus className="w-4 h-4" />
+        <Minus className="w-4 h-4 stroke-[1.75]" />
       </button>
 
       <input
-        type="number"
-        min={0}
-        value={quantity === 0 ? "" : quantity}
+        type="text"
+        inputMode="numeric"
+        pattern="[0-9]*"
+        value={quantity === 0 ? "" : String(quantity)}
         placeholder="0"
         disabled={disabled}
+        onKeyDown={handleKeyDown}
         onChange={(e) => {
-          const val = parseInt(e.target.value, 10);
+          const val = parseInt(e.target.value.replace(/\D/g, ""), 10);
           onChange(isNaN(val) || val < 0 ? 0 : val);
         }}
-        className="w-16 h-11 text-center font-mono text-sm text-ink bg-transparent focus:outline-none focus:ring-1 focus:ring-ink"
+        className="w-16 h-14 text-center font-sans tnum tabular-nums text-body text-text bg-transparent outline-none focus-visible:ring-2 focus-visible:ring-accent"
       />
 
       <button
@@ -81,10 +93,10 @@ export function DenominationStepper({
         onMouseLeave={stopRepeating}
         onTouchStart={() => startRepeating(increment)}
         onTouchEnd={stopRepeating}
-        className="w-11 h-11 flex items-center justify-center text-ink disabled:opacity-30 disabled:cursor-not-allowed hover:bg-ink/[0.05] transition-colors select-none active:bg-ink/10"
+        className="w-14 h-14 min-w-[56px] min-h-[56px] flex items-center justify-center text-text disabled:opacity-30 disabled:cursor-not-allowed hover:bg-hover transition-colors duration-120 select-none border-l border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
         aria-label="Increase quantity"
       >
-        <Plus className="w-4 h-4" />
+        <Plus className="w-4 h-4 stroke-[1.75]" />
       </button>
     </div>
   );

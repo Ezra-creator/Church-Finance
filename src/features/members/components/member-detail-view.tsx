@@ -1,15 +1,23 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import Link from "next/link";
 import { Role } from "@prisma/client";
-import { ArrowLeft, Download, FileText, Calendar, Plus, ExternalLink } from "lucide-react";
-import { RuleHeading } from "@/components/ui/rule-heading";
 import { Button } from "@/components/ui/button";
-import { StatusMark } from "@/components/ui/status-mark";
+import { Badge } from "@/components/ui/badge";
 import { Sheet } from "@/components/ui/sheet";
 import { TextField } from "@/components/ui/text-field";
-import { formatCedi } from "@/lib/money";
+import { InlineAlert } from "@/components/ui/inline-alert";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from "@/components/ui/table";
+import { formatMoney, toDecimal, Decimal } from "@/lib/money";
+import { plural } from "@/lib/plural";
 import { formatAccraDate, formatAccraDateTime, nowUtc, toAccraDateString } from "@/lib/dates";
 
 interface StatementHistoryItem {
@@ -25,7 +33,7 @@ interface StatementHistoryItem {
   };
 }
 
-interface MonthLedgerItem {
+interface MonthRecordItem {
   monthKey: string;
   monthName: string;
   cashTotal: { toString(): string };
@@ -50,7 +58,7 @@ interface MemberDetailViewProps {
     createdAt: Date;
   };
   year: number;
-  months: MonthLedgerItem[];
+  months: MonthRecordItem[];
   categoryTotals: Array<{
     categoryId: string;
     categoryName: string;
@@ -80,6 +88,16 @@ export function MemberDetailView({
   const canGenerateStatement =
     userRole === Role.FINANCE_SECRETARY || userRole === Role.TREASURER;
 
+  const annualCashTotal = useMemo(
+    () => months.reduce((acc, m) => acc.add(toDecimal(m.cashTotal.toString())), new Decimal(0)),
+    [months]
+  );
+
+  const annualMomoTotal = useMemo(
+    () => months.reduce((acc, m) => acc.add(toDecimal(m.momoTotal.toString())), new Decimal(0)),
+    [months]
+  );
+
   const handleDownloadStatement = () => {
     const url = `/api/statements/member/${member.id}?from=${rangeStart}&to=${rangeEnd}`;
     window.open(url, "_blank");
@@ -87,37 +105,32 @@ export function MemberDetailView({
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {/* Back Link */}
       <div>
         <Link
           href="/members"
-          className="inline-flex items-center gap-1.5 text-xs text-ink-soft hover:text-ink transition-colors font-mono"
+          className="inline-flex items-center text-caption text-muted hover:text-text transition-colors min-h-[44px]"
         >
-          <ArrowLeft className="w-3.5 h-3.5" />
-          Back to Member Directory
+          Back to members
         </Link>
       </div>
 
       {/* Member Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-rule">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-border">
         <div className="space-y-1">
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl md:text-3xl font-serif font-normal text-ink">
+            <h1 className="text-heading font-semibold text-text">
               {member.fullName}
             </h1>
-            <span
-              className={`text-[10px] px-2 py-0.5 rounded-[1px] font-mono uppercase tracking-wider ${
-                member.active ? "bg-emerald-50 text-emerald-700" : "bg-ink/5 text-ink-soft"
-              }`}
-            >
+            <Badge variant={member.active ? "Balanced" : "Neutral"}>
               {member.active ? "Active" : "Archived"}
-            </span>
+            </Badge>
           </div>
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-ink-soft font-mono">
-            <span>ID: <strong>{member.memberNumber || "No ID assigned"}</strong></span>
-            <span>Phone: <strong>{member.phone || "None"}</strong></span>
-            <span>Enrolled: {formatAccraDate(member.createdAt)}</span>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-caption text-muted">
+            <span>Envelope or ID: <strong className="text-text tnum">{member.memberNumber || "None"}</strong></span>
+            <span>Phone: <strong className="text-text tnum">{member.phone || "None"}</strong></span>
+            <span>Enrolled: <span className="tnum">{formatAccraDate(member.createdAt)}</span></span>
           </div>
         </div>
 
@@ -127,7 +140,6 @@ export function MemberDetailView({
               variant="primary"
               onClick={() => setIsStatementModalOpen(true)}
             >
-              <FileText className="w-4 h-4 mr-1.5" />
               Create giving statement
             </Button>
           </div>
@@ -136,58 +148,59 @@ export function MemberDetailView({
 
       {/* Annual Summary Metrics */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="p-4 border border-rule bg-paper rounded-[2px] space-y-1">
-          <p className="text-[10px] uppercase font-mono tracking-wider text-ink-soft">
-            Total Given in {selectedYear}
+        <div className="p-4 border border-border bg-surface rounded-panel space-y-1">
+          <p className="text-caption text-muted">
+            Total given in {selectedYear}
           </p>
-          <p className="text-2xl font-mono font-semibold text-ink">
-            {formatCedi(grandTotal)}
+          <p className="text-heading font-semibold text-text tnum">
+            {formatMoney(grandTotal.toString())}
           </p>
         </div>
-        <div className="p-4 border border-rule bg-paper rounded-[2px] space-y-1">
-          <p className="text-[10px] uppercase font-mono tracking-wider text-ink-soft">
-            Primary Categories
+        <div className="p-4 border border-border bg-surface rounded-panel space-y-1">
+          <p className="text-caption text-muted">
+            Primary categories
           </p>
-          <div className="text-xs font-mono text-ink space-y-0.5">
+          <div className="text-caption text-text space-y-1 pt-0.5">
             {categoryTotals.slice(0, 2).map((cat) => (
               <p key={cat.categoryId} className="flex justify-between">
                 <span>{cat.categoryName}:</span>
-                <strong>{formatCedi(cat.total)}</strong>
+                <strong className="tnum">{formatMoney(cat.total.toString())}</strong>
               </p>
             ))}
-            {categoryTotals.length === 0 && <p className="text-ink-soft">No contributions</p>}
+            {categoryTotals.length === 0 && <p className="text-muted">No contributions</p>}
           </div>
         </div>
-        <div className="p-4 border border-rule bg-paper rounded-[2px] space-y-1">
-          <p className="text-[10px] uppercase font-mono tracking-wider text-ink-soft">
-            Statements Issued
+        <div className="p-4 border border-border bg-surface rounded-panel space-y-1">
+          <p className="text-caption text-muted">
+            Statements issued
           </p>
-          <p className="text-2xl font-mono font-semibold text-ink">
+          <p className="text-heading font-semibold text-text tnum">
             {statementHistory.length}
           </p>
         </div>
       </div>
 
-      {/* Ruled Ledger of Months */}
+      {/* Monthly contributions */}
       <div className="space-y-4">
-        <div className="flex items-center justify-between pb-2 border-b border-rule">
+        <div className="flex items-center justify-between pb-2 border-b border-border">
           <div>
-            <h2 className="text-lg font-serif font-normal text-ink">
-              Contribution Ledger ({selectedYear})
+            <h2 className="text-lead font-normal text-text">
+              Contributions ({selectedYear})
             </h2>
-            <p className="text-xs text-ink-soft">
+            <p className="text-caption text-muted">
               Verified physical offerings and classified Mobile Money transactions.
             </p>
           </div>
           <div className="flex items-center gap-2">
             <select
+              aria-label="Filter contributions by year"
               value={selectedYear}
               onChange={(e) => {
                 const y = parseInt(e.target.value, 10);
                 setSelectedYear(y);
                 window.location.search = `?year=${y}`;
               }}
-              className="h-8 px-2 text-xs font-mono bg-paper border border-rule rounded-[2px] text-ink focus:outline-none focus:border-ink"
+              className="h-9 px-2.5 text-caption bg-surface border border-border rounded-control text-text focus:outline-none focus:border-border-strong"
             >
               {[year, year - 1, year - 2].map((y) => (
                 <option key={y} value={y}>
@@ -198,152 +211,147 @@ export function MemberDetailView({
           </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-xs">
-            <thead>
-              <tr className="border-b border-rule font-mono uppercase tracking-wider text-[11px] text-ink-soft">
-                <th className="py-2.5 pr-4 font-normal">Month</th>
-                <th className="py-2.5 px-3 text-right font-normal">Cash Offering</th>
-                <th className="py-2.5 px-3 text-right font-normal">Mobile Money</th>
-                <th className="py-2.5 pl-3 text-right font-normal">Total</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-rule font-mono">
-              {months.map((m) => {
-                const isZero = m.total.toString() === "0" || m.total.toString() === "0.00";
-                return (
-                  <tr key={m.monthKey} className="hover:bg-ink/[0.02]">
-                    <td className="py-2.5 pr-4 text-ink font-sans flex items-center gap-2">
-                      <span>{m.monthName}</span>
-                      {m.items.length > 0 && (
-                        <span className="text-[10px] font-mono text-ink-soft">
-                          ({m.items.length} gift{m.items.length > 1 ? "s" : ""})
-                        </span>
-                      )}
-                    </td>
-                    <td className="py-2.5 px-3 text-right tabular-nums text-ink">
-                      {isZero ? "-" : formatCedi(m.cashTotal)}
-                    </td>
-                    <td className="py-2.5 px-3 text-right tabular-nums text-ink">
-                      {isZero ? "-" : formatCedi(m.momoTotal)}
-                    </td>
-                    <td className="py-2.5 pl-3 text-right tabular-nums font-semibold text-ink">
-                      {isZero ? "-" : formatCedi(m.total)}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-            <tfoot className="border-t-2 border-rule font-mono font-bold text-ink">
-              <tr>
-                <td className="py-3 pr-4 font-sans">ANNUAL TOTAL</td>
-                <td className="py-3 px-3 text-right tabular-nums">
-                  {formatCedi(
-                    months.reduce((acc, m) => acc + parseFloat(m.cashTotal.toString()), 0)
-                  )}
-                </td>
-                <td className="py-3 px-3 text-right tabular-nums">
-                  {formatCedi(
-                    months.reduce((acc, m) => acc + parseFloat(m.momoTotal.toString()), 0)
-                  )}
-                </td>
-                <td className="py-3 pl-3 text-right tabular-nums text-sm">
-                  {formatCedi(grandTotal)}
-                </td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Month</TableHead>
+              <TableHead className="text-right">Cash offering</TableHead>
+              <TableHead className="text-right">Mobile Money</TableHead>
+              <TableHead className="text-right">Total</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {months.map((m) => {
+              const dec = toDecimal(m.total.toString());
+              const isZero = dec.isZero();
+              return (
+                <TableRow key={m.monthKey}>
+                  <TableCell className="text-text">
+                    <span className="font-medium">{m.monthName}</span>
+                    {m.items.length > 0 && (
+                      <span className="text-caption text-muted ml-2 tnum">
+                        ({plural(m.items.length, "gift", "gifts")})
+                      </span>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-right tnum text-muted">
+                    {toDecimal(m.cashTotal.toString()).isZero() ? "—" : formatMoney(m.cashTotal.toString())}
+                  </TableCell>
+                  <TableCell className="text-right tnum text-muted">
+                    {toDecimal(m.momoTotal.toString()).isZero() ? "—" : formatMoney(m.momoTotal.toString())}
+                  </TableCell>
+                  <TableCell className="text-right tnum font-medium text-text">
+                    {isZero ? "—" : formatMoney(m.total.toString())}
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+          <tfoot>
+            <tr className="border-t border-border font-medium text-text bg-hover">
+              <td className="py-3 px-3 text-caption">Annual total</td>
+              <td className="py-3 px-3 text-right tnum text-caption">
+                {formatMoney(annualCashTotal)}
+              </td>
+              <td className="py-3 px-3 text-right tnum text-caption">
+                {formatMoney(annualMomoTotal)}
+              </td>
+              <td className="py-3 px-3 text-right tnum text-body font-medium">
+                {formatMoney(grandTotal.toString())}
+              </td>
+            </tr>
+          </tfoot>
+        </Table>
       </div>
 
       {/* Statement Generation History */}
-      <div className="space-y-4 pt-6 border-t border-rule">
-        <h2 className="text-lg font-serif font-normal text-ink">
-          Statement Issuance History
-        </h2>
+      <div className="space-y-4 pt-6 border-t border-border">
+        <div>
+          <h2 className="text-lead font-normal text-text">
+            Statement issuance history
+          </h2>
+          <p className="text-caption text-muted">
+            Official tax and giving statements issued for this member.
+          </p>
+        </div>
+
         {statementHistory.length === 0 ? (
-          <p className="text-xs text-ink-soft font-mono">
+          <p className="text-caption text-muted py-2">
             No official giving statements have been issued for this member yet.
           </p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-xs">
-              <thead>
-                <tr className="border-b border-rule font-mono uppercase tracking-wider text-[11px] text-ink-soft">
-                  <th className="py-2 pr-4 font-normal">Date Issued</th>
-                  <th className="py-2 px-3 font-normal">Period Covered</th>
-                  <th className="py-2 px-3 font-normal">Issued By</th>
-                  <th className="py-2 pl-3 text-right font-normal">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-rule font-mono">
-                {statementHistory.map((log) => {
-                  const fromStr = formatAccraDate(log.rangeStart);
-                  const toStr = formatAccraDate(log.rangeEnd);
-                  const startIso = log.rangeStart.toISOString().slice(0, 10);
-                  const endIso = log.rangeEnd.toISOString().slice(0, 10);
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Date issued</TableHead>
+                <TableHead>Period covered</TableHead>
+                <TableHead>Issued by</TableHead>
+                <TableHead className="text-right">Action</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {statementHistory.map((log) => {
+                const fromStr = formatAccraDate(log.rangeStart);
+                const toStr = formatAccraDate(log.rangeEnd);
+                const startIso = log.rangeStart.toISOString().slice(0, 10);
+                const endIso = log.rangeEnd.toISOString().slice(0, 10);
 
-                  return (
-                    <tr key={log.id} className="hover:bg-ink/[0.02]">
-                      <td className="py-2.5 pr-4 text-ink">
-                        {formatAccraDateTime(log.createdAt)}
-                      </td>
-                      <td className="py-2.5 px-3 text-ink">
-                        {fromStr} — {toStr}
-                      </td>
-                      <td className="py-2.5 px-3 text-ink-soft font-sans">
-                        {log.generatedBy.name || log.generatedBy.email}
-                      </td>
-                      <td className="py-2.5 pl-3 text-right">
-                        <Link
-                          href={`/api/statements/member/${member.id}?from=${startIso}&to=${endIso}`}
-                          target="_blank"
-                          className="inline-flex items-center gap-1 text-ink hover:underline text-xs"
-                        >
-                          <Download className="w-3.5 h-3.5" />
-                          Download PDF
-                        </Link>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                return (
+                  <TableRow key={log.id}>
+                    <TableCell className="tnum text-muted">
+                      {formatAccraDateTime(log.createdAt)}
+                    </TableCell>
+                    <TableCell className="tnum text-text">
+                      {fromStr} — {toStr}
+                    </TableCell>
+                    <TableCell className="text-muted">
+                      {log.generatedBy.name || log.generatedBy.email}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Link
+                        href={`/api/statements/member/${member.id}?from=${startIso}&to=${endIso}`}
+                        target="_blank"
+                        className="inline-flex items-center text-accent-ink hover:underline text-caption font-medium min-h-[44px]"
+                      >
+                        Download PDF
+                      </Link>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
         )}
       </div>
 
-      {/* Statement Generation Modal / Sheet */}
+      {/* Statement Generation Sheet */}
       <Sheet
         isOpen={isStatementModalOpen}
         onClose={() => setIsStatementModalOpen(false)}
-        title="Generate Official Giving Statement"
+        title="Generate official giving statement"
         description={`Produce an official statement for ${member.fullName}.`}
       >
         <div className="space-y-4 py-3">
           <div className="space-y-3">
             <TextField
-              label="Period Start Date"
+              label="Period start date"
               type="date"
               value={rangeStart}
               onChange={(e) => setRangeStart(e.target.value)}
             />
             <TextField
-              label="Period End Date"
+              label="Period end date"
               type="date"
               value={rangeEnd}
               onChange={(e) => setRangeEnd(e.target.value)}
             />
           </div>
 
-          <div className="p-3 bg-paper border border-rule text-xs space-y-1 font-mono text-ink-soft">
-            <p className="font-semibold text-ink">Strict Attribution Policy:</p>
-            <p>
-              Only contributions explicitly attributed to this member (cash tithe envelopes
-              and confirmed MoMo transactions) will appear. General or unattributed giving is
-              never included.
-            </p>
-          </div>
+          <InlineAlert
+            variant="neutral"
+            title="Strict attribution policy"
+            description="Only contributions explicitly attributed to this member (cash envelopes and confirmed Mobile Money transactions) will appear. General or unattributed giving is never included."
+          />
 
           <div className="pt-4 flex gap-2">
             <Button
@@ -358,8 +366,7 @@ export function MemberDetailView({
               className="flex-1"
               onClick={handleDownloadStatement}
             >
-              <Download className="w-4 h-4 mr-1.5" />
-              Download Statement PDF
+              Download statement PDF
             </Button>
           </div>
         </div>

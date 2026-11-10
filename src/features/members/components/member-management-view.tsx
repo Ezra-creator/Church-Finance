@@ -3,24 +3,24 @@
 import React, { useState, useTransition, useMemo } from "react";
 import Link from "next/link";
 import { Member, Role } from "@prisma/client";
-import {
-  Search,
-  UserPlus,
-  Phone,
-  Hash,
-  Edit2,
-  UserCheck,
-  UserX,
-  FileArchive,
-  BookOpen,
-} from "lucide-react";
-import { RuleHeading } from "@/components/ui/rule-heading";
+import { Search } from "lucide-react";
+import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
 import { TextField } from "@/components/ui/text-field";
-import { StatusMark } from "@/components/ui/status-mark";
+import { Badge } from "@/components/ui/badge";
 import { Sheet } from "@/components/ui/sheet";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import { InlineAlert } from "@/components/ui/inline-alert";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
 import {
   createMemberAction,
@@ -57,7 +57,6 @@ export function MemberManagementView({
 
   const canEdit = userRole === Role.FINANCE_SECRETARY || userRole === Role.TREASURER;
 
-  // Filter members by query and active status
   const filteredMembers = useMemo(() => {
     const q = searchQuery.toLowerCase().trim();
     return members.filter((m) => {
@@ -122,7 +121,7 @@ export function MemberManagementView({
               : m
           )
         );
-        addToast("success", `Updated details for ${formName.trim()}`);
+        addToast({ type: "ok", message: `Updated details for ${formName.trim()}` });
         setEditingMember(null);
       } else {
         const res = await createMemberAction({
@@ -147,7 +146,7 @@ export function MemberManagementView({
         };
 
         setMembers((prev) => [newMember, ...prev]);
-        addToast("success", `Added member ${formName.trim()}`);
+        addToast({ type: "ok", message: `Added member ${formName.trim()}` });
         setIsAddSheetOpen(false);
       }
     });
@@ -159,27 +158,26 @@ export function MemberManagementView({
       const res = await toggleMemberActiveAction(member.id, targetActive);
 
       if (!res.success) {
-        addToast("error", res.error.message);
+        addToast({ type: "bad", message: res.error.message });
         return;
       }
 
       setMembers((prev) =>
         prev.map((m) => (m.id === member.id ? { ...m, active: targetActive } : m))
       );
-      addToast(
-        "success",
-        `${member.fullName} marked as ${targetActive ? "Active" : "Inactive"}`
-      );
+      addToast({
+        type: "ok",
+        message: `${member.fullName} marked as ${targetActive ? "Active" : "Inactive"}`,
+      });
       setTogglingMember(null);
     });
   };
 
   return (
-    <div className="space-y-8">
-      <RuleHeading
-        eyebrow="Congregation Directory"
-        title="Parish Members"
-        description="Church members and envelope numbers for the verified tithe register."
+    <div className="space-y-6">
+      <PageHeader
+        title="Members"
+        description="Manage members and contribution records."
         action={
           canEdit ? (
             <div className="flex items-center gap-2">
@@ -187,11 +185,9 @@ export function MemberManagementView({
                 variant="secondary"
                 onClick={() => setIsBulkZipModalOpen(true)}
               >
-                <FileArchive className="w-4 h-4 mr-1.5" />
                 Annual statements (ZIP)
               </Button>
               <Button variant="primary" onClick={openAddSheet}>
-                <UserPlus className="w-4 h-4 mr-2" />
                 Add member
               </Button>
             </div>
@@ -202,121 +198,158 @@ export function MemberManagementView({
       {/* Search and Filter Bar */}
       <div className="flex flex-col sm:flex-row gap-4 items-stretch sm:items-center justify-between">
         <div className="relative flex-1 max-w-md">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-ink-soft" />
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted stroke-[1.75]" />
           <input
             type="search"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search by name, member number or phone..."
-            className="w-full pl-9 pr-3 py-2 bg-paper border border-rule rounded-[2px] text-sm text-ink placeholder:text-ink-soft/70 focus:outline-none focus:ring-2 focus:ring-ink focus:ring-offset-2"
+            className="w-full pl-9 pr-3 py-2 bg-surface border border-border rounded-control text-body text-text placeholder:text-muted focus:outline-none focus:border-border-strong"
           />
         </div>
 
-        <label className="flex items-center gap-2 cursor-pointer text-xs text-ink-soft select-none self-start sm:self-auto min-h-[44px]">
-          <input
-            type="checkbox"
+        <div className="self-start sm:self-auto flex items-center min-h-[44px]">
+          <Checkbox
+            id="show-inactive-members"
             checked={showInactive}
-            onChange={(e) => setShowInactive(e.target.checked)}
-            className="rounded-[2px] border-rule text-ink focus:ring-ink"
+            onCheckedChange={setShowInactive}
+            label="Show inactive members"
           />
-          <span>Show inactive members</span>
-        </label>
+        </div>
       </div>
 
-      {/* Members Ruled List */}
+      {/* Members List */}
       {filteredMembers.length === 0 ? (
         <EmptyState
-          title={searchQuery ? "No matching members found" : "No members registered"}
+          title={searchQuery ? "No matching members found" : "No members added"}
           description={
             searchQuery
               ? `No members match "${searchQuery}". Check the spelling or add a new record.`
-              : "The parish member directory is empty. Add members to track individual tithe envelopes and issue receipts."
+              : "The member directory is empty. Add members to track individual contributions and issue receipts."
           }
           action={
             canEdit && !searchQuery ? (
               <Button variant="secondary" onClick={openAddSheet}>
-                Add first member
+                Add member
               </Button>
             ) : undefined
           }
         />
       ) : (
-        <div className="border border-rule rounded-[2px] bg-paper divide-y divide-rule">
-          {filteredMembers.map((m) => (
-            <div
-              key={m.id}
-              className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-ink/[0.02] transition-colors"
-            >
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
+        <>
+          {/* Desktop Table View */}
+          <div className="hidden sm:block">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Phone</TableHead>
+                  <TableHead>Member number</TableHead>
+                  <TableHead>Status</TableHead>
+                  {canEdit && <TableHead className="text-right">Actions</TableHead>}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredMembers.map((m) => (
+                  <TableRow key={m.id}>
+                    <TableCell>
+                      <Link
+                        href={`/members/${m.id}`}
+                        className="font-medium text-text hover:text-accent-ink"
+                      >
+                        {m.fullName}
+                      </Link>
+                    </TableCell>
+                    <TableCell className="tnum text-muted">
+                      {m.phone || "—"}
+                    </TableCell>
+                    <TableCell className="tnum text-muted">
+                      {m.memberNumber || "—"}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={m.active ? "Balanced" : "Neutral"}>
+                        {m.active ? "Active" : "Inactive"}
+                      </Badge>
+                    </TableCell>
+                    {canEdit && (
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <Link href={`/members/${m.id}`}>
+                            <Button variant="ghost" size="sm">
+                              Contributions
+                            </Button>
+                          </Link>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => openEditSheet(m)}
+                          >
+                            Edit
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setTogglingMember(m)}
+                            className={m.active ? "text-bad-ink hover:bg-bad-tint" : undefined}
+                          >
+                            {m.active ? "Deactivate" : "Reactivate"}
+                          </Button>
+                        </div>
+                      </TableCell>
+                    )}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+
+          {/* Mobile Collapsed Row View */}
+          <div className="sm:hidden border border-border rounded-panel divide-y divide-border bg-surface">
+            {filteredMembers.map((m) => (
+              <div key={m.id} className="p-3 space-y-2">
+                <div className="flex items-baseline justify-between gap-2">
                   <Link
                     href={`/members/${m.id}`}
-                    className="font-medium text-sm text-ink hover:underline"
+                    className="font-medium text-body text-text hover:text-accent-ink"
                   >
                     {m.fullName}
                   </Link>
-                  <StatusMark
-                    tone={m.active ? "balanced" : "neutral"}
-                    label={m.active ? "Active" : "Inactive"}
-                  />
-                </div>
-
-                <div className="flex flex-wrap items-center gap-4 text-xs text-ink-soft">
                   {m.memberNumber && (
-                    <span className="flex items-center gap-1 font-mono">
-                      <Hash className="w-3.5 h-3.5" />
-                      {m.memberNumber}
-                    </span>
-                  )}
-                  {m.phone && (
-                    <span className="flex items-center gap-1 font-mono">
-                      <Phone className="w-3.5 h-3.5" />
-                      {m.phone}
+                    <span className="text-caption text-muted tnum">
+                      #{m.memberNumber}
                     </span>
                   )}
                 </div>
-              </div>
-
-              {canEdit && (
-                <div className="flex items-center gap-2 self-end sm:self-auto">
-                  <Link href={`/members/${m.id}`}>
-                    <Button variant="quiet" size="sm" className="min-h-[44px]">
-                      <BookOpen className="w-3.5 h-3.5 mr-1" />
-                      Ledger
+                <div className="flex items-center justify-between text-caption text-muted">
+                  <span className="tnum">{m.phone || "No phone"}</span>
+                  <Badge variant={m.active ? "Balanced" : "Neutral"}>
+                    {m.active ? "Active" : "Inactive"}
+                  </Badge>
+                </div>
+                {canEdit && (
+                  <div className="flex items-center justify-end gap-1 pt-1.5 border-t border-border">
+                    <Link href={`/members/${m.id}`}>
+                      <Button variant="ghost" size="sm">
+                        Contributions
+                      </Button>
+                    </Link>
+                    <Button variant="ghost" size="sm" onClick={() => openEditSheet(m)}>
+                      Edit
                     </Button>
-                  </Link>
-                  <Button
-                    variant="quiet"
-                    size="sm"
-                    onClick={() => openEditSheet(m)}
-                    className="min-h-[44px]"
-                  >
-                    <Edit2 className="w-3.5 h-3.5 mr-1" />
-                    Edit
-                  </Button>
-                  <Button
-                    variant="quiet"
-                    size="sm"
-                    onClick={() => setTogglingMember(m)}
-                    className="min-h-[44px] text-ink-soft hover:text-variance"
-                  >
-                    {m.active ? (
-                      <>
-                        <UserX className="w-3.5 h-3.5 mr-1" />
-                        Deactivate
-                      </>
-                    ) : (
-                      <>
-                        <UserCheck className="w-3.5 h-3.5 mr-1" />
-                        Reactivate
-                      </>
-                    )}
-                  </Button>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setTogglingMember(m)}
+                      className={m.active ? "text-bad-ink hover:bg-bad-tint" : undefined}
+                    >
+                      {m.active ? "Deactivate" : "Reactivate"}
+                    </Button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </>
       )}
 
       {/* Add / Edit Member Sheet */}
@@ -326,18 +359,16 @@ export function MemberManagementView({
           setIsAddSheetOpen(false);
           setEditingMember(null);
         }}
-        title={editingMember ? "Edit Member Details" : "Register Parish Member"}
+        title={editingMember ? "Edit member" : "Add member"}
         description={
           editingMember
-            ? `Update member record for ${editingMember.fullName}`
-            : "Record member name and phone for tithe receipts."
+            ? `Update details for ${editingMember.fullName}`
+            : "Record member details for contribution receipts."
         }
       >
         <form onSubmit={handleSaveMember} className="space-y-4 py-3">
           {formError && (
-            <div className="p-3 bg-variance text-variance text-xs rounded-[2px] border border-variance/30">
-              {formError}
-            </div>
+            <InlineAlert variant="danger" title={formError} />
           )}
 
           <TextField
@@ -345,33 +376,33 @@ export function MemberManagementView({
             label="Full name"
             value={formName}
             onChange={(e) => setFormName(e.target.value)}
-            placeholder="e.g. Kwame Mensah"
+            placeholder="Kwame Mensah"
             required
             autoFocus
           />
 
           <TextField
             id="member-phone"
-            label="Phone number (Ghana)"
+            label="Phone number"
             value={formPhone}
             onChange={(e) => setFormPhone(e.target.value)}
-            placeholder="e.g. 0244123456 or +233244123456"
+            placeholder="0244123456"
             detail="Stored normalised to +233 format"
           />
 
           <TextField
             id="member-number"
-            label="Member / Envelope number"
+            label="Member or envelope number"
             value={formNumber}
             onChange={(e) => setFormNumber(e.target.value)}
-            placeholder="e.g. MEM-0142"
+            placeholder="MEM-0142"
             detail="Optional unique identifier used on envelopes"
           />
 
-          <div className="pt-4 flex items-center justify-end gap-2 border-t border-rule">
+          <div className="pt-4 flex items-center justify-end gap-2 border-t border-border">
             <Button
               type="button"
-              variant="quiet"
+              variant="ghost"
               onClick={() => {
                 setIsAddSheetOpen(false);
                 setEditingMember(null);
@@ -401,11 +432,11 @@ export function MemberManagementView({
           }
           description={
             togglingMember.active
-              ? "Deactivated members remain in the audit ledger and previous giving receipts are preserved, but they will be hidden from new tithe entry lookups."
-              : "Reactivating will restore this member to active status and make them selectable in tithe entries."
+              ? "Deactivated members remain in the audit trail and previous giving receipts are preserved, but they will be hidden from new member lookups."
+              : "Reactivating will restore this member to active status and make them selectable in contribution entries."
           }
           confirmLabel={togglingMember.active ? "Deactivate member" : "Reactivate member"}
-          tone={togglingMember.active ? "variance" : "balanced"}
+          isDestructive={togglingMember.active}
           onConfirm={() => handleToggleActive(togglingMember)}
           onCancel={() => setTogglingMember(null)}
           isPending={isPending}
@@ -416,29 +447,22 @@ export function MemberManagementView({
       <Sheet
         isOpen={isBulkZipModalOpen}
         onClose={() => setIsBulkZipModalOpen(false)}
-        title="Export All Annual Statements (ZIP)"
+        title="Export annual statements (ZIP)"
         description="Generate and package giving statements for every active member who contributed during the selected tax year."
       >
         <div className="space-y-4 py-3">
           <TextField
-            label="Statement Tax Year"
+            label="Statement tax year"
             type="number"
             value={bulkZipYear}
             onChange={(e) => setBulkZipYear(parseInt(e.target.value, 10))}
           />
 
-          <div className="p-3 bg-paper border border-rule text-xs space-y-1 font-mono text-ink-soft">
-            <p className="font-semibold text-ink">Package Overview:</p>
-            <p>
-              • Streams a single compressed ZIP archive containing individual PDFs.
-            </p>
-            <p>
-              • Only active members with verified contributions during {bulkZipYear} are included.
-            </p>
-            <p>
-              • An immutable statement issuance log and audit record is recorded for each generated PDF.
-            </p>
-          </div>
+          <InlineAlert
+            variant="neutral"
+            title="Package overview"
+            description={`Streams a compressed ZIP archive containing individual PDFs for active members who contributed during ${bulkZipYear}. An audit log entry is recorded for each issued statement.`}
+          />
 
           <div className="pt-4 flex gap-2">
             <Button
@@ -456,8 +480,7 @@ export function MemberManagementView({
                 setIsBulkZipModalOpen(false);
               }}
             >
-              <FileArchive className="w-4 h-4 mr-1.5" />
-              Download Statements ZIP
+              Download statements ZIP
             </Button>
           </div>
         </div>

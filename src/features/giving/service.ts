@@ -6,7 +6,7 @@ import {
   saveIdempotentResponse,
 } from "@/features/idempotency/service";
 import { AppError } from "@/lib/errors";
-import { parseCedi, sumCedi } from "@/lib/money";
+import { parseCedi, sumCedi, formatMoney } from "@/lib/money";
 import {
   AddGivingEntryInput,
   UpdateGivingEntryInput,
@@ -111,7 +111,7 @@ export async function addGivingEntry(
     if (!input.memberId && (!input.payerName || input.payerName.trim() === "")) {
       throw new AppError(
         "VALIDATION_ERROR",
-        "Tithe entries require either a registered member or a visitor payer name."
+        "Tithe entries require either a member or a visitor payer name."
       );
     }
 
@@ -145,11 +145,7 @@ export async function addGivingEntry(
     if (newTotal.greaterThan(countSheet.total)) {
       throw new AppError(
         "VALIDATION_ERROR",
-        `Tithe entries total (GH₵ ${newTotal.toFixed(
-          2
-        )}) cannot exceed the counted cash tithe total of GH₵ ${countSheet.total.toFixed(
-          2
-        )}. Remaining unattributed amount is GH₵ ${countSheet.total.sub(currentTotal).toFixed(2)}.`
+        `Tithe entries total (${formatMoney(newTotal)}) cannot exceed the counted cash tithe total of ${formatMoney(countSheet.total)}. Remaining unattributed amount is ${formatMoney(countSheet.total.sub(currentTotal))}.`
       );
     }
   }
@@ -298,9 +294,7 @@ export async function updateGivingEntry(
       if (projectedTotal.greaterThan(countSheet.total)) {
         throw new AppError(
           "VALIDATION_ERROR",
-          `Tithe entries total (GH₵ ${projectedTotal.toFixed(
-            2
-          )}) cannot exceed counted tithe of GH₵ ${countSheet.total.toFixed(2)}.`
+          `Tithe entries total (${formatMoney(projectedTotal)}) cannot exceed counted tithe of ${formatMoney(countSheet.total)}.`
         );
       }
     }

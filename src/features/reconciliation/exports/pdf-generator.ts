@@ -23,19 +23,17 @@ export async function generateReconciliationPdf(
   const { width, height } = currentPage.getSize();
 
   // Load standard fonts
-  const serifBold = await pdfDoc.embedFont(StandardFonts.TimesRomanBold);
-  const serifRegular = await pdfDoc.embedFont(StandardFonts.TimesRoman);
-  const sansRegular = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const sansBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-  const monoRegular = await pdfDoc.embedFont(StandardFonts.Courier);
-  const monoBold = await pdfDoc.embedFont(StandardFonts.CourierBold);
+  const sansRegular = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const monoRegular = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const monoBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
   const margin = 50;
   let y = height - margin;
 
-  const inkColor = rgb(0.11, 0.11, 0.09); // #1C1B18
-  const softColor = rgb(0.34, 0.33, 0.31); // #57534E
-  const ruleColor = rgb(0.85, 0.84, 0.82); // Hairline border
+  const inkColor = rgb(0, 0, 0);
+  const softColor = rgb(0.37, 0.41, 0.38);
+  const ruleColor = rgb(0.88, 0.90, 0.89);
 
   function ensureSpace(needed: number) {
     if (y - needed < margin + 60) {
@@ -44,12 +42,12 @@ export async function generateReconciliationPdf(
     }
   }
 
-  // Church Name (Serif heading)
+  // Church Name (Heading)
   currentPage.drawText(sanitizeForPdf(data.churchName), {
     x: margin,
     y: y - 18,
     size: 20,
-    font: serifBold,
+    font: sansBold,
     color: inkColor,
   });
   y -= 32;
@@ -248,7 +246,7 @@ export async function generateReconciliationPdf(
         x: margin,
         y,
         size: 8.5,
-        font: serifRegular,
+        font: sansRegular,
         color: softColor,
       });
       y -= 14;
@@ -363,7 +361,7 @@ export async function generateReconciliationPdf(
         x: margin + 8,
         y,
         size: 8,
-        font: serifRegular,
+        font: sansRegular,
         color: softColor,
       });
       y -= 12;
@@ -417,7 +415,7 @@ export async function generateReconciliationPdf(
     font: sansRegular,
     color: softColor,
   });
-  currentPage.drawText("Parish Treasurer Signature", {
+  currentPage.drawText("Treasurer Signature", {
     x: width - margin - 200,
     y,
     size: 8,

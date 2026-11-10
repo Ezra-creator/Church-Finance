@@ -1,15 +1,19 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useTransition } from "react";
 import Link from "next/link";
 import { Role, MomoTransactionStatus } from "@prisma/client";
-import { Upload, Tag, SlidersHorizontal, ArrowUpRight, ArrowDownLeft, ShieldAlert } from "lucide-react";
-import { RuleHeading } from "@/components/ui/rule-heading";
+import { Search } from "lucide-react";
+import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
-import { StatusMark, StatusTone } from "@/components/ui/status-mark";
+import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
+import { SegmentedControl } from "@/components/ui/segmented-control";
+import { MoneyText } from "@/components/ui/money-text";
+import { useToast } from "@/components/ui/toast";
 import { formatAccraDate } from "@/lib/dates";
-import { formatCedi } from "@/lib/money";
+import { plural } from "@/lib/plural";
+import { classifySingleTransactionAction, bulkClassifyTransactionsAction } from "../actions";
 
 export interface MomoTransactionItem {
   id: string;
@@ -35,7 +39,6 @@ export interface MomoTransactionListProps {
 
 function getWeekKeyAndLabel(dateObj: Date): { key: string; label: string } {
   const d = new Date(dateObj);
-  // Normalize to Monday of this week
   const day = d.getDay();
   const diff = d.getDate() - day + (day === 0 ? -6 : 1);
   const monday = new Date(d.setDate(diff));
@@ -45,41 +48,46 @@ function getWeekKeyAndLabel(dateObj: Date): { key: string; label: string } {
   sunday.setDate(monday.getDate() + 6);
 
   const key = monday.toISOString().slice(0, 10);
-  const label = `${formatAccraDate(monday, { day: "numeric", month: "short" })} – ${formatAccraDate(sunday, { day: "numeric", month: "short", year: "numeric" })}`;
+  const label = `${formatAccraDate(monday, { day: "numeric", month: "short" })} · ${formatAccraDate(sunday, { day: "numeric", month: "short", year: "numeric" })}`;
   return { key, label };
 }
 
-function formatTime(dateObj: Date | string): string {
-  const d = typeof dateObj === "string" ? new Date(dateObj) : dateObj;
-  return d.toLocaleTimeString("en-GB", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
-}
-
 export function MomoTransactionList({
-  transactions,
+  transactions: initialTransactions,
   categories,
   needsReviewCount,
   userRole,
 }: MomoTransactionListProps) {
+  const [transactions, setTransactions] = useState<MomoTransactionItem[]>(initialTransactions);
   const [selectedStatus, setSelectedStatus] = useState<string>("ALL");
   const [selectedCategory, setSelectedCategory] = useState<string>("ALL");
-  const [selectedWeek, setSelectedWeek] = useState<string>("ALL");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [bulkCategoryId, setBulkCategoryId] = useState<string>("");
+  const [isPending, startTransition] = useTransition();
+  const { addToast } = useToast();
 
   const canEdit = userRole === Role.FINANCE_SECRETARY || userRole === Role.TREASURER;
 
-  // Compute all available weeks for filtering
-  const availableWeeks = useMemo(() => {
-    const map = new Map<string, string>();
+  // Status counts for segmented control using plural()
+  const statusCounts = useMemo(() => {
+    let review = 0;
+    let auto = 0;
+    let confirmed = 0;
+    let ignored = 0;
     for (const tx of transactions) {
-      const { key, label } = getWeekKeyAndLabel(new Date(tx.occurredAt));
-      if (!map.has(key)) {
-        map.set(key, label);
-      }
+      if (tx.status === MomoTransactionStatus.NEEDS_REVIEW) review++;
+      else if (tx.status === MomoTransactionStatus.AUTO) auto++;
+      else if (tx.status === MomoTransactionStatus.CONFIRMED) confirmed++;
+      else if (tx.status === MomoTransactionStatus.IGNORED) ignored++;
     }
-    return Array.from(map.entries()).sort((a, b) => b[0].localeCompare(a[0]));
+    return {
+      all: transactions.length,
+      review,
+      auto,
+      confirmed,
+      ignored,
+    };
   }, [transactions]);
 
   // Filter transactions
@@ -93,15 +101,19 @@ export function MomoTransactionList({
           return false;
         }
       }
-      if (selectedWeek !== "ALL") {
-        const { key } = getWeekKeyAndLabel(new Date(tx.occurredAt));
-        if (key !== selectedWeek) {
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        const matchesName = tx.counterpartyName?.toLowerCase().includes(q);
+        const matchesPhone = tx.counterpartyPhone?.toLowerCase().includes(q);
+        const matchesRef = tx.externalRef?.toLowerCase().includes(q);
+        const matchesDesc = tx.rawDescription.toLowerCase().includes(q);
+        if (!matchesName && !matchesPhone && !matchesRef && !matchesDesc) {
           return false;
         }
       }
       return true;
     });
-  }, [transactions, selectedStatus, selectedCategory, selectedWeek]);
+  }, [transactions, selectedStatus, selectedCategory, searchQuery]);
 
   // Group filtered transactions by week
   const groupedByWeek = useMemo(() => {
@@ -118,7 +130,6 @@ export function MomoTransactionList({
       entry.items.push(tx);
     }
 
-    // Sort groups descending by week key
     const sortedKeys = Array.from(map.keys()).sort((a, b) => b.localeCompare(a));
     for (const key of sortedKeys) {
       const val = map.get(key)!;
@@ -128,42 +139,129 @@ export function MomoTransactionList({
     return groups;
   }, [filtered]);
 
+  // Optimistic inline category assignment with rollback
+  const handleCategoryChange = (txId: string, newCategoryId: string) => {
+    const original = [...transactions];
+    const targetCat = categories.find((c) => c.id === newCategoryId);
+
+    // Optimistic update
+    setTransactions((prev) =>
+      prev.map((tx) =>
+        tx.id === txId
+          ? {
+              ...tx,
+              category: targetCat || null,
+              status: MomoTransactionStatus.CONFIRMED,
+            }
+          : tx
+      )
+    );
+
+    startTransition(async () => {
+      const res = await classifySingleTransactionAction({
+        transactionId: txId,
+        categoryId: newCategoryId,
+      });
+
+      if (!res.success) {
+        // Rollback
+        setTransactions(original);
+        addToast("error", res.error.message);
+      } else {
+        addToast("success", "Category assigned and confirmed");
+      }
+    });
+  };
+
+  // Bulk category assign
+  const handleBulkAssign = () => {
+    if (!bulkCategoryId || selectedIds.length === 0) return;
+
+    const original = [...transactions];
+    const targetCat = categories.find((c) => c.id === bulkCategoryId);
+
+    setTransactions((prev) =>
+      prev.map((tx) =>
+        selectedIds.includes(tx.id)
+          ? {
+              ...tx,
+              category: targetCat || null,
+              status: MomoTransactionStatus.CONFIRMED,
+            }
+          : tx
+      )
+    );
+
+    const idsToUpdate = [...selectedIds];
+    setSelectedIds([]);
+
+    startTransition(async () => {
+      const res = await bulkClassifyTransactionsAction({
+        transactionIds: idsToUpdate,
+        categoryId: bulkCategoryId,
+      });
+      if (!res.success) {
+        setTransactions(original);
+        addToast("error", res.error.message);
+      } else {
+        addToast("success", `${plural(idsToUpdate.length, "payment")} updated`);
+      }
+    });
+  };
+
+  // Toggle selection
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
+    );
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.length === filtered.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(filtered.map((t) => t.id));
+    }
+  };
+
+  const getStatusBadge = (status: MomoTransactionStatus) => {
+    switch (status) {
+      case MomoTransactionStatus.CONFIRMED:
+      case MomoTransactionStatus.AUTO:
+        return <Badge variant="Balanced">Confirmed</Badge>;
+      case MomoTransactionStatus.NEEDS_REVIEW:
+        return <Badge variant="Needs attention">Needs review</Badge>;
+      default:
+        return <Badge variant="Neutral">Ignored</Badge>;
+    }
+  };
+
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 text-left">
       {/* Page Header */}
-      <RuleHeading
-        eyebrow="Mobile Money Ledger"
-        title="MoMo Statements & Register"
-        description="Parish mobile money statements, automatic payment classification and review register."
+      <PageHeader
+        title="Mobile money"
+        description="Mobile money statements and automatic payment classification."
         action={
           <div className="flex items-center gap-2 flex-wrap">
             <Link href="/money/momo/rules">
               <Button variant="secondary" size="sm">
-                <SlidersHorizontal className="w-4 h-4 mr-1.5" />
                 Rules
               </Button>
             </Link>
 
             <Link href="/money/momo/review">
               <Button
-                variant={needsReviewCount > 0 ? "secondary" : "quiet"}
+                variant={needsReviewCount > 0 ? "secondary" : "ghost"}
                 size="sm"
-                className={needsReviewCount > 0 ? "border-attention text-attention font-medium" : ""}
               >
-                <Tag className="w-4 h-4 mr-1.5" />
-                Needs review
-                {needsReviewCount > 0 && (
-                  <span className="ml-1.5 px-1.5 py-0.2 bg-attention/15 text-attention font-mono rounded-[1px] text-xs">
-                    {needsReviewCount}
-                  </span>
-                )}
+                Needs review {needsReviewCount > 0 ? `(${needsReviewCount})` : ""}
               </Button>
             </Link>
 
             {canEdit && (
               <Link href="/money/momo/import">
                 <Button variant="primary" size="sm">
-                  <Upload className="w-4 h-4 mr-1.5" />
                   Import statement
                 </Button>
               </Link>
@@ -172,208 +270,195 @@ export function MomoTransactionList({
         }
       />
 
-      {/* Filter Bar */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3 bg-ink/[0.02] border border-rule rounded-[2px]">
-        <div className="flex flex-wrap items-center gap-3">
-          {/* Status filter */}
-          <div className="flex items-center gap-1.5">
-            <span className="text-xs uppercase tracking-wider text-ink-soft font-mono">Status:</span>
-            <select
-              value={selectedStatus}
-              onChange={(e) => setSelectedStatus(e.target.value)}
-              className="text-xs bg-paper border border-rule rounded-[2px] px-2 py-1 text-ink focus:outline-none focus:border-ink font-mono"
-            >
-              <option value="ALL">All statuses</option>
-              <option value={MomoTransactionStatus.NEEDS_REVIEW}>Needs Review</option>
-              <option value={MomoTransactionStatus.AUTO}>Auto-Classified</option>
-              <option value={MomoTransactionStatus.CONFIRMED}>Confirmed</option>
-              <option value={MomoTransactionStatus.IGNORED}>Ignored</option>
-            </select>
+      {/* Segmented control with counts via plural() */}
+      <div className="overflow-x-auto pb-1">
+        <SegmentedControl
+          value={selectedStatus}
+          onChange={(v) => setSelectedStatus(v)}
+          options={[
+            { value: "ALL", label: `All (${plural(statusCounts.all, "transaction")})` },
+            {
+              value: MomoTransactionStatus.NEEDS_REVIEW,
+              label: `Needs review (${plural(statusCounts.review, "transaction")})`,
+            },
+            {
+              value: MomoTransactionStatus.CONFIRMED,
+              label: `Confirmed (${plural(statusCounts.confirmed + statusCounts.auto, "transaction")})`,
+            },
+            {
+              value: MomoTransactionStatus.IGNORED,
+              label: `Ignored (${plural(statusCounts.ignored, "transaction")})`,
+            },
+          ]}
+        />
+      </div>
+
+      {/* Filter and Search Bar */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3 bg-surface border border-border rounded-panel">
+        <div className="flex flex-1 items-center gap-3">
+          {/* Search Field */}
+          <div className="relative flex-1 max-w-sm">
+            <input
+              type="search"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search by payer, phone or ref..."
+              className="w-full h-10 pl-9 pr-3 bg-surface border border-border rounded-control text-body text-text placeholder:text-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            />
+            <Search className="w-4 h-4 text-muted absolute left-3 top-1/2 -translate-y-1/2 stroke-[1.75]" />
           </div>
 
-          {/* Category filter */}
-          <div className="flex items-center gap-1.5">
-            <span className="text-xs uppercase tracking-wider text-ink-soft font-mono">Category:</span>
-            <select
-              value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value)}
-              className="text-xs bg-paper border border-rule rounded-[2px] px-2 py-1 text-ink focus:outline-none focus:border-ink font-mono max-w-[160px] truncate"
-            >
-              <option value="ALL">All categories</option>
-              {categories.map((cat) => (
-                <option key={cat.id} value={cat.id}>
-                  {cat.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Week filter */}
-          {availableWeeks.length > 0 && (
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs uppercase tracking-wider text-ink-soft font-mono">Week:</span>
-              <select
-                value={selectedWeek}
-                onChange={(e) => setSelectedWeek(e.target.value)}
-                className="text-xs bg-paper border border-rule rounded-[2px] px-2 py-1 text-ink focus:outline-none focus:border-ink font-mono"
-              >
-                <option value="ALL">All weeks</option>
-                {availableWeeks.map(([key, label]) => (
-                  <option key={key} value={key}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
+          {/* Category Filter */}
+          <select
+            value={selectedCategory}
+            onChange={(e) => setSelectedCategory(e.target.value)}
+            className="h-10 px-3 bg-surface border border-border rounded-control text-body text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          >
+            <option value="ALL">All categories</option>
+            {categories.map((cat) => (
+              <option key={cat.id} value={cat.id}>
+                {cat.name}
+              </option>
+            ))}
+          </select>
         </div>
 
-        <div className="text-xs font-mono text-ink-soft text-right tabular-nums">
-          {filtered.length} of {transactions.length} rows
+        <div className="text-caption text-muted">
+          Showing {plural(filtered.length, "payment")}
         </div>
       </div>
 
-      {/* Ruled Transaction List Grouped By Week */}
-      {transactions.length === 0 ? (
-        <EmptyState
-          title="No Mobile Money transactions"
-          description="Statements have not been imported yet. Upload an MTN MoMo or Vodafone Cash statement to begin automatic classification."
-          action={
-            canEdit ? (
-              <Link href="/money/momo/import">
-                <Button variant="primary">
-                  <Upload className="w-4 h-4 mr-1.5" />
-                  Import statement
-                </Button>
-              </Link>
-            ) : undefined
-          }
-        />
-      ) : filtered.length === 0 ? (
-        <EmptyState
-          title="No matching transactions"
-          description="No transactions match the selected status, category or week filters. Try resetting the filters."
-          action={
-            <Button
-              variant="secondary"
-              onClick={() => {
-                setSelectedStatus("ALL");
-                setSelectedCategory("ALL");
-                setSelectedWeek("ALL");
-              }}
+      {/* Bulk Action Bar */}
+      {selectedIds.length > 0 && canEdit && (
+        <div className="p-3 bg-hover border border-border rounded-panel flex flex-wrap items-center justify-between gap-3">
+          <span className="text-label font-medium text-text">
+            {plural(selectedIds.length, "payment")} selected
+          </span>
+
+          <div className="flex items-center gap-2">
+            <select
+              value={bulkCategoryId}
+              onChange={(e) => setBulkCategoryId(e.target.value)}
+              className="h-9 px-3 bg-surface border border-border rounded-control text-label text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             >
-              Reset filters
+              <option value="">Assign category...</option>
+              {categories.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+
+            <Button
+              variant="primary"
+              size="sm"
+              disabled={!bulkCategoryId || isPending}
+              onClick={handleBulkAssign}
+            >
+              Apply
             </Button>
-          }
+
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSelectedIds([])}
+            >
+              Clear
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Grouped Table by Week */}
+      {filtered.length === 0 ? (
+        <EmptyState
+          title="No transactions match this filter"
+          description="Adjust your search criteria or import statements from your mobile money provider."
         />
       ) : (
-        <div className="space-y-8">
+        <div className="space-y-6">
           {groupedByWeek.map((group) => (
-            <div key={group.key} className="space-y-1">
-              {/* Week header rule */}
-              <div className="flex items-center justify-between pb-2 border-b-2 border-rule-strong">
-                <h3 className="text-xs uppercase tracking-wider font-semibold font-mono text-ink-soft">
-                  {group.label}
+            <div key={group.key} className="space-y-2">
+              <div className="flex items-center justify-between px-1">
+                <h3 className="text-lead font-semibold text-text">
+                  Week of {group.label}
                 </h3>
-                <span className="text-xs font-mono text-ink-soft tabular-nums">
-                  {group.items.length} {group.items.length === 1 ? "entry" : "entries"}
+                <span className="text-caption text-muted">
+                  {plural(group.items.length, "payment")}
                 </span>
               </div>
 
-              {/* Transactions in this week */}
-              <div className="divide-y divide-rule">
-                {group.items.map((tx) => {
-                  const txDate = new Date(tx.occurredAt);
-                  const isOut = tx.direction === "OUT";
+              <div className="border border-border rounded-panel bg-surface overflow-hidden divide-y divide-border">
+                {group.items.map((tx) => (
+                  <div
+                    key={tx.id}
+                    className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-hover transition-colors duration-120"
+                  >
+                    <div className="flex items-start gap-3 flex-1 min-w-0">
+                      {canEdit && (
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.includes(tx.id)}
+                          onChange={() => toggleSelect(tx.id)}
+                          className="mt-1 w-4 h-4 rounded-control border-border text-accent focus-visible:ring-accent"
+                          aria-label={`Select transaction ${tx.externalRef || tx.id}`}
+                        />
+                      )}
 
-                  let tone: StatusTone = "neutral";
-                  let statusLabel = "Uncategorized";
-
-                  if (tx.status === MomoTransactionStatus.NEEDS_REVIEW) {
-                    tone = "attention";
-                    statusLabel = "Needs Label";
-                  } else if (tx.status === MomoTransactionStatus.IGNORED) {
-                    tone = "neutral";
-                    statusLabel = "Ignored";
-                  } else if (tx.category) {
-                    tone = tx.status === MomoTransactionStatus.AUTO ? "balanced" : "balanced";
-                    statusLabel = tx.category.name;
-                  }
-
-                  const counterparty =
-                    tx.member?.fullName ||
-                    tx.counterpartyName ||
-                    tx.counterpartyPhone ||
-                    "Unknown Counterparty";
-
-                  return (
-                    <div
-                      key={tx.id}
-                      className="py-3 px-1 flex flex-col sm:flex-row sm:items-center justify-between gap-2 hover:bg-ink/[0.015] transition-colors"
-                    >
-                      {/* Left: Date, Time & Counterparty */}
-                      <div className="flex items-start sm:items-center gap-3 min-w-0">
-                        {/* Direction icon */}
-                        <div
-                          className={`mt-0.5 sm:mt-0 p-1 rounded-[1px] flex-shrink-0 ${
-                            isOut
-                              ? "bg-variance/10 text-variance"
-                              : "bg-balanced/10 text-balanced"
-                          }`}
-                          title={isOut ? "Outgoing payment" : "Incoming payment"}
-                        >
-                          {isOut ? (
-                            <ArrowUpRight className="w-3.5 h-3.5" />
-                          ) : (
-                            <ArrowDownLeft className="w-3.5 h-3.5" />
+                      <div className="space-y-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-body font-medium text-text">
+                            {tx.counterpartyName || "Anonymous payer"}
+                          </span>
+                          {tx.counterpartyPhone && (
+                            <span className="text-caption text-muted tnum tabular-nums">
+                              {tx.counterpartyPhone}
+                            </span>
                           )}
+                          {getStatusBadge(tx.status)}
                         </div>
 
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-sm font-medium text-ink truncate">
-                              {counterparty}
-                            </span>
-                            {tx.member && (
-                              <span className="text-[10px] font-mono px-1 py-0.2 bg-ink/5 text-ink-soft rounded-[1px]">
-                                Member
-                              </span>
-                            )}
-                            {tx.externalRef && (
-                              <span className="text-[10px] font-mono text-ink-soft truncate">
-                                ref:{tx.externalRef}
-                              </span>
-                            )}
-                          </div>
-
-                          <div className="flex items-center gap-2 text-xs text-ink-soft truncate">
-                            <span className="font-mono tabular-nums">
-                              {formatAccraDate(txDate, { day: "numeric", month: "short" })},{" "}
-                              {formatTime(txDate)}
-                            </span>
-                            <span>•</span>
-                            <span className="truncate max-w-[280px] sm:max-w-md italic">
-                              {`"${tx.rawDescription}"`}
-                            </span>
-                          </div>
-                        </div>
+                        <p className="text-caption text-muted truncate">
+                          {tx.rawDescription}
+                        </p>
+                        {tx.externalRef && (
+                          <span className="text-caption text-muted block tnum tabular-nums">
+                            Ref: {tx.externalRef}
+                          </span>
+                        )}
                       </div>
+                    </div>
 
-                      {/* Right: Category Mark & Amount in Mono Right-Aligned */}
-                      <div className="flex items-center justify-between sm:justify-end gap-4 flex-shrink-0 pl-7 sm:pl-0">
-                        <StatusMark tone={tone} label={statusLabel} />
-
-                        <div
-                          className={`font-mono text-sm tabular-nums text-right font-semibold ${
-                            isOut ? "text-ink-soft" : "text-ink"
-                          }`}
+                    <div className="flex items-center gap-4 self-end sm:self-auto flex-shrink-0">
+                      {/* Inline Category Select */}
+                      {canEdit ? (
+                        <select
+                          value={tx.category?.id || ""}
+                          onChange={(e) => handleCategoryChange(tx.id, e.target.value)}
+                          className="h-9 px-2.5 bg-surface border border-border rounded-control text-caption text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                          aria-label="Assign giving category"
                         >
-                          {isOut ? `-${formatCedi(tx.amount.toString())}` : formatCedi(tx.amount.toString())}
+                          <option value="">Select category...</option>
+                          {categories.map((c) => (
+                            <option key={c.id} value={c.id}>
+                              {c.name}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span className="text-body text-muted">
+                          {tx.category?.name || "Uncategorized"}
+                        </span>
+                      )}
+
+                      <div className="text-right">
+                        <div className="text-body font-semibold text-text tnum tabular-nums">
+                          <MoneyText amount={tx.amount.toString()} />
                         </div>
                       </div>
                     </div>
-                  );
-                })}
+                  </div>
+                ))}
               </div>
             </div>
           ))}

@@ -1,44 +1,33 @@
 import type { Metadata, Viewport } from "next";
-import { Fraunces, IBM_Plex_Sans, IBM_Plex_Mono } from "next/font/google";
+import { Inter } from "next/font/google";
 import { ServiceWorkerRegister } from "@/components/pwa/service-worker-register";
 import "./globals.css";
 
-const fraunces = Fraunces({
+const inter = Inter({
   subsets: ["latin"],
-  variable: "--font-fraunces",
+  variable: "--font-inter",
   display: "swap",
-  preload: false,
-});
-
-const ibmPlexSans = IBM_Plex_Sans({
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
-  variable: "--font-plex-sans",
-  display: "swap",
-  preload: false,
-});
-
-const ibmPlexMono = IBM_Plex_Mono({
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
-  variable: "--font-plex-mono",
-  display: "swap",
-  preload: false,
 });
 
 export const metadata: Metadata = {
-  title: "PUCA Finance — Church Ledger",
-  description:
-    "Calm, exact, and trustworthy financial record keeping for the local church.",
+  title: {
+    default: "PUCA Finance",
+    template: "%s · PUCA Finance",
+  },
+  description: "Financial management, counting and weekly returns.",
   manifest: "/manifest.json",
   icons: {
-    icon: "/icons/icon-192.svg",
-    apple: "/icons/icon.svg",
+    icon: "/icon.svg",
+    apple: "/icons/icon-192.svg",
+  },
+  robots: {
+    index: false,
+    follow: false,
   },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#F7F4EC",
+  themeColor: "#3F6F57",
 };
 
 export default function RootLayout({
@@ -50,9 +39,9 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${fraunces.variable} ${ibmPlexSans.variable} ${ibmPlexMono.variable}`}
+      className={inter.variable}
     >
-      <body className="min-h-screen bg-paper text-ink">
+      <body className="min-h-screen bg-page text-text font-sans antialiased">
         <ServiceWorkerRegister />
         {children}
       </body>

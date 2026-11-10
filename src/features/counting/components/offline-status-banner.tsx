@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { WifiOff, RefreshCw, AlertTriangle, Clock, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { OutboxItem } from "@/lib/offline/outbox";
+import { plural } from "@/lib/plural";
 
 interface OfflineStatusBannerProps {
   isOnline: boolean;
@@ -24,43 +25,42 @@ export function OfflineStatusBanner({
 }: OfflineStatusBannerProps) {
   const [selectedConflict, setSelectedConflict] = useState<OutboxItem | null>(null);
 
-  // If online, no pending items, and no conflicts, hide completely
   if (isOnline && pendingCount === 0 && conflicts.length === 0) {
     return null;
   }
 
   return (
     <>
-      <div className="w-full bg-paper border border-rule px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 text-xs font-mono shadow-xs">
+      <div className="w-full bg-page border border-border rounded-panel px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 text-caption">
         <div className="flex items-center gap-2.5">
           {!isOnline ? (
-            <div className="flex items-center gap-2 text-ink-soft">
-              <WifiOff className="w-3.5 h-3.5 text-variance animate-pulse" />
+            <div className="flex items-center gap-2 text-muted">
+              <WifiOff className="w-3.5 h-3.5 text-bad-ink" strokeWidth={1.75} />
               <span>
                 {pendingCount > 0
-                  ? `Offline. ${pendingCount} change${pendingCount > 1 ? "s" : ""} waiting.`
-                  : "Offline. Connection lost. Count and tithe entry remain active."}
+                  ? `Offline. ${plural(pendingCount, "change", "changes")} waiting.`
+                  : "Offline. Changes are recorded locally and will sync when reconnected."}
               </span>
             </div>
           ) : isSyncing ? (
-            <div className="flex items-center gap-2 text-ink">
-              <RefreshCw className="w-3.5 h-3.5 animate-spin text-ink-soft" />
-              <span>Replaying {pendingCount} offline change{pendingCount > 1 ? "s" : ""}...</span>
+            <div className="flex items-center gap-2 text-text">
+              <RefreshCw className="w-3.5 h-3.5 animate-spin text-accent" strokeWidth={1.75} />
+              <span>Syncing {plural(pendingCount, "offline change", "offline changes")}...</span>
             </div>
           ) : pendingCount > 0 ? (
-            <div className="flex items-center gap-2 text-ink-soft">
-              <Clock className="w-3.5 h-3.5 text-ink-soft" />
-              <span>{pendingCount} change{pendingCount > 1 ? "s" : ""} waiting to sync.</span>
+            <div className="flex items-center gap-2 text-muted">
+              <Clock className="w-3.5 h-3.5 text-muted" strokeWidth={1.75} />
+              <span>{plural(pendingCount, "change", "changes")} waiting to sync.</span>
             </div>
           ) : null}
 
           {conflicts.length > 0 && (
             <button
               onClick={() => setSelectedConflict(conflicts[0])}
-              className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-variance/10 text-variance border border-variance/20 hover:bg-variance/20 transition-colors cursor-pointer text-xs"
+              className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-bad-tint text-bad-ink border border-bad rounded-control hover:bg-bad-tint transition-colors cursor-pointer text-caption"
             >
-              <AlertTriangle className="w-3 h-3" />
-              <span>{conflicts.length} conflict{conflicts.length > 1 ? "s" : ""} need attention</span>
+              <AlertTriangle className="w-3 h-3 text-bad-ink" strokeWidth={1.75} />
+              <span>{plural(conflicts.length, "conflict", "conflicts")} need attention</span>
             </button>
           )}
         </div>
@@ -71,9 +71,9 @@ export function OfflineStatusBanner({
               size="sm"
               variant="secondary"
               onClick={onManualSync}
-              className="h-6 px-2.5 text-[11px]"
+              className="h-8 px-2.5 text-caption"
             >
-              <RefreshCw className="w-3 h-3 mr-1" />
+              <RefreshCw className="w-3 h-3 mr-1" strokeWidth={1.75} />
               Sync now
             </Button>
           )}
@@ -82,52 +82,49 @@ export function OfflineStatusBanner({
 
       {/* Conflict Resolution Modal */}
       {selectedConflict && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-lg bg-paper border border-rule shadow-md p-6 space-y-5 animate-in fade-in-50">
-            <div className="flex items-start justify-between pb-3 border-b border-rule">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-scrim p-4">
+          <div className="w-full max-w-lg bg-surface border border-border rounded-panel shadow-overlay p-6 space-y-5">
+            <div className="flex items-start justify-between pb-3 border-b border-border">
               <div>
-                <p className="text-[10px] font-mono uppercase tracking-widest text-variance">
-                  Conflict Resolution
+                <p className="text-caption font-medium text-bad-ink">
+                  Conflict resolution
                 </p>
-                <h3 className="text-lg font-serif text-ink mt-0.5">
-                  Needs Your Attention
+                <h3 className="text-lead font-semibold text-text mt-0.5">
+                  Action required
                 </h3>
               </div>
               <button
                 onClick={() => setSelectedConflict(null)}
-                className="text-ink-soft hover:text-ink p-1"
+                className="text-muted hover:text-text p-1 min-h-[44px] flex items-center justify-center"
                 aria-label="Close dialog"
               >
-                <X className="w-4 h-4" />
+                <X className="w-4 h-4" strokeWidth={1.75} />
               </button>
             </div>
 
-            <p className="text-xs text-ink-soft leading-relaxed font-sans">
-              This change was recorded while your device was offline, but the server encountered an issue when syncing. Review the differences below and choose which state to keep.
+            <p className="text-body text-muted leading-normal">
+              This record was modified offline, but the server encountered an update conflict. Choose which state to keep.
             </p>
 
             {/* Side-by-side comparison */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-              <div className="p-3 bg-ink/[0.02] border border-rule space-y-1.5">
-                <p className="font-mono text-[10px] uppercase text-ink-soft">
-                  Your Version (Offline)
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-caption">
+              <div className="p-3 bg-page border border-border rounded-panel space-y-1.5">
+                <p className="text-caption font-medium text-muted">
+                  Your version (offline)
                 </p>
-                <p className="font-serif text-ink text-sm font-medium">
+                <p className="text-body font-medium text-text">
                   {selectedConflict.conflictDetails?.clientSummary || selectedConflict.description}
-                </p>
-                <p className="text-[10px] font-mono text-ink-soft">
-                  Key: {selectedConflict.id.slice(0, 8)}…
                 </p>
               </div>
 
-              <div className="p-3 bg-variance/[0.04] border border-variance/30 space-y-1.5">
-                <p className="font-mono text-[10px] uppercase text-variance">
-                  Server State / Rejection
+              <div className="p-3 bg-bad-tint border border-bad rounded-panel space-y-1.5">
+                <p className="text-caption font-medium text-bad-ink">
+                  Server state
                 </p>
-                <p className="font-sans text-xs text-variance font-medium">
+                <p className="text-caption text-bad-ink font-medium">
                   {selectedConflict.conflictDetails?.reason || selectedConflict.error || "Server state changed"}
                 </p>
-                <p className="text-[10px] font-sans text-ink-soft">
+                <p className="text-caption text-muted">
                   {selectedConflict.conflictDetails?.serverSummary}
                 </p>
               </div>
@@ -142,8 +139,8 @@ export function OfflineStatusBanner({
                   setSelectedConflict(null);
                 }}
               >
-                <Check className="w-3.5 h-3.5 mr-1.5" />
-                Keep Server (Discard mine)
+                <Check className="w-3.5 h-3.5 mr-1.5" strokeWidth={1.75} />
+                Keep server version
               </Button>
               <Button
                 variant="primary"
@@ -153,8 +150,8 @@ export function OfflineStatusBanner({
                   setSelectedConflict(null);
                 }}
               >
-                <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
-                Keep Mine (Retry sync)
+                <RefreshCw className="w-3.5 h-3.5 mr-1.5" strokeWidth={1.75} />
+                Keep mine and retry
               </Button>
             </div>
           </div>

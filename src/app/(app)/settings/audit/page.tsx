@@ -1,11 +1,11 @@
 import React from "react";
 import { requireUser } from "@/server/guards";
 import { getAuditLogs, getDistinctAuditEntityTypes } from "@/features/audit/queries";
-import { RuleHeading } from "@/components/ui/rule-heading";
+import { PageHeader } from "@/components/ui/page-header";
 import { AuditTable } from "@/features/audit/components/audit-table";
 
 export const metadata = {
-  title: "Audit Trail — PUCA Finance",
+  title: "Audit log — PUCA Finance",
 };
 
 interface AuditPageProps {
@@ -39,11 +39,10 @@ export default async function AuditPage({ searchParams }: AuditPageProps) {
   ]);
 
   return (
-    <div className="space-y-8">
-      <RuleHeading
-        eyebrow="Immutable Records"
-        title="Audit Log"
-        description="Chronological ledger of system modifications, authorization changes, and financial events."
+    <div className="space-y-6">
+      <PageHeader
+        title="Audit log"
+        description="Immutable record of system modifications, authorization changes, and financial events."
       />
 
       <AuditTable
@@ -56,3 +55,4 @@ export default async function AuditPage({ searchParams }: AuditPageProps) {
     </div>
   );
 }
+

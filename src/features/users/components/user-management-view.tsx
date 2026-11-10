@@ -3,8 +3,9 @@
 import React, { useState } from "react";
 import { UserList, UserItem } from "./user-list";
 import { AddUserSheet } from "./add-user-sheet";
+import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
-import { UserPlus } from "lucide-react";
+import { Plus } from "lucide-react";
 
 export interface UserManagementViewProps {
   users: UserItem[];
@@ -19,18 +20,19 @@ export function UserManagementView({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <p className="text-xs text-ink-soft">
-          {users.length} officer{users.length === 1 ? "" : "s"} registered
-        </p>
-        <Button
-          variant="primary"
-          onClick={() => setIsAddSheetOpen(true)}
-        >
-          <UserPlus className="w-4 h-4 mr-2" />
-          Add officer
-        </Button>
-      </div>
+      <PageHeader
+        title="Users"
+        description="Manage officer accounts and role permissions."
+        action={
+          <Button
+            variant="primary"
+            onClick={() => setIsAddSheetOpen(true)}
+          >
+            <Plus className="w-4 h-4 mr-1.5" />
+            Add user
+          </Button>
+        }
+      />
 
       <UserList users={users} currentUserId={currentUserId} />
 
@@ -41,3 +43,4 @@ export function UserManagementView({
     </div>
   );
 }
+

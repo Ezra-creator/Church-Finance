@@ -1,13 +1,13 @@
 {
   "name": "PUCA Finance",
   "short_name": "PUCA",
-  "description": "Presbyterian Church of Ghana parish custody and financial ledger",
+  "description": "Church financial management, counting and weekly returns",
   "start_url": "/today",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#F7F4EC",
-  "theme_color": "#F7F4EC",
+  "background_color": "#F6F7F5",
+  "theme_color": "#3F6F57",
   "icons": [
     {
       "src": "/icons/icon-192.svg",

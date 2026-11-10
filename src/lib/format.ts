@@ -7,7 +7,7 @@ export function formatRole(role: Role | string): string {
     case "TREASURER":
       return "Treasurer";
     case "PRESBYTERY_VIEWER":
-      return "Presbytery Viewer";
+      return "Reviewer";
     default:
       return role;
   }

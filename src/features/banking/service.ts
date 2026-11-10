@@ -110,7 +110,7 @@ export async function getHeldMoneyLedger(): Promise<FormattedHeldMoneyLedger> {
       });
       oldestUndepositedNotice = `Oldest undeposited cash held for ${diffDays} day${diffDays === 1 ? "" : "s"} (since ${dateStr}).`;
     } else {
-      oldestUndepositedNotice = "Unbanked cash balance currently held in parish custody.";
+      oldestUndepositedNotice = "Unbanked cash balance currently held.";
     }
   }
 

@@ -17,7 +17,7 @@ export async function saveCountAction(
 
     revalidatePath(`/services/${input.serviceRecordId}`);
     revalidatePath("/today");
-    return successResult({ id: sheet.id, total: sheet.total.toFixed(2) });
+    return successResult({ id: sheet.id, total: sheet.total.toString() });
   } catch (error) {
     return handleActionError(error);
   }

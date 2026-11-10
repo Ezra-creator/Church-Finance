@@ -5,20 +5,22 @@ import { listRecentServices } from "@/features/services/queries";
 import { TodayServiceList } from "@/features/services/components/today-service-list";
 import { getHeldMoneyLedger } from "@/features/banking/service";
 import { getDistrictOutstandingSummary } from "@/features/remittance/service";
+import { getChurchSettings } from "@/features/auth/service";
 import { MomoTransactionStatus, Role } from "@prisma/client";
 import { nowUtc, toAccraDateString } from "@/lib/dates";
+import { getNeedsAttentionItems } from "@/lib/attention";
 
 export const metadata = {
-  title: "Today's Service Collections — PUCA Finance",
+  title: "Home · PUCA Finance",
 };
 
 export default async function TodayPage() {
   const user = await requireUser();
   const todayStr = toAccraDateString(nowUtc());
 
-  const [services, heldLedger, districtSummary, unreviewedMomoCount, lastBackup] =
+  const [services, heldLedger, districtSummary, unreviewedMomoCount, lastBackup, churchSettings] =
     await Promise.all([
-      listRecentServices(30),
+      listRecentServices(8), // Limit recent collections to 8 per specification
       getHeldMoneyLedger(),
       getDistrictOutstandingSummary(),
       prisma.momoTransaction.count({
@@ -38,6 +40,7 @@ export default async function TodayPage() {
             select: { createdAt: true },
           })
         : null,
+      getChurchSettings(),
     ]);
 
   let lastBackupDate: string | null = null;
@@ -55,14 +58,24 @@ export default async function TodayPage() {
     }
   }
 
+  // Derive attention items via lib/attention.ts
+  const attentionItems = getNeedsAttentionItems({
+    unreviewedMomoCount,
+    cashHeldAmount: heldLedger.cashHeld.toString(),
+    districtOutstandingAmount: districtSummary.totalOutstanding.toString(),
+    needsBackupReminder,
+  });
+
   return (
     <TodayServiceList
       services={JSON.parse(JSON.stringify(services))}
       userRole={user.role}
       todayAccraDateString={todayStr}
-      heldAmount={heldLedger.totalHeld.toString()}
-      districtOutstandingAmount={districtSummary.totalOutstanding.toString()}
-      unreviewedMomoCount={unreviewedMomoCount}
+      churchName={churchSettings?.churchName}
+      cashHeldFormatted={heldLedger.cashHeldFormatted}
+      momoHeldFormatted={heldLedger.momoHeldFormatted}
+      totalHeldFormatted={heldLedger.totalHeldFormatted}
+      attentionItems={attentionItems}
       needsBackupReminder={needsBackupReminder}
       lastBackupDate={lastBackupDate}
     />

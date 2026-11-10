@@ -1,8 +1,7 @@
 import React from "react";
-import { clsx } from "clsx";
-import { twMerge } from "tailwind-merge";
+import { Badge, BadgeTone } from "./badge";
 
-export type StatusTone = "balanced" | "variance" | "attention" | "neutral";
+export type StatusTone = "balanced" | "variance" | "attention" | "neutral" | "success" | "danger" | "warning";
 
 export interface StatusMarkProps {
   tone?: StatusTone;
@@ -15,42 +14,19 @@ export function StatusMark({
   label,
   className,
 }: StatusMarkProps) {
-  const toneStyles = {
-    balanced: {
-      dot: "bg-balanced",
-      text: "text-balanced",
-    },
-    variance: {
-      dot: "bg-variance",
-      text: "text-variance",
-    },
-    attention: {
-      dot: "bg-attention",
-      text: "text-attention",
-    },
-    neutral: {
-      dot: "bg-ink-soft",
-      text: "text-ink-soft",
-    },
+  const toneMap: Record<StatusTone, BadgeTone> = {
+    balanced: "success",
+    variance: "danger",
+    attention: "warning",
+    neutral: "neutral",
+    success: "success",
+    danger: "danger",
+    warning: "warning",
   };
 
-  const current = toneStyles[tone];
-
   return (
-    <span
-      className={twMerge(
-        clsx(
-          "inline-flex items-center gap-1.5 text-xs font-medium tracking-wide uppercase select-none",
-          current.text,
-          className
-        )
-      )}
-    >
-      <span
-        className={clsx("w-2 h-2 rounded-[1px] flex-shrink-0", current.dot)}
-        aria-hidden="true"
-      />
-      <span>{label}</span>
-    </span>
+    <Badge tone={toneMap[tone]} className={className}>
+      {label}
+    </Badge>
   );
 }

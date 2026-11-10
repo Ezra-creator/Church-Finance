@@ -2,36 +2,28 @@
 
 import React, { useState, useEffect, useTransition, useMemo } from "react";
 import Link from "next/link";
+import Decimal from "decimal.js";
 import {
-  Denomination,
-  GivingCategory,
   Member,
   Role,
   ServiceStatus,
 } from "@prisma/client";
-import {
-  Calendar,
-  CheckCircle2,
-  Lock,
-  Unlock,
-  Receipt as ReceiptIcon,
-  Plus,
-  Trash2,
-  Printer,
-  AlertTriangle,
-  Scale,
-  Clock,
-} from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { RuleHeading } from "@/components/ui/rule-heading";
-import { StatusMark } from "@/components/ui/status-mark";
+import { PageHeader } from "@/components/ui/page-header";
+import { Badge } from "@/components/ui/badge";
 import { Sheet } from "@/components/ui/sheet";
 import { TextField } from "@/components/ui/text-field";
 import { AmountInput } from "@/components/ui/amount-input";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { InlineAlert } from "@/components/ui/inline-alert";
+import { SegmentedControl } from "@/components/ui/segmented-control";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+import { StepIndicator } from "@/components/ui/step-indicator";
+import { MoneyText } from "@/components/ui/money-text";
 import { useToast } from "@/components/ui/toast";
 import { formatAccraDate } from "@/lib/dates";
+import { formatMoney } from "@/lib/money";
 import { DenominationStepper } from "./denomination-stepper";
 import { MemberCombobox } from "@/features/giving/components/member-combobox";
 import { OfflineStatusBanner } from "./offline-status-banner";
@@ -147,11 +139,11 @@ export function ServiceCountView({
     serviceRecord.witnessName
   );
 
-  // Sheets saved totals state for grand total calculation
-  const [savedSheetTotals, setSavedSheetTotals] = useState<Record<string, number>>(() => {
-    const totals: Record<string, number> = {};
+  // Sheets saved totals state for grand total calculation using strings
+  const [savedSheetTotals, setSavedSheetTotals] = useState<Record<string, string>>(() => {
+    const totals: Record<string, string> = {};
     for (const sheet of initialSheets) {
-      totals[sheet.categoryId] = parseFloat(sheet.total) || 0;
+      totals[sheet.categoryId] = sheet.total;
     }
     return totals;
   });
@@ -177,6 +169,7 @@ export function ServiceCountView({
   const [deleteReason, setDeleteReason] = useState("");
 
   const [isPending, startTransition] = useTransition();
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { addToast } = useToast();
 
   const {
@@ -189,12 +182,9 @@ export function ServiceCountView({
     replayOutbox,
     resolveConflict,
     isCategoryPending,
-    isGivingPending,
   } = useOfflineSync({
     serviceRecordId: serviceRecord.id,
-    onSyncSuccess: () => {
-      // Re-trigger view refresh or calculations
-    },
+    onSyncSuccess: () => {},
     onToast: (variant, msg) => addToast(variant, msg),
   });
 
@@ -219,7 +209,7 @@ export function ServiceCountView({
     return false;
   }, [counts, savedCounts, activeCategoryId, denominations]);
 
-  // Warn on browser navigation if unsaved changes exist
+  // Beforeunload guard for unsaved changes
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (hasUnsavedChanges) {
@@ -231,81 +221,83 @@ export function ServiceCountView({
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [hasUnsavedChanges]);
 
-  // Client calculation of running category total
+  // Client calculation of running category total with decimal.js
   const runningCategoryTotal = useMemo(() => {
     const current = counts[activeCategoryId] || {};
-    let sum = 0;
+    let total = new Decimal(0);
     for (const d of denominations) {
       const qty = current[d.id] || 0;
       if (qty > 0) {
-        sum += parseFloat(d.value) * qty;
+        total = total.plus(new Decimal(d.value).times(qty));
       }
     }
-    return sum;
+    return total.toString();
   }, [counts, activeCategoryId, denominations]);
 
-  // Grand total calculation across all saved category sheets
+  // Grand total calculation across all saved category sheets with decimal.js
   const grandTotal = useMemo(() => {
-    let sum = 0;
+    let total = new Decimal(0);
     for (const cat of categories) {
       if (cat.id === activeCategoryId) {
-        sum += runningCategoryTotal;
+        total = total.plus(new Decimal(runningCategoryTotal));
       } else {
-        sum += savedSheetTotals[cat.id] || 0;
+        total = total.plus(new Decimal(savedSheetTotals[cat.id] || "0"));
       }
     }
-    return sum;
-  }, [savedSheetTotals, activeCategoryId, runningCategoryTotal, categories]);
+    return total.toString();
+  }, [categories, activeCategoryId, runningCategoryTotal, savedSheetTotals]);
 
-  // Tithe entries sum and unattributed calculations
-  const countedTitheTotal = savedSheetTotals[activeCategory?.id || ""] || 0;
-  const titheEntriesSum = useMemo(() => {
-    if (!activeCategory) return 0;
-    return givingEntries
-      .filter((e) => e.categoryId === activeCategory.id)
-      .reduce((acc, curr) => acc + (parseFloat(curr.amount) || 0), 0);
-  }, [givingEntries, activeCategory]);
+  // Attributed vs unattributed tithe calculation with decimal.js
+  const unattributedTithe = useMemo(() => {
+    if (!isTitheTab) return "0";
+    const sheetTotalDec = new Decimal(runningCategoryTotal);
+    const individualTotalDec = givingEntries
+      .filter((e) => e.categoryId === activeCategoryId)
+      .reduce((acc, curr) => acc.plus(new Decimal(curr.amount || "0")), new Decimal(0));
+    return sheetTotalDec.minus(individualTotalDec).toString();
+  }, [isTitheTab, runningCategoryTotal, givingEntries, activeCategoryId]);
 
-  const unattributedTithe = Math.max(0, countedTitheTotal - titheEntriesSum);
+  // Debounced polite live region (500ms) for assistive devices
+  const [liveAnnouncement, setLiveAnnouncement] = useState("");
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setLiveAnnouncement(`${activeCategory?.name || "Collection"} total is ${formatMoney(runningCategoryTotal)}`);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [runningCategoryTotal, activeCategory?.name]);
 
-  const handleQuantityChange = (denomId: string, quantity: number) => {
-    if (!canEdit) return;
+  const handleQuantityChange = (denominationId: string, quantity: number) => {
     setCounts((prev) => ({
       ...prev,
       [activeCategoryId]: {
         ...(prev[activeCategoryId] || {}),
-        [denomId]: quantity,
+        [denominationId]: quantity,
       },
     }));
   };
 
   const handleSaveCount = () => {
-    if (!canEdit) return;
-    const currentLines = denominations.map((d) => ({
-      denominationId: d.id,
-      quantity: counts[activeCategoryId]?.[d.id] || 0,
-    }));
+    if (!canEdit || isPending || isSubmitting) return;
 
+    setIsSubmitting(true);
     startTransition(async () => {
-      const res = await queueSaveCount(
-        {
-          serviceRecordId: serviceRecord.id,
-          categoryId: activeCategoryId,
-          lines: currentLines,
-        },
-        activeCategory?.name || "Offering"
-      );
+      const currentCategoryCounts = counts[activeCategoryId] || {};
+      const currentLines = denominations.map((d) => ({
+        denominationId: d.id,
+        quantity: currentCategoryCounts[d.id] || 0,
+      }));
+
+      const res = await saveCountAction({
+        serviceRecordId: serviceRecord.id,
+        categoryId: activeCategoryId,
+        lines: currentLines,
+      });
 
       if (!res.success) {
-        addToast("error", res.error || "Failed to save count");
+        addToast("error", res.error.message);
+        setIsSubmitting(false);
         return;
       }
-
-      const denomMap = new Map(denominations.map((d) => [d.id, parseFloat(d.value)]));
-      const localTotal = currentLines.reduce((acc, curr) => {
-        const val = denomMap.get(curr.denominationId) || 0;
-        return acc + val * curr.quantity;
-      }, 0);
 
       setSavedCounts((prev) => ({
         ...prev,
@@ -313,22 +305,26 @@ export function ServiceCountView({
       }));
       setSavedSheetTotals((prev) => ({
         ...prev,
-        [activeCategoryId]: localTotal,
+        [activeCategoryId]: runningCategoryTotal,
       }));
 
-      if (res.offline) {
-        addToast(
-          "attention",
-          `${activeCategory?.name} count saved offline (GH₵ ${localTotal.toFixed(2)}) — waiting to sync`
-        );
-      } else {
-        addToast(
-          "success",
-          `${activeCategory?.name} count verified and saved (GH₵ ${localTotal.toFixed(2)})`
-        );
-      }
+      addToast("success", `${activeCategory?.name} count saved`);
+      setIsSubmitting(false);
     });
   };
+
+  // Keyboard shortcut: Cmd/Ctrl + Enter saves count sheet
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+        e.preventDefault();
+        handleSaveCount();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasUnsavedChanges, canEdit, isPending, isSubmitting, activeCategoryId, counts]);
 
   const handleMarkCounted = (e: React.FormEvent) => {
     e.preventDefault();
@@ -352,7 +348,7 @@ export function ServiceCountView({
       setRecordStatus(ServiceStatus.COUNTED);
       setWitnessName(witnessInput.trim());
       setIsMarkCountedOpen(false);
-      addToast("success", "Service record officially marked as counted");
+      addToast("success", "Service record marked as counted");
     });
   };
 
@@ -378,7 +374,7 @@ export function ServiceCountView({
       setRecordStatus(ServiceStatus.OPEN);
       setIsReopenOpen(false);
       setReopenReason("");
-      addToast("attention", "Service record reopened for adjustments");
+      addToast("warning", "Service record reopened for adjustments");
     });
   };
 
@@ -387,13 +383,13 @@ export function ServiceCountView({
     setEntryError(null);
 
     if (!selectedMemberId && !visitorPayerName.trim()) {
-      setEntryError("Please select a registered member or enter a visitor payer name.");
+      setEntryError("Select a member or enter a visitor payer name.");
       return;
     }
 
-    const amountNum = parseFloat(entryAmount);
-    if (isNaN(amountNum) || amountNum <= 0) {
-      setEntryError("Please enter a valid amount greater than zero.");
+    const dec = new Decimal(entryAmount || "0");
+    if (dec.isZero() || dec.isNegative()) {
+      setEntryError("Enter a valid amount greater than zero.");
       return;
     }
 
@@ -403,34 +399,29 @@ export function ServiceCountView({
     }
 
     startTransition(async () => {
-      const selectedMember = members.find((m) => m.id === selectedMemberId);
-      const displayLabel = selectedMember ? selectedMember.fullName : visitorPayerName.trim();
-
-      const res = await queueAddGiving(
-        {
-          serviceRecordId: serviceRecord.id,
-          categoryId: activeCategoryId,
-          memberId: selectedMemberId,
-          payerName: visitorPayerName.trim() || null,
-          amount: entryAmount,
-          reason: entryReason.trim() || undefined,
-        },
-        displayLabel
-      );
+      const res = await addGivingEntryAction({
+        serviceRecordId: serviceRecord.id,
+        categoryId: activeCategoryId,
+        memberId: selectedMemberId || undefined,
+        payerName: visitorPayerName.trim() || undefined,
+        amount: dec.toString(),
+        reason: entryReason.trim() || undefined,
+      });
 
       if (!res.success) {
-        setEntryError(res.error || "Failed to record giving entry");
+        setEntryError(res.error.message);
         return;
       }
 
+      const selectedMember = members.find((m) => m.id === selectedMemberId);
       const newEntry: InitialGivingEntry = {
-        id: res.data?.id || crypto.randomUUID(),
+        id: res.data.id,
         categoryId: activeCategoryId,
         memberId: selectedMemberId,
         payerName: visitorPayerName.trim() || null,
-        amount: amountNum.toFixed(2),
-        receiptId: res.data?.receiptId || null,
-        receiptNumber: res.offline ? "Pending (Offline)" : "Generated",
+        amount: dec.toString(),
+        receiptId: res.data.receiptId || null,
+        receiptNumber: null,
         member: selectedMember
           ? {
               id: selectedMember.id,
@@ -442,29 +433,22 @@ export function ServiceCountView({
       };
 
       setGivingEntries((prev) => [newEntry, ...prev]);
-      if (res.offline) {
-        addToast(
-          "attention",
-          `Tithe payment saved offline (GH₵ ${amountNum.toFixed(2)}) — waiting to sync`
-        );
-      } else {
-        addToast("success", `Tithe payment recorded (GH₵ ${amountNum.toFixed(2)})`);
-      }
       setIsAddEntryOpen(false);
       setSelectedMemberId(null);
       setVisitorPayerName("");
       setEntryAmount("");
       setEntryReason("");
+      addToast("success", `Tithe payment recorded (${formatMoney(dec.toString())})`);
     });
   };
 
-  const handleDeleteGivingEntry = () => {
-    if (!deletingEntry) return;
+  const handleDeleteGivingEntry = (entry: InitialGivingEntry) => {
+    if (isCounted && !deleteReason.trim()) return;
 
     startTransition(async () => {
       const res = await deleteGivingEntryAction(
         {
-          id: deletingEntry.id,
+          id: entry.id,
           reason: deleteReason.trim() || undefined,
         },
         serviceRecord.id
@@ -475,93 +459,104 @@ export function ServiceCountView({
         return;
       }
 
-      setGivingEntries((prev) => prev.filter((e) => e.id !== deletingEntry.id));
-      addToast("success", "Tithe entry and associated receipt removed");
+      setGivingEntries((prev) => prev.filter((e) => e.id !== entry.id));
       setDeletingEntry(null);
       setDeleteReason("");
+      addToast("success", "Tithe entry removed");
     });
   };
 
+  const getStatusBadge = () => {
+    switch (recordStatus) {
+      case ServiceStatus.COUNTED:
+        return <Badge variant="Balanced">Counted</Badge>;
+      case ServiceStatus.LOCKED:
+        return <Badge variant="Neutral">Locked</Badge>;
+      default:
+        return <Badge variant="Needs attention">In progress</Badge>;
+    }
+  };
+
+  const currentStep = isCounted ? 2 : hasUnsavedChanges ? 1 : 0;
+
   return (
-    <div className="space-y-8 pb-32">
-      {/* Header with Ledger Title, Status, and Grand Total */}
-      <div className="space-y-3 pb-6 border-b border-rule">
-        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-          <div>
-            <p className="text-xs uppercase tracking-widest font-mono text-ink-soft">
-              {serviceRecord.serviceType} Service • Collection Ledger
-            </p>
-            <h1 className="text-2xl sm:text-3xl font-serif text-ink mt-0.5">
+    <div className="space-y-6 text-left">
+      {/* Polite live region debounced by 500ms */}
+      <div aria-live="polite" className="sr-only">
+        {liveAnnouncement}
+      </div>
+
+      {/* Step Indicator: Details, Cash, Review */}
+      <StepIndicator
+        steps={[
+          { id: "details", label: "Details" },
+          { id: "cash", label: "Cash" },
+          { id: "review", label: "Review" },
+        ]}
+        currentStep={currentStep}
+      />
+
+      {/* Header with Title and Actions */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-border">
+        <div className="space-y-1">
+          <div className="flex items-center gap-3">
+            <h1 className="text-heading font-semibold text-text leading-tight">
               {formatAccraDate(new Date(serviceRecord.serviceDate), {
                 weekday: "long",
                 day: "numeric",
-                month: "long",
+                month: "short",
                 year: "numeric",
               })}
             </h1>
-            <div className="mt-2 flex flex-wrap items-center gap-3 text-xs">
-              <StatusMark
-                tone={
-                  isLocked ? "neutral" : isCounted ? "balanced" : "attention"
-                }
-                label={recordStatus}
-              />
-              {witnessName && (
-                <span className="text-ink-soft font-mono">
-                  Witnessed by: <strong className="text-ink font-sans">{witnessName}</strong>
-                </span>
-              )}
-            </div>
+            {getStatusBadge()}
           </div>
-
-          {/* Grand Total Ledger Display */}
-          <div className="text-left sm:text-right">
-            <p className="text-[11px] uppercase tracking-wider font-mono text-ink-soft">
-              Grand Total
-            </p>
-            <p className="text-2xl sm:text-3xl font-mono text-ink tabular-nums font-semibold mt-0.5">
-              GH₵ {grandTotal.toFixed(2)}
-            </p>
-
-            {/* Action Buttons */}
-            <div className="mt-3 flex items-center gap-2 justify-start sm:justify-end">
-              {!isLocked && !isCounted && canEdit && (
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => setIsMarkCountedOpen(true)}
-                >
-                  <CheckCircle2 className="w-4 h-4 mr-1.5" />
-                  Mark as counted
-                </Button>
-              )}
-              {canReopen && (
-                <Button
-                  variant="quiet"
-                  size="sm"
-                  className="text-variance hover:bg-variance/10"
-                  onClick={() => setIsReopenOpen(true)}
-                >
-                  <Unlock className="w-4 h-4 mr-1.5" />
-                  Reopen service
-                </Button>
-              )}
-            </div>
-          </div>
+          <p className="text-body text-muted">
+            {serviceRecord.serviceType} service count
+            {witnessName ? ` · Witnessed by ${witnessName}` : ""}
+          </p>
         </div>
 
-        {/* Locked Banner */}
-        {isLocked && (
-          <div className="p-3 bg-paper border border-rule-strong rounded-[2px] flex items-center gap-2 text-xs text-ink-soft">
-            <Lock className="w-4 h-4 text-ink flex-shrink-0" />
-            <span>
-              This service record is permanently locked. All collection figures and receipts are read-only.
-            </span>
+        {/* Grand Total & Actions */}
+        <div className="flex items-center gap-4 self-start sm:self-auto">
+          <div className="text-left sm:text-right">
+            <span className="text-caption text-muted block">Grand total</span>
+            <div className="text-figure font-semibold text-text tnum tabular-nums">
+              <MoneyText amount={grandTotal} />
+            </div>
           </div>
-        )}
+
+          <div className="flex items-center gap-2">
+            {!isLocked && !isCounted && canEdit && (
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => setIsMarkCountedOpen(true)}
+              >
+                Mark counted
+              </Button>
+            )}
+            {canReopen && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-bad hover:text-bad-ink"
+                onClick={() => setIsReopenOpen(true)}
+              >
+                Reopen
+              </Button>
+            )}
+          </div>
+        </div>
       </div>
 
-      {/* Offline and Sync Status Banner */}
+      {/* Locked Notice */}
+      {isLocked && (
+        <InlineAlert tone="info">
+          This service record is permanently locked. All collection figures and receipts are read-only.
+        </InlineAlert>
+      )}
+
+      {/* Offline Status */}
       <OfflineStatusBanner
         isOnline={isOnline}
         pendingCount={pendingItems.length}
@@ -571,290 +566,288 @@ export function ServiceCountView({
         onResolveConflict={resolveConflict}
       />
 
-      {/* Category Switch: Three Underlined Text Tabs */}
-      <div className="flex border-b border-rule">
-        {categories.map((cat) => {
-          const isActive = cat.id === activeCategoryId;
-          const isPendingSync = isCategoryPending(cat.id);
-          return (
-            <button
-              key={cat.id}
-              type="button"
-              onClick={() => setActiveCategoryId(cat.id)}
-              className={`py-3 px-4 text-sm font-medium transition-colors relative min-h-[44px] flex items-center gap-2 ${
-                isActive
-                  ? "text-ink border-b-2 border-ink -mb-px"
-                  : "text-ink-soft hover:text-ink"
-              }`}
-            >
-              <span>{cat.name}</span>
-              {isPendingSync && (
-                <span className="text-[10px] text-variance font-mono" title="Waiting to sync">
-                  ⏳
+      {/* Category Segmented Control */}
+      <div className="w-full overflow-x-auto pb-1">
+        <SegmentedControl
+          value={activeCategoryId}
+          onChange={(val) => setActiveCategoryId(val)}
+          options={categories.map((cat) => ({
+            value: cat.id,
+            label: (
+              <span className="flex items-center gap-1.5 whitespace-nowrap">
+                <span>{cat.name}</span>
+                <span className="text-caption text-muted tnum tabular-nums">
+                  ({formatMoney(savedSheetTotals[cat.id] || "0")})
                 </span>
-              )}
-              <span className="text-xs font-mono text-ink-soft tabular-nums">
-                GH₵ {(savedSheetTotals[cat.id] || 0).toFixed(2)}
               </span>
-            </button>
-          );
-        })}
+            ),
+          }))}
+        />
       </div>
 
-      {/* Denominations Ruled Cash Count Table */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xs uppercase tracking-wider font-mono text-ink-soft">
-            Physical Cash Verification — {activeCategory?.name}
-          </h2>
-          {hasUnsavedChanges && (
-            <span className="text-xs font-mono text-attention">
-              ● Unsaved count changes
-            </span>
+      {/* Layout with sticky summary right on desktop, table on left */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Main Cash Counting Column (2 cols) */}
+        <div className="lg:col-span-2 space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lead font-semibold text-text">
+              Cash count — {activeCategory?.name}
+            </h2>
+            {hasUnsavedChanges && (
+              <span className="text-caption font-medium text-warn">
+                ● Unsaved changes
+              </span>
+            )}
+          </div>
+
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Denomination</TableHead>
+                <TableHead className="text-center">Quantity</TableHead>
+                <TableHead align="right">Amount</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {denominations.map((denom) => {
+                const qty = counts[activeCategoryId]?.[denom.id] || 0;
+                const lineTotal = new Decimal(denom.value).times(qty).toString();
+
+                return (
+                  <TableRow key={denom.id}>
+                    <TableCell className="font-medium text-text">
+                      <span className="tnum tabular-nums">{formatMoney(denom.value)}</span>
+                      <span className="ml-1.5 text-caption text-muted">
+                        {denom.kind === "NOTE" ? "note" : "coin"}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <div className="inline-flex justify-center">
+                        <DenominationStepper
+                          quantity={qty}
+                          onChange={(newQty) =>
+                            handleQuantityChange(denom.id, newQty)
+                          }
+                          disabled={!canEdit}
+                        />
+                      </div>
+                    </TableCell>
+                    <TableCell align="right" className="font-medium tnum tabular-nums text-text">
+                      <MoneyText amount={lineTotal} />
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+
+          {/* Tithe Section */}
+          {isTitheTab && (
+            <div className="pt-6 border-t border-border space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-lead font-semibold text-text">
+                    Tithe entries
+                  </h2>
+                  <div className="flex items-center gap-2 mt-1 text-body text-muted">
+                    <span>Unattributed:</span>
+                    <span className="font-semibold text-text tnum tabular-nums">
+                      <MoneyText amount={unattributedTithe} />
+                    </span>
+                    <Badge variant={new Decimal(unattributedTithe).greaterThan(0) ? "Needs attention" : "Balanced"}>
+                      {new Decimal(unattributedTithe).greaterThan(0) ? "Pending attribution" : "Balanced"}
+                    </Badge>
+                  </div>
+                </div>
+
+                {canEdit && (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => {
+                      setSelectedMemberId(null);
+                      setVisitorPayerName("");
+                      setEntryAmount("");
+                      setEntryReason("");
+                      setEntryError(null);
+                      setIsAddEntryOpen(true);
+                    }}
+                  >
+                    Add tithe entry
+                  </Button>
+                )}
+              </div>
+
+              {givingEntries.filter((e) => e.categoryId === activeCategoryId).length === 0 ? (
+                <EmptyState
+                  title="No tithe payments recorded"
+                  description="Record tithe payments against members or visitors. An official receipt is issued for each payment."
+                  action={
+                    canEdit ? (
+                      <Button
+                        variant="secondary"
+                        onClick={() => setIsAddEntryOpen(true)}
+                      >
+                        Add tithe entry
+                      </Button>
+                    ) : undefined
+                  }
+                />
+              ) : (
+                <div className="border border-border rounded-panel bg-surface divide-y divide-border">
+                  {givingEntries
+                    .filter((e) => e.categoryId === activeCategoryId)
+                    .map((entry) => (
+                      <div
+                        key={entry.id}
+                        className="p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-hover transition-colors duration-120"
+                      >
+                        <div className="space-y-0.5">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-body text-text">
+                              {entry.member?.fullName || entry.payerName || "Anonymous"}
+                            </span>
+                            {entry.member?.memberNumber && (
+                              <span className="text-caption text-muted">
+                                (No. {entry.member.memberNumber})
+                              </span>
+                            )}
+                          </div>
+
+                          {entry.receiptId ? (
+                            <Link
+                              href={`/receipts/${entry.receiptId}`}
+                              className="text-caption text-accent hover:underline block"
+                            >
+                              View receipt {entry.receiptNumber ? `(${entry.receiptNumber})` : ""}
+                            </Link>
+                          ) : (
+                            <span className="text-caption text-muted block">
+                              Waiting to sync
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-3 self-end sm:self-auto">
+                          <span className="text-body font-semibold text-text tnum tabular-nums">
+                            <MoneyText amount={entry.amount} />
+                          </span>
+
+                          {canEdit && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setDeletingEntry(entry);
+                                setDeleteReason("");
+                              }}
+                              className="text-muted hover:text-bad p-1 h-8"
+                              aria-label="Delete tithe entry"
+                            >
+                              Delete
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              )}
+            </div>
           )}
         </div>
 
-        <div className="border border-rule rounded-[2px] bg-paper divide-y divide-rule">
-          {denominations.map((denom) => {
-            const qty = counts[activeCategoryId]?.[denom.id] || 0;
-            const lineTotal = (parseFloat(denom.value) * qty).toFixed(2);
+        {/* Sticky Summary Column Right on Desktop (1 col) */}
+        <div className="space-y-4">
+          <div className="hidden lg:block sticky top-24 p-5 border border-border rounded-panel bg-surface space-y-4">
+            <h3 className="text-lead font-semibold text-text">
+              Sheet summary
+            </h3>
 
-            return (
-              <div
-                key={denom.id}
-                className="p-3 sm:px-4 flex items-center justify-between gap-3"
-              >
-                {/* Denomination Value */}
-                <div className="w-32 sm:w-48">
-                  <span className="font-mono text-sm sm:text-base font-medium text-ink">
-                    GH₵ {parseFloat(denom.value).toFixed(2)}
-                  </span>
-                  <span className="ml-2 text-[10px] text-ink-soft uppercase font-mono">
-                    {denom.kind}
-                  </span>
-                </div>
-
-                {/* Thumb-Stepper Input */}
-                <div className="flex-1 flex justify-center">
-                  <DenominationStepper
-                    quantity={qty}
-                    onChange={(newQty) =>
-                      handleQuantityChange(denom.id, newQty)
-                    }
-                    disabled={!canEdit}
-                  />
-                </div>
-
-                {/* Line Total in Tabular Mono */}
-                <div className="w-24 sm:w-32 text-right">
-                  <span className="font-mono text-sm sm:text-base tabular-nums text-ink">
-                    GH₵ {lineTotal}
-                  </span>
-                </div>
+            <div className="space-y-2 divide-y divide-border text-body">
+              <div className="flex items-center justify-between pb-2">
+                <span className="text-muted">{activeCategory?.name} counted</span>
+                <span className="font-semibold text-text tnum tabular-nums">
+                  <MoneyText amount={runningCategoryTotal} />
+                </span>
               </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Tithe Register Section (Displayed only on Tithe tab) */}
-      {isTitheTab && (
-        <div className="pt-8 border-t border-rule space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <p className="text-xs uppercase tracking-wider font-mono text-ink-soft">
-                Tithe Ledger & Envelopes
-              </p>
-              <h2 className="text-xl font-serif text-ink mt-0.5">
-                Member Tithe Register
-              </h2>
+              <div className="flex items-center justify-between pt-2">
+                <span className="font-medium text-text">Grand total</span>
+                <span className="font-semibold text-text tnum tabular-nums">
+                  <MoneyText amount={grandTotal} />
+                </span>
+              </div>
             </div>
 
             {canEdit && (
               <Button
                 variant="primary"
-                onClick={() => {
-                  setSelectedMemberId(null);
-                  setVisitorPayerName("");
-                  setEntryAmount("");
-                  setEntryReason("");
-                  setEntryError(null);
-                  setIsAddEntryOpen(true);
-                }}
+                disabled={isPending || isSubmitting || !hasUnsavedChanges}
+                onClick={handleSaveCount}
+                className="w-full"
               >
-                <Plus className="w-4 h-4 mr-1.5" />
-                Add tithe entry
+                {isPending || isSubmitting ? "Saving..." : "Save count"}
               </Button>
             )}
+            <p className="text-caption text-muted text-center">
+              Press Cmd/Ctrl + Enter to save
+            </p>
           </div>
-
-          {/* Unattributed Meter */}
-          <div className="p-4 border border-rule rounded-[2px] bg-paper grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div>
-              <p className="text-[11px] uppercase tracking-wider font-mono text-ink-soft">
-                Counted Tithe Cash
-              </p>
-              <p className="text-lg font-mono font-medium text-ink tabular-nums mt-0.5">
-                GH₵ {countedTitheTotal.toFixed(2)}
-              </p>
-            </div>
-
-            <div>
-              <p className="text-[11px] uppercase tracking-wider font-mono text-ink-soft">
-                Attributed to Members
-              </p>
-              <p className="text-lg font-mono font-medium text-balanced tabular-nums mt-0.5">
-                GH₵ {titheEntriesSum.toFixed(2)}
-              </p>
-            </div>
-
-            <div>
-              <p className="text-[11px] uppercase tracking-wider font-mono text-ink-soft">
-                Unattributed Remainder
-              </p>
-              <p className="text-lg font-mono font-semibold text-attention tabular-nums mt-0.5">
-                GH₵ {unattributedTithe.toFixed(2)}
-              </p>
-            </div>
-          </div>
-
-          {/* Tithe Entries List */}
-          {givingEntries.filter((e) => e.categoryId === activeCategoryId).length ===
-          0 ? (
-            <EmptyState
-              title="No individual tithe payments recorded"
-              description="Record tithe payments against parish members or visitors. An official numbered receipt is issued automatically for each entry."
-              action={
-                canEdit ? (
-                  <Button
-                    variant="secondary"
-                    onClick={() => setIsAddEntryOpen(true)}
-                  >
-                    Record first tithe payment
-                  </Button>
-                ) : undefined
-              }
-            />
-          ) : (
-            <div className="border border-rule rounded-[2px] bg-paper divide-y divide-rule">
-              {givingEntries
-                .filter((e) => e.categoryId === activeCategoryId)
-                .map((entry) => (
-                  <div
-                    key={entry.id}
-                    className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-ink/[0.02] transition-colors"
-                  >
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-sm text-ink">
-                          {entry.member?.fullName || entry.payerName || "Anonymous"}
-                        </span>
-                        {entry.member?.memberNumber && (
-                          <span className="text-xs font-mono text-ink-soft">
-                            (No. {entry.member.memberNumber})
-                          </span>
-                        )}
-                      </div>
-
-                      {entry.receiptId ? (
-                        <Link
-                          href={`/receipts/${entry.receiptId}`}
-                          className="inline-flex items-center gap-1.5 text-xs font-mono text-ink hover:underline"
-                        >
-                          <ReceiptIcon className="w-3.5 h-3.5 text-ink-soft" />
-                          <span>View Official Receipt</span>
-                        </Link>
-                      ) : (
-                        <span
-                          className="inline-flex items-center gap-1 text-[10px] font-mono text-variance bg-variance/10 px-1.5 py-0.5 rounded-[2px]"
-                          title="Offline entry waiting to sync"
-                        >
-                          <Clock className="w-3 h-3" /> Waiting to sync
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="flex items-center gap-4 self-end sm:self-auto">
-                      <span className="font-mono text-base font-semibold tabular-nums text-ink">
-                        GH₵ {parseFloat(entry.amount).toFixed(2)}
-                      </span>
-
-                      {canEdit && (
-                        <Button
-                          variant="quiet"
-                          size="sm"
-                          onClick={() => {
-                            setDeletingEntry(entry);
-                            setDeleteReason("");
-                          }}
-                          className="text-ink-soft hover:text-variance min-h-[44px]"
-                          aria-label="Delete tithe entry"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-            </div>
-          )}
         </div>
-      )}
+      </div>
 
-      {/* Sticky Bottom Bar on Mobile & Desktop Save Count Bar */}
-      <div className="fixed bottom-16 lg:bottom-0 left-0 right-0 lg:left-rail bg-paper border-t border-rule p-4 z-30 shadow-sm flex items-center justify-between">
+      {/* Sticky Bottom Action Bar on Mobile (<1024px) */}
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-surface border-t border-border p-4 z-40 flex items-center justify-between pb-[calc(16px+env(safe-area-inset-bottom,0px))]">
         <div className="space-y-0.5">
-          <p className="text-[10px] uppercase tracking-wider font-mono text-ink-soft">
-            {activeCategory?.name} Total
-          </p>
-          <p className="text-xl sm:text-2xl font-mono font-semibold tabular-nums text-ink">
-            GH₵ {runningCategoryTotal.toFixed(2)}
-          </p>
+          <span className="text-caption text-muted">
+            {activeCategory?.name} total
+          </span>
+          <div className="text-title font-semibold text-text tnum tabular-nums">
+            <MoneyText amount={runningCategoryTotal} />
+          </div>
         </div>
 
         {canEdit && (
           <Button
             variant="primary"
-            disabled={isPending || !hasUnsavedChanges}
+            disabled={isPending || isSubmitting || !hasUnsavedChanges}
             onClick={handleSaveCount}
-            className="min-h-[44px] px-6"
+            className="px-6"
           >
-            {isPending ? "Verifying..." : "Save count"}
+            {isPending || isSubmitting ? "Saving..." : "Save count"}
           </Button>
         )}
       </div>
 
-      {/* Mark As Counted Confirmation Sheet */}
+      {/* Mark Counted Sheet */}
       <Sheet
         isOpen={isMarkCountedOpen}
         onClose={() => setIsMarkCountedOpen(false)}
-        title="Complete Cash Count & Sign"
-        description="Verify the collection figures before completing the count with a witness."
+        title="Complete count and sign"
+        description="Verify collection figures before completing the count with a witness."
       >
-        <form onSubmit={handleMarkCounted} className="space-y-4 py-3">
+        <form onSubmit={handleMarkCounted} className="space-y-4 py-2">
           {markError && (
-            <div className="p-3 bg-variance text-variance text-xs rounded-[2px] border border-variance/30">
+            <InlineAlert tone="danger">
               {markError}
-            </div>
+            </InlineAlert>
           )}
 
-          {/* Breakdown summary */}
-          <div className="border border-rule rounded-[2px] divide-y divide-rule bg-paper">
+          <div className="border border-border rounded-panel divide-y divide-border bg-surface">
             {categories.map((cat) => (
               <div
                 key={cat.id}
-                className="p-2.5 flex items-center justify-between text-xs"
+                className="p-3 flex items-center justify-between text-caption"
               >
-                <span className="text-ink font-medium">{cat.name}</span>
-                <span className="font-mono tabular-nums text-ink">
-                  GH₵ {(savedSheetTotals[cat.id] || 0).toFixed(2)}
+                <span className="text-muted">{cat.name}</span>
+                <span className="font-medium text-text tnum tabular-nums">
+                  <MoneyText amount={savedSheetTotals[cat.id] || "0"} />
                 </span>
               </div>
             ))}
-            <div className="p-2.5 flex items-center justify-between text-xs font-semibold bg-ink/[0.03]">
-              <span className="text-ink">Grand Total</span>
-              <span className="font-mono tabular-nums text-ink">
-                GH₵ {grandTotal.toFixed(2)}
+            <div className="p-3 flex items-center justify-between text-body font-semibold bg-surface">
+              <span className="text-text">Grand total</span>
+              <span className="text-text tnum tabular-nums">
+                <MoneyText amount={grandTotal} />
               </span>
             </div>
           </div>
@@ -864,72 +857,59 @@ export function ServiceCountView({
             label="Witness full name"
             value={witnessInput}
             onChange={(e) => setWitnessInput(e.target.value)}
-            placeholder="e.g. Deaconess Abena Osei"
+            placeholder="Witness name"
             required
-            detail="The second person who counted and verified the cash bags"
+            hint="The second person who counted and verified cash collections."
           />
 
-          <div className="pt-4 flex items-center justify-end gap-2 border-t border-rule">
+          <div className="pt-4 flex items-center justify-end gap-3 border-t border-border">
             <Button
               type="button"
-              variant="quiet"
+              variant="secondary"
               onClick={() => setIsMarkCountedOpen(false)}
             >
               Cancel
             </Button>
-            <Button type="submit" variant="primary" disabled={isPending}>
-              {isPending ? "Submitting..." : "Confirm & mark counted"}
+            <Button type="submit" variant="primary" isLoading={isPending}>
+              Confirm and sign
             </Button>
           </div>
         </form>
       </Sheet>
 
-      {/* Reopen Record Dialog (Secretary Only) */}
+      {/* Reopen Record Sheet */}
       <Sheet
         isOpen={isReopenOpen}
         onClose={() => setIsReopenOpen(false)}
-        title="Reopen Counted Service Record"
+        title="Reopen counted record"
         description="Reopening enables adjustments to denomination lines and tithe payments."
       >
-        <form onSubmit={handleReopenRecord} className="space-y-4 py-3">
+        <form onSubmit={handleReopenRecord} className="space-y-4 py-2">
           {reopenError && (
-            <div className="p-3 bg-variance text-variance text-xs rounded-[2px] border border-variance/30">
+            <InlineAlert tone="danger">
               {reopenError}
-            </div>
+            </InlineAlert>
           )}
-
-          <div className="p-3 bg-attention text-attention text-xs rounded-[2px] border border-attention/30 flex items-start gap-2">
-            <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-            <span>
-              Reopening will return this service record to OPEN state. Every subsequent change will be logged in the permanent audit trail.
-            </span>
-          </div>
 
           <TextField
             id="reopen-reason"
             label="Reason for reopening"
             value={reopenReason}
             onChange={(e) => setReopenReason(e.target.value)}
-            placeholder="e.g. Recounting evening service envelope bundle"
+            placeholder="Audit discrepancy adjustment"
             required
-            detail="Required for the permanent parish audit record"
           />
 
-          <div className="pt-4 flex items-center justify-end gap-2 border-t border-rule">
+          <div className="pt-4 flex items-center justify-end gap-3 border-t border-border">
             <Button
               type="button"
-              variant="quiet"
+              variant="secondary"
               onClick={() => setIsReopenOpen(false)}
             >
               Cancel
             </Button>
-            <Button
-              type="submit"
-              variant="secondary"
-              className="border-variance text-variance hover:bg-variance/10"
-              disabled={isPending}
-            >
-              {isPending ? "Reopening..." : "Reopen record"}
+            <Button type="submit" variant="primary" isLoading={isPending}>
+              Reopen record
             </Button>
           </div>
         </form>
@@ -939,84 +919,83 @@ export function ServiceCountView({
       <Sheet
         isOpen={isAddEntryOpen}
         onClose={() => setIsAddEntryOpen(false)}
-        title="Record Tithe Payment"
-        description="Enter payment amount to allocate against counted tithe cash."
+        title="Record tithe payment"
+        description="Select a member or specify a visitor payer name."
       >
-        <form onSubmit={handleAddGivingEntry} className="space-y-4 py-3">
+        <form onSubmit={handleAddGivingEntry} className="space-y-4 py-2">
           {entryError && (
-            <div className="p-3 bg-variance text-variance text-xs rounded-[2px] border border-variance/30">
+            <InlineAlert tone="danger">
               {entryError}
-            </div>
+            </InlineAlert>
           )}
 
           <MemberCombobox
             members={members}
             selectedMemberId={selectedMemberId}
-            onSelectMember={(id) => setSelectedMemberId(id)}
-            onMemberCreated={(newMem) => setMembers((prev) => [newMem, ...prev])}
+            onSelectMember={(memberId) => {
+              setSelectedMemberId(memberId);
+              if (memberId) setVisitorPayerName("");
+            }}
+            onMemberCreated={(newMember) => {
+              setMembers((prev) => [newMember, ...prev]);
+              setSelectedMemberId(newMember.id);
+            }}
           />
 
           {!selectedMemberId && (
             <TextField
               id="visitor-name"
-              label="Or Visitor / Payer name"
+              label="Visitor payer name"
               value={visitorPayerName}
               onChange={(e) => setVisitorPayerName(e.target.value)}
-              placeholder="e.g. Kwabena Addo (Visiting)"
-              detail="If payer is not a registered church member"
+              placeholder="Full name of visitor"
             />
           )}
 
           <AmountInput
             id="tithe-amount"
-            label="Tithe Amount"
+            label="Amount"
             value={entryAmount}
             onChange={(val) => setEntryAmount(val)}
             required
-            placeholder="0.00"
           />
 
           {isCounted && (
             <TextField
               id="entry-reason"
-              label="Audit Reason (Required)"
+              label="Reason for adding after count"
               value={entryReason}
               onChange={(e) => setEntryReason(e.target.value)}
-              placeholder="e.g. Member submitted envelope after service count"
               required
             />
           )}
 
-          <div className="pt-4 flex items-center justify-end gap-2 border-t border-rule">
+          <div className="pt-4 flex items-center justify-end gap-3 border-t border-border">
             <Button
               type="button"
-              variant="quiet"
+              variant="secondary"
               onClick={() => setIsAddEntryOpen(false)}
             >
               Cancel
             </Button>
-            <Button type="submit" variant="primary" disabled={isPending}>
-              {isPending ? "Recording..." : "Issue receipt & save"}
+            <Button type="submit" variant="primary" isLoading={isPending}>
+              Issue receipt
             </Button>
           </div>
         </form>
       </Sheet>
 
-      {/* Delete Entry Confirmation Dialog */}
-      {deletingEntry && (
-        <ConfirmDialog
-          isOpen={true}
-          title="Delete Tithe Entry?"
-          description={`Remove tithe payment of GH₵ ${deletingEntry.amount} for ${
-            deletingEntry.member?.fullName || deletingEntry.payerName
-          }? The associated receipt will also be permanently cancelled in the audit log.`}
-          confirmLabel="Delete payment"
-          tone="variance"
-          onConfirm={handleDeleteGivingEntry}
-          onCancel={() => setDeletingEntry(null)}
-          isPending={isPending}
-        />
-      )}
+      {/* Delete Tithe Entry Dialog */}
+      <ConfirmDialog
+        isOpen={Boolean(deletingEntry)}
+        onClose={() => setDeletingEntry(null)}
+        onConfirm={() => deletingEntry && handleDeleteGivingEntry(deletingEntry)}
+        title="Delete tithe entry"
+        description={`Are you sure you want to delete the tithe payment of ${deletingEntry ? formatMoney(deletingEntry.amount) : ""}? This will void the associated receipt.`}
+        confirmLabel="Delete payment"
+        isDestructive
+        isLoading={isPending}
+      />
     </div>
   );
 }

@@ -1,30 +1,47 @@
 import React, { Suspense } from "react";
 import { LoginForm } from "@/features/auth/components/login-form";
+import { getChurchSettings } from "@/features/auth/service";
 
 export const metadata = {
-  title: "Sign in — PUCA Finance",
+  title: "Sign in · PUCA Finance",
 };
 
-export default function LoginPage() {
+export default async function LoginPage() {
+  const settings = await getChurchSettings();
+  const churchName = settings?.churchName || "PUCA Finance";
+
   return (
-    <div className="min-h-screen flex flex-col justify-center items-center px-4 py-12 bg-paper text-ink">
-      <div className="w-full max-w-sm space-y-8">
-        {/* Header */}
-        <div className="text-left space-y-1 pb-6 border-b border-rule">
-          <h1 className="text-3xl font-serif font-normal text-ink">
-            PUCA Finance
-          </h1>
-        </div>
-
-        {/* Login Form */}
-        <Suspense fallback={<div className="text-xs text-ink-soft font-mono">Loading form...</div>}>
-          <LoginForm />
-        </Suspense>
-
-        {/* Footer info */}
-        <div className="pt-6 border-t border-rule text-center">
-          <p className="text-[11px] text-ink-soft font-mono">
+    <div className="min-h-screen flex flex-col lg:flex-row bg-surface text-text text-left">
+      {/* Left Column: 44% width on desktop, page background color */}
+      <div className="w-full lg:w-[44%] bg-page p-8 lg:p-16 flex flex-col justify-between border-b lg:border-b-0 lg:border-r border-border">
+        <div className="space-y-4">
+          <div className="text-lead font-semibold text-text">
+            {churchName}
+          </div>
+          <p className="text-body text-muted max-w-sm">
+            Custody and financial records for Sunday collections, mobile money and bank deposits.
           </p>
+        </div>
+        <div className="hidden lg:block text-caption text-muted">
+          Authorized church finance officers only.
+        </div>
+      </div>
+
+      {/* Right Column: 56% width on desktop, surface background, form max-width 360px */}
+      <div className="w-full lg:w-[56%] bg-surface p-8 lg:p-16 flex items-center justify-center">
+        <div className="w-full max-w-form space-y-6">
+          <div className="space-y-1">
+            <h1 className="text-heading font-semibold text-text leading-tight">
+              Sign in
+            </h1>
+            <p className="text-body text-muted">
+              Enter your credentials to access the accounts.
+            </p>
+          </div>
+
+          <Suspense fallback={<div className="text-body text-muted">Loading...</div>}>
+            <LoginForm />
+          </Suspense>
         </div>
       </div>
     </div>

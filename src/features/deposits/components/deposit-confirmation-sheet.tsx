@@ -3,13 +3,13 @@
 import React, { useState, useTransition } from "react";
 import { Sheet } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { StatusMark } from "@/components/ui/status-mark";
+import { Badge } from "@/components/ui/badge";
+import { InlineAlert } from "@/components/ui/inline-alert";
 import { useToast } from "@/components/ui/toast";
-import { formatCedi } from "@/lib/money";
+import { formatMoney } from "@/lib/money";
 import { formatAccraDate } from "@/lib/dates";
 import { confirmDepositAction } from "../actions";
 import { AttachmentViewerModal } from "@/features/attachments/components/attachment-viewer-modal";
-import { FileText, CheckCircle2 } from "lucide-react";
 
 export interface DepositWithDetails {
   id: string;
@@ -56,8 +56,8 @@ export function DepositConfirmationSheet({
       const res = await confirmDepositAction({ id: deposit.id });
       if (res.success) {
         addToast({
-          type: "success",
-          message: `Bank deposit of ${formatCedi(deposit.amount)} confirmed.`,
+          type: "ok",
+          message: `Bank deposit of ${formatMoney(deposit.amount)} confirmed.`,
         });
         onClose();
         onSuccess?.();
@@ -74,55 +74,52 @@ export function DepositConfirmationSheet({
       <Sheet
         isOpen={isOpen}
         onClose={onClose}
-        title="Bank Deposit Verification"
+        title="Bank deposit verification"
         description={`Ref: ${deposit.bankReference} • ${formatAccraDate(new Date(deposit.depositDate))}`}
       >
-        <div className="space-y-6 py-2">
+        <div className="space-y-5 py-2">
           {errorMessage && (
-            <div className="p-3 bg-variance/10 border border-variance text-variance rounded-[2px] text-xs font-mono">
-              {errorMessage}
-            </div>
+            <InlineAlert variant="danger" title={errorMessage} />
           )}
 
           {/* Amount Callout */}
-          <div className="p-4 bg-ink/[0.02] border border-rule rounded-[2px] space-y-1">
-            <span className="text-[10px] font-mono uppercase tracking-wider text-ink-soft">
-              {deposit.kind === "CASH_DEPOSIT" ? "Cash Bank Deposit" : "MoMo Bank Transfer"}
+          <div className="p-4 bg-hover border border-border rounded-panel space-y-1">
+            <span className="text-caption font-medium text-muted">
+              {deposit.kind === "CASH_DEPOSIT" ? "Cash bank deposit" : "MoMo bank transfer"}
             </span>
-            <div className="text-3xl font-mono tabular-nums font-bold text-ink">
-              {formatCedi(deposit.amount)}
+            <div className="text-heading font-semibold text-text tnum">
+              {formatMoney(deposit.amount)}
             </div>
             <div className="pt-1">
-              <StatusMark
-                tone={isConfirmed ? "balanced" : "attention"}
-                label={isConfirmed ? "Confirmed by Treasurer" : "Pending Confirmation"}
-              />
+              <Badge variant={isConfirmed ? "Balanced" : "Needs attention"}>
+                {isConfirmed ? "Confirmed by treasurer" : "Pending confirmation"}
+              </Badge>
             </div>
           </div>
 
           {/* Deposit Details */}
-          <div className="space-y-3 text-xs font-mono">
-            <div className="grid grid-cols-2 gap-4 pb-3 border-b border-rule">
+          <div className="space-y-3 text-caption">
+            <div className="grid grid-cols-2 gap-4 pb-3 border-b border-border">
               <div>
-                <span className="text-ink-soft block uppercase">Bank Reference</span>
-                <span className="text-sm font-semibold text-ink">{deposit.bankReference}</span>
+                <span className="text-muted block">Bank reference</span>
+                <span className="text-body font-medium text-text">{deposit.bankReference}</span>
               </div>
               <div>
-                <span className="text-ink-soft block uppercase">Deposit Date</span>
-                <span className="text-sm font-semibold text-ink">
+                <span className="text-muted block">Deposit date</span>
+                <span className="text-body font-medium text-text">
                   {formatAccraDate(new Date(deposit.depositDate))}
                 </span>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4 pb-3 border-b border-rule">
+            <div className="grid grid-cols-2 gap-4 pb-3 border-b border-border">
               <div>
-                <span className="text-ink-soft block uppercase">Carried By</span>
-                <span className="text-ink">{deposit.carriedBy.name}</span>
+                <span className="text-muted block">Carried by</span>
+                <span className="text-text font-medium">{deposit.carriedBy.name}</span>
               </div>
               <div>
-                <span className="text-ink-soft block uppercase">Confirmed By</span>
-                <span className="text-ink">
+                <span className="text-muted block">Confirmed by</span>
+                <span className="text-text font-medium">
                   {deposit.confirmedBy ? deposit.confirmedBy.name : "Awaiting confirmation"}
                 </span>
               </div>
@@ -130,43 +127,40 @@ export function DepositConfirmationSheet({
 
             {deposit.notes && (
               <div>
-                <span className="text-ink-soft block uppercase">Notes / Branch</span>
-                <p className="text-ink font-sans pt-0.5">{deposit.notes}</p>
+                <span className="text-muted block">Notes or branch</span>
+                <p className="text-text pt-0.5">{deposit.notes}</p>
               </div>
             )}
           </div>
 
           {/* Attached Slip Photo */}
-          <div className="space-y-2 pt-2 border-t border-rule">
-            <span className="text-xs font-mono uppercase tracking-wider text-ink-soft block">
-              Bank Deposit Slip
+          <div className="space-y-2 pt-2 border-t border-border">
+            <span className="text-caption font-medium text-muted block">
+              Bank deposit slip
             </span>
             {attachment ? (
-              <div className="p-3 border border-rule rounded-[2px] flex items-center justify-between gap-3 bg-paper">
-                <div className="flex items-center gap-2.5">
-                  <FileText className="w-5 h-5 text-ink-soft" />
-                  <div>
-                    <p className="text-xs font-medium text-ink">Deposit Slip Document</p>
-                    <p className="text-[10px] font-mono text-ink-soft">{attachment.contentType}</p>
-                  </div>
+              <div className="p-3 border border-border rounded-control flex items-center justify-between gap-3 bg-surface">
+                <div>
+                  <p className="text-caption font-medium text-text">Deposit slip document</p>
+                  <p className="text-caption text-muted">{attachment.contentType}</p>
                 </div>
                 <Button
                   type="button"
-                  variant="outline"
+                  variant="secondary"
                   size="sm"
                   onClick={() => setViewerAttachmentId(attachment.id)}
                 >
-                  View Slip Photo
+                  View slip photo
                 </Button>
               </div>
             ) : (
-              <p className="text-xs text-ink-soft italic">No deposit slip attached.</p>
+              <p className="text-caption text-muted">No deposit slip attached.</p>
             )}
           </div>
 
           {/* Actions */}
-          <div className="pt-4 border-t border-rule flex items-center justify-end gap-3">
-            <Button type="button" variant="outline" onClick={onClose}>
+          <div className="pt-4 border-t border-border flex items-center justify-end gap-3">
+            <Button type="button" variant="secondary" onClick={onClose}>
               Close
             </Button>
             {canConfirm && (
@@ -176,7 +170,7 @@ export function DepositConfirmationSheet({
                 isLoading={isPending}
                 onClick={handleConfirm}
               >
-                Confirm Deposit
+                Confirm deposit
               </Button>
             )}
           </div>
@@ -187,7 +181,7 @@ export function DepositConfirmationSheet({
         isOpen={Boolean(viewerAttachmentId)}
         onClose={() => setViewerAttachmentId(null)}
         attachmentId={viewerAttachmentId}
-        title={`Bank Deposit Slip — Ref ${deposit.bankReference}`}
+        title={`Bank deposit slip — Ref ${deposit.bankReference}`}
       />
     </>
   );

@@ -1,6 +1,7 @@
-import React from "react";
+import React, { useId } from "react";
 import { clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
+import { ChevronDown, AlertCircle } from "lucide-react";
 
 export interface SelectOption {
   value: string;
@@ -16,15 +17,18 @@ export interface SelectProps
 }
 
 export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
-  ({ className, label, error, hint, id, options, children, ...props }, ref) => {
-    const selectId = id || (label ? label.toLowerCase().replace(/\s+/g, "-") : undefined);
+  ({ className, label, error, hint, id, options, children, disabled, ...props }, ref) => {
+    const generatedId = useId();
+    const selectId = id || generatedId;
+    const errorId = `${selectId}-error`;
+    const hintId = `${selectId}-hint`;
 
     return (
-      <div className="flex flex-col gap-1.5 w-full">
+      <div className="flex flex-col gap-1 w-full text-left">
         {label && (
           <label
             htmlFor={selectId}
-            className="text-xs uppercase tracking-wider font-medium text-ink-soft"
+            className="text-label font-medium text-text"
           >
             {label}
           </label>
@@ -33,11 +37,15 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
           <select
             id={selectId}
             ref={ref}
+            disabled={disabled}
+            aria-invalid={Boolean(error)}
+            aria-describedby={error ? errorId : hint ? hintId : undefined}
             className={twMerge(
               clsx(
-                "w-full min-h-[44px] px-3 py-2 pr-8 bg-transparent border rounded-[2px] text-sm text-ink appearance-none transition-colors cursor-pointer",
-                "border-rule focus:border-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink focus-visible:outline-offset-2",
-                error && "border-variance focus:border-variance",
+                "w-full h-11 sm:h-10 px-3 pr-9 bg-surface border border-border rounded-control text-body text-text appearance-none transition-colors duration-120 cursor-pointer",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus:border-accent",
+                "disabled:bg-hover disabled:text-muted disabled:cursor-not-allowed",
+                error && "border-bad focus:border-bad focus-visible:ring-bad",
                 className
               )
             )}
@@ -51,22 +59,24 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
                 ))
               : children}
           </select>
-          <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-ink-soft">
-            <svg
-              className="w-4 h-4 fill-none stroke-current stroke-2"
-              viewBox="0 0 24 24"
-            >
-              <polyline points="6 9 12 15 18 9" />
-            </svg>
+          <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-muted">
+            <ChevronDown className="w-4 h-4 stroke-[1.75]" aria-hidden="true" />
           </div>
         </div>
         {hint && !error && (
-          <p className="text-xs text-ink-soft">{hint}</p>
+          <p id={hintId} className="text-caption text-muted">
+            {hint}
+          </p>
         )}
         {error && (
-          <p className="text-xs text-variance font-medium" role="alert">
-            {error}
-          </p>
+          <div
+            id={errorId}
+            aria-live="polite"
+            className="flex items-center gap-1 text-caption text-bad font-medium mt-0.5"
+          >
+            <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 stroke-[1.75]" aria-hidden="true" />
+            <span>{error}</span>
+          </div>
         )}
       </div>
     );

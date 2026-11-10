@@ -57,8 +57,8 @@ export async function getChurchSettings() {
     settings = await prisma.churchSettings.create({
       data: {
         id: "singleton",
-        churchName: "Presbyterian Church of Ghana — PUCA Congregation",
-        presbyteryName: "Ga West Presbytery",
+        churchName: "PUCA Congregation",
+        presbyteryName: "District Office",
         weekEndsOn: 0,
         parallelRunActive: true,
       },
@@ -183,7 +183,7 @@ export async function setBookTotal(
   if (period.status === ReconciliationStatus.SUBMITTED) {
     throw new AppError(
       "LOCKED_RECORD",
-      "This reconciliation period has already been submitted to the presbytery and cannot be edited without an unlock."
+      "This reconciliation period has already been submitted and cannot be edited without an unlock."
     );
   }
 
@@ -235,7 +235,7 @@ export async function setVarianceReason(
   if (period.status === ReconciliationStatus.SUBMITTED) {
     throw new AppError(
       "LOCKED_RECORD",
-      "This reconciliation period has already been submitted to the presbytery and cannot be edited without an unlock."
+      "This reconciliation period has already been submitted and cannot be edited without an unlock."
     );
   }
 
@@ -268,7 +268,7 @@ export async function setVarianceReason(
 }
 
 /**
- * Submits a reconciliation period to the presbytery.
+ * Submits a reconciliation period.
  * Allowed only with zero blockers.
  * Writes the immutable snapshot, sets SUBMITTED, increments reportVersion,
  * and locks every included ServiceRecord and MoMo transaction.
@@ -559,7 +559,7 @@ export async function unlockPeriod(
   if (actorRole !== Role.TREASURER) {
     throw new AppError(
       "FORBIDDEN",
-      "Only the Parish Treasurer has the authority to unlock a submitted reconciliation period."
+      "Only the Treasurer has the authority to unlock a submitted reconciliation period."
     );
   }
 

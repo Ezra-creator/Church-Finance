@@ -5,11 +5,12 @@ import { useRouter } from "next/navigation";
 import { TextField } from "@/components/ui/text-field";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { InlineAlert } from "@/components/ui/inline-alert";
 import { setupChurchAction } from "../actions";
 
 export interface ChurchSetupModalProps {
   isConfigured: boolean;
-  canConfigure: boolean; // only FINANCE_SECRETARY can configure
+  canConfigure: boolean;
 }
 
 export function ChurchSetupModal({
@@ -30,7 +31,7 @@ export function ChurchSetupModal({
     setErrorMessage(null);
 
     if (!churchName.trim() || !presbyteryName.trim()) {
-      setErrorMessage("Enter the church and presbytery names.");
+      setErrorMessage("Enter the church and district names.");
       return;
     }
 
@@ -52,69 +53,59 @@ export function ChurchSetupModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/40 backdrop-blur-[2px]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-scrim">
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="setup-title"
-        className="w-full max-w-lg bg-paper border border-ink p-6 sm:p-8 rounded-[2px]"
+        className="w-full max-w-[480px] bg-surface border border-border p-6 sm:p-8 rounded-panel shadow-overlay space-y-6"
       >
-        <div className="pb-4 border-b border-rule mb-5">
-          <p className="text-xs uppercase tracking-wider font-medium text-ink-soft">
-            Initial System Setup
-          </p>
+        <div className="space-y-1">
           <h2
             id="setup-title"
-            className="text-2xl font-serif font-normal text-ink mt-1"
+            className="text-title font-semibold text-text"
           >
-            Configure church details
+            Church setup
           </h2>
-          <p className="text-xs text-ink-soft mt-1.5 leading-relaxed">
-            Please register your local congregation and presbytery details to begin recording finances.
+          <p className="text-body text-muted">
+            Register your church and district details to begin recording finances.
           </p>
         </div>
 
         {!canConfigure ? (
-          <div className="p-4 bg-attention/10 border border-attention text-attention text-xs leading-relaxed rounded-[2px]">
-            First-time setup must be performed by a Finance Secretary. Please ask your Finance Secretary to sign in and register the church.
-          </div>
+          <InlineAlert variant="warn" title="First-time setup must be performed by a Finance Secretary. Ask your Finance Secretary to sign in and register the church." />
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
             {errorMessage && (
-              <div
-                role="alert"
-                className="p-3 bg-variance/10 border border-variance text-variance text-xs rounded-[2px]"
-              >
-                {errorMessage}
-              </div>
+              <InlineAlert variant="danger" title={errorMessage} />
             )}
 
             <TextField
-              label="Church / Congregation Name"
+              label="Church or congregation name"
               required
               value={churchName}
               onChange={(e) => setChurchName(e.target.value)}
-              placeholder="e.g. Hope Presbyterian Church, Sakumono"
+              placeholder="e.g. Hope Community Church"
               disabled={isLoading}
             />
 
             <TextField
-              label="Presbytery / District"
+              label="District or supervisory body"
               required
               value={presbyteryName}
               onChange={(e) => setPresbyteryName(e.target.value)}
-              placeholder="e.g. Ga West Presbytery"
+              placeholder="e.g. Accra District"
               disabled={isLoading}
             />
 
             <Select
-              label="Financial Week Ends On"
+              label="Financial week ends on"
               value={weekEndsOn}
               onChange={(e) => setWeekEndsOn(e.target.value)}
               disabled={isLoading}
               hint="Determines the weekly accounting closing cycle."
             >
-              <option value="0">Sunday (Standard)</option>
+              <option value="0">Sunday (standard)</option>
               <option value="1">Monday</option>
               <option value="2">Tuesday</option>
               <option value="3">Wednesday</option>
@@ -123,15 +114,14 @@ export function ChurchSetupModal({
               <option value="6">Saturday</option>
             </Select>
 
-            <div className="pt-3">
+            <div className="pt-2">
               <Button
                 type="submit"
                 variant="primary"
-                size="lg"
                 className="w-full"
                 isLoading={isLoading}
               >
-                Save and open ledger
+                Complete church setup
               </Button>
             </div>
           </form>

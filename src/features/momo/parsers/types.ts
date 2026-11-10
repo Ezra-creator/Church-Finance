@@ -56,5 +56,5 @@ export interface ParsedStatementResult {
 
 export interface StatementParser {
   parse(buffer: Buffer, profile: ParserProfileConfig): Promise<ParsedStatementResult>;
-  inspect(buffer: Buffer, headerRow?: number): Promise<{ headers: string[]; sampleRows: Record<string, string>[] }>;
+  inspect(buffer: Buffer, headerRow?: number): Promise<{ headers: string[]; previewRows: Record<string, string>[] }>;
 }

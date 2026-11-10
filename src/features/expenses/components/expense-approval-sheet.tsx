@@ -3,13 +3,12 @@
 import React, { useState, useTransition } from "react";
 import { Sheet } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { StatusMark } from "@/components/ui/status-mark";
+import { InlineAlert } from "@/components/ui/inline-alert";
 import { useToast } from "@/components/ui/toast";
-import { formatCedi } from "@/lib/money";
+import { formatMoney } from "@/lib/money";
 import { formatAccraDate } from "@/lib/dates";
 import { approveExpenseAction, rejectExpenseAction, voidExpenseAction } from "../actions";
 import { AttachmentViewerModal } from "@/features/attachments/components/attachment-viewer-modal";
-import { FileText, AlertTriangle } from "lucide-react";
 
 export interface ExpenseWithDetails {
   id: string;
@@ -66,7 +65,7 @@ export function ExpenseApprovalSheet({
     startTransition(async () => {
       const res = await approveExpenseAction({ id: expense.id });
       if (res.success) {
-        addToast({ type: "success", message: `Expense for ${expense.payee} approved.` });
+        addToast({ type: "ok", message: `Expense for ${expense.payee} approved.` });
         onClose();
         onSuccess?.();
       } else {
@@ -88,7 +87,7 @@ export function ExpenseApprovalSheet({
         rejectionReason: rejectionReason.trim(),
       });
       if (res.success) {
-        addToast({ type: "attention", message: `Expense for ${expense.payee} rejected.` });
+        addToast({ type: "warn", message: `Expense for ${expense.payee} rejected.` });
         setIsRejecting(false);
         setRejectionReason("");
         onClose();
@@ -112,7 +111,7 @@ export function ExpenseApprovalSheet({
         voidReason: voidReason.trim(),
       });
       if (res.success) {
-        addToast({ type: "attention", message: `Expense for ${expense.payee} voided.` });
+        addToast({ type: "warn", message: `Expense for ${expense.payee} voided.` });
         setIsVoiding(false);
         setVoidReason("");
         onClose();
@@ -130,121 +129,111 @@ export function ExpenseApprovalSheet({
       <Sheet
         isOpen={isOpen}
         onClose={onClose}
-        title="Expense Verification & Approval"
+        title="Expense verification and approval"
         description={`Ref: ${expense.id} • ${formatAccraDate(new Date(expense.expenseDate))}`}
       >
-        <div className="space-y-6 py-2">
+        <div className="space-y-5 py-2">
           {errorMessage && (
-            <div className="p-3 bg-variance/10 border border-variance text-variance rounded-[2px] text-xs font-mono">
-              {errorMessage}
-            </div>
+            <InlineAlert variant="danger" title={errorMessage} />
           )}
 
           {/* Amount Callout */}
-          <div className="p-4 bg-ink/[0.02] border border-rule rounded-[2px] space-y-1">
-            <span className="text-[10px] font-mono uppercase tracking-wider text-ink-soft">
-              Disbursement Amount ({expense.paymentMethod})
+          <div className="p-4 bg-hover border border-border rounded-panel space-y-1">
+            <span className="text-caption font-medium text-muted">
+              Expense amount ({expense.paymentMethod})
             </span>
-            <div className="text-3xl font-mono tabular-nums font-bold text-ink">
-              {formatCedi(expense.amount)}
+            <div className="text-heading font-semibold text-text tnum">
+              {formatMoney(expense.amount)}
             </div>
-            <p className="text-xs font-medium text-ink pt-1">{expense.category.name}</p>
+            <p className="text-caption text-muted">{expense.category.name}</p>
           </div>
 
           {/* Payee & Description */}
-          <div className="space-y-3 text-sm">
+          <div className="space-y-3 text-body">
             <div>
-              <span className="text-[10px] font-mono uppercase tracking-wider text-ink-soft block">
+              <span className="text-caption font-medium text-muted block">
                 Payee
               </span>
-              <p className="font-semibold text-ink">{expense.payee}</p>
+              <p className="font-medium text-text">{expense.payee}</p>
             </div>
 
             <div>
-              <span className="text-[10px] font-mono uppercase tracking-wider text-ink-soft block">
-                Purpose & Description
+              <span className="text-caption font-medium text-muted block">
+                Purpose and description
               </span>
-              <p className="text-ink leading-relaxed">{expense.description}</p>
+              <p className="text-text leading-relaxed">{expense.description}</p>
             </div>
 
-            <div className="grid grid-cols-2 gap-4 pt-2 border-t border-rule text-xs font-mono">
+            <div className="grid grid-cols-2 gap-4 pt-2 border-t border-border text-caption">
               <div>
-                <span className="text-ink-soft block">Requested By</span>
-                <span className="text-ink">{expense.requestedBy.name}</span>
+                <span className="text-muted block">Requested by</span>
+                <span className="text-text font-medium">{expense.requestedBy.name}</span>
               </div>
               <div>
-                <span className="text-ink-soft block">Payment Method</span>
-                <span className="text-ink font-semibold">{expense.paymentMethod}</span>
+                <span className="text-muted block">Payment method</span>
+                <span className="text-text font-medium">{expense.paymentMethod}</span>
               </div>
             </div>
           </div>
 
           {/* Receipt Evidence */}
-          <div className="space-y-2 pt-2 border-t border-rule">
-            <span className="text-xs font-mono uppercase tracking-wider text-ink-soft block">
-              Receipt / Voucher Document
+          <div className="space-y-2 pt-2 border-t border-border">
+            <span className="text-caption font-medium text-muted block">
+              Receipt or voucher document
             </span>
             {attachment ? (
-              <div className="p-3 border border-rule rounded-[2px] flex items-center justify-between gap-3 bg-paper">
-                <div className="flex items-center gap-2.5">
-                  <FileText className="w-5 h-5 text-ink-soft" />
-                  <div>
-                    <p className="text-xs font-medium text-ink">Attached Evidence</p>
-                    <p className="text-[10px] font-mono text-ink-soft">{attachment.contentType}</p>
-                  </div>
+              <div className="p-3 border border-border rounded-control flex items-center justify-between gap-3 bg-surface">
+                <div>
+                  <p className="text-caption font-medium text-text">Attached evidence</p>
+                  <p className="text-caption text-muted">{attachment.contentType}</p>
                 </div>
                 <Button
                   type="button"
-                  variant="outline"
+                  variant="secondary"
                   size="sm"
                   onClick={() => setViewerAttachmentId(attachment.id)}
                 >
-                  View Receipt
+                  View receipt
                 </Button>
               </div>
             ) : (
-              <p className="text-xs text-ink-soft italic">No receipt photo attached to this expense.</p>
+              <p className="text-caption text-muted">No receipt photo attached to this expense.</p>
             )}
           </div>
 
           {/* Separation of duties warning */}
           {isSelfRequested && expense.status === "SUBMITTED" && (
-            <div className="p-3 bg-attention/10 border border-attention text-attention rounded-[2px] text-xs space-y-1">
-              <div className="flex items-center gap-1.5 font-semibold">
-                <AlertTriangle className="w-3.5 h-3.5" />
-                <span>Separation of Duties Policy</span>
-              </div>
-              <p className="leading-relaxed">
-                You created this expense request. The church rules prohibit approving your own expenses. Another officer with the Treasurer role must review and approve this.
-              </p>
-            </div>
+            <InlineAlert
+              variant="warn"
+              title="Separation of duties policy"
+              description="You created this expense request. Church rules prohibit approving your own expenses. Another officer with the Treasurer role must review and approve this."
+            />
           )}
 
           {/* Rejection Form */}
           {isRejecting && (
-            <div className="p-3 border border-variance/40 bg-variance/5 rounded-[2px] space-y-3">
-              <label className="text-xs font-mono uppercase tracking-wider text-variance font-semibold block">
-                Reason for Rejection <span className="text-variance">*</span>
+            <div className="p-3 border border-bad bg-bad-tint rounded-panel space-y-3">
+              <label className="text-caption font-medium text-bad-ink block">
+                Reason for rejection
               </label>
               <textarea
                 rows={2}
                 value={rejectionReason}
                 onChange={(e) => setRejectionReason(e.target.value)}
                 placeholder="Explain why this expense cannot be approved"
-                className="w-full p-2 border border-rule rounded-[2px] bg-paper text-ink text-xs focus:outline-none focus:border-ink resize-none"
+                className="w-full p-2 border border-border rounded-control bg-surface text-text text-caption focus:outline-none focus:border-border-strong resize-none"
               />
               <div className="flex justify-end gap-2">
-                <Button variant="outline" size="sm" onClick={() => setIsRejecting(false)}>
+                <Button variant="secondary" size="sm" onClick={() => setIsRejecting(false)}>
                   Cancel
                 </Button>
                 <Button
-                  variant="primary"
+                  variant="danger"
                   size="sm"
-                  className="bg-variance hover:bg-variance/90 text-paper"
                   isLoading={isPending}
                   onClick={handleReject}
                 >
-                  Confirm Rejection
+                  Confirm rejection
                 </Button>
               </div>
             </div>
@@ -252,59 +241,57 @@ export function ExpenseApprovalSheet({
 
           {/* Void Form */}
           {isVoiding && (
-            <div className="p-3 border border-variance/40 bg-variance/5 rounded-[2px] space-y-3">
-              <label className="text-xs font-mono uppercase tracking-wider text-variance font-semibold block">
-                Reason for Voiding Expense <span className="text-variance">*</span>
+            <div className="p-3 border border-bad bg-bad-tint rounded-panel space-y-3">
+              <label className="text-caption font-medium text-bad-ink block">
+                Reason for voiding expense
               </label>
               <textarea
                 rows={2}
                 value={voidReason}
                 onChange={(e) => setVoidReason(e.target.value)}
-                placeholder="Explain why this approved/paid expense is being voided"
-                className="w-full p-2 border border-rule rounded-[2px] bg-paper text-ink text-xs focus:outline-none focus:border-ink resize-none"
+                placeholder="Explain why this approved or paid expense is being voided"
+                className="w-full p-2 border border-border rounded-control bg-surface text-text text-caption focus:outline-none focus:border-border-strong resize-none"
               />
               <div className="flex justify-end gap-2">
-                <Button variant="outline" size="sm" onClick={() => setIsVoiding(false)}>
+                <Button variant="secondary" size="sm" onClick={() => setIsVoiding(false)}>
                   Cancel
                 </Button>
                 <Button
-                  variant="primary"
+                  variant="danger"
                   size="sm"
-                  className="bg-variance hover:bg-variance/90 text-paper"
                   isLoading={isPending}
                   onClick={handleVoid}
                 >
-                  Confirm Void
+                  Confirm void
                 </Button>
               </div>
             </div>
           )}
 
           {/* Action Buttons */}
-          <div className="pt-4 border-t border-rule flex items-center justify-between gap-3">
+          <div className="pt-4 border-t border-border flex items-center justify-between gap-3">
             <div>
               {canVoid && !isVoiding && (
                 <button
                   type="button"
                   onClick={() => setIsVoiding(true)}
-                  className="text-xs font-mono text-variance hover:underline"
+                  className="text-caption text-bad-ink hover:underline"
                 >
-                  Void Expense
+                  Void expense
                 </button>
               )}
             </div>
 
             <div className="flex items-center gap-2">
-              <Button type="button" variant="outline" onClick={onClose}>
+              <Button type="button" variant="secondary" onClick={onClose}>
                 Close
               </Button>
 
               {canReject && !isRejecting && (
                 <Button
                   type="button"
-                  variant="outline"
+                  variant="danger"
                   onClick={() => setIsRejecting(true)}
-                  className="text-variance border-variance/30 hover:bg-variance/10"
                 >
                   Reject
                 </Button>
@@ -317,7 +304,7 @@ export function ExpenseApprovalSheet({
                   isLoading={isPending}
                   onClick={handleApprove}
                 >
-                  Approve Expense
+                  Approve expense
                 </Button>
               )}
             </div>
@@ -329,7 +316,7 @@ export function ExpenseApprovalSheet({
         isOpen={Boolean(viewerAttachmentId)}
         onClose={() => setViewerAttachmentId(null)}
         attachmentId={viewerAttachmentId}
-        title={`Receipt Document — ${expense.payee}`}
+        title={`Receipt document — ${expense.payee}`}
       />
     </>
   );

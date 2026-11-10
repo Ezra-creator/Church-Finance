@@ -237,7 +237,7 @@ export function buildReportData(snapshot: ReconciliationSnapshot): Reconciliatio
         name: snapshot.preparedByName,
       },
       {
-        title: "Parish Treasurer",
+        title: "Treasurer",
         name: "", // For physical signoff
       },
     ],

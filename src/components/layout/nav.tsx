@@ -4,23 +4,11 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { clsx } from "clsx";
-import {
-  Calendar,
-  Scale,
-  Coins,
-  MoreHorizontal,
-  Users,
-  History,
-  LogOut,
-  ShieldAlert,
-  Landmark,
-  Building2,
-  FileText,
-} from "lucide-react";
 import { Role } from "@prisma/client";
+import { MoreHorizontal, LogOut, X } from "lucide-react";
+import { getNavItemsForRole, isFocusedFlowRoute, NavItemConfig } from "@/lib/nav-config";
 import { Sheet } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { formatRole } from "@/lib/format";
 
 export interface NavUser {
   id: string;
@@ -32,152 +20,91 @@ export interface NavUser {
 export interface NavProps {
   user: NavUser;
   churchName?: string;
+  isFocusedFlow?: boolean;
 }
 
-export function DesktopNav({ user, churchName = "PUCA Finance" }: NavProps) {
+export function Sidebar({ user, churchName }: NavProps) {
   const pathname = usePathname();
-
-  const isSecretary = user.role === Role.FINANCE_SECRETARY;
-  const isTreasurer = user.role === Role.TREASURER;
-  const isViewer = user.role === Role.PRESBYTERY_VIEWER;
-
-  const links: Array<{
-    href: string;
-    label: string;
-    icon: any;
-    visible: boolean;
-    badge?: string;
-  }> = [
-    {
-      href: "/today",
-      label: "Today",
-      icon: Calendar,
-      visible: true,
-    },
-    {
-      href: "/members",
-      label: "Members",
-      icon: Users,
-      visible: true,
-    },
-    {
-      href: "/reconcile",
-      label: "Reconcile",
-      icon: Scale,
-      visible: true,
-    },
-    {
-      href: "/money",
-      label: "Money & Banking",
-      icon: Landmark,
-      visible: true,
-    },
-    {
-      href: "/money/momo",
-      label: "Mobile Money",
-      icon: Coins,
-      visible: true,
-    },
-    {
-      href: "/district",
-      label: "District",
-      icon: Building2,
-      visible: true,
-    },
-    {
-      href: "/reports/annual",
-      label: "Annual Report",
-      icon: FileText,
-      visible: true,
-    },
-    {
-      href: "/settings/users",
-      label: "Users & Access",
-      icon: ShieldAlert,
-      visible: isSecretary, // Only Finance Secretary can manage users
-    },
-    {
-      href: "/settings/audit",
-      label: "Audit Log",
-      icon: History,
-      visible: true, // Secretary, Treasurer, and Presbytery Viewer can inspect audit trail
-    },
-  ];
+  const navItems = getNavItemsForRole(user.role);
 
   return (
-    <aside className="hidden lg:flex flex-col w-rail flex-shrink-0 border-r border-rule min-h-screen bg-paper select-none p-5">
-      {/* Brand & Church Identity */}
-      <div className="pb-6 border-b border-rule">
-        <p className="text-[10px] uppercase tracking-widest font-semibold text-ink-soft">
-          Parish Ledger
-        </p>
-        <h2 className="text-xl font-serif font-normal text-ink mt-0.5 truncate">
-          {churchName}
-        </h2>
+    <aside
+      aria-label="Main"
+      className="hidden lg:flex flex-col w-[232px] fixed inset-y-0 left-0 border-r border-border h-screen bg-surface select-none z-30"
+    >
+      {/* Top brand block (64px desktop) */}
+      <div className="h-16 flex items-center px-6 border-b border-border">
+        <div>
+          <div className="text-lead font-semibold text-text">
+            PUCA Finance
+          </div>
+          {churchName && (
+            <p className="text-caption text-muted truncate" title={churchName}>
+              {churchName}
+            </p>
+          )}
+        </div>
       </div>
 
-      {/* Main Navigation */}
-      <nav className="flex-1 py-6 space-y-1">
-        {links
-          .filter((l) => l.visible)
-          .map((item) => {
-            const Icon = item.icon;
-            const isActive =
-              pathname === item.href ||
-              (item.href !== "/today" && pathname.startsWith(item.href));
+      {/* Nav items */}
+      <nav aria-label="Main" className="flex-1 py-4 px-3 space-y-1 overflow-y-auto">
+        {navItems.map((item) => {
+          const Icon = item.icon;
+          const currentPath = pathname || "";
+          const isActive = currentPath
+            ? currentPath === item.href ||
+              (item.href !== "/today" && currentPath.startsWith(item.href))
+            : false;
 
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
+          return (
+            <Link
+              key={item.key}
+              href={item.href}
+              aria-current={isActive ? "page" : undefined}
+              className={clsx(
+                "flex items-center gap-3 px-3 py-2 rounded-control text-label transition-colors duration-120",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent",
+                isActive
+                  ? "bg-accent-tint text-accent-ink font-medium"
+                  : "text-muted hover:text-text hover:bg-hover font-normal"
+              )}
+            >
+              <Icon
                 className={clsx(
-                  "flex items-center justify-between px-3 py-2 rounded-[2px] text-sm transition-colors",
-                  isActive
-                    ? "bg-ink text-paper font-medium"
-                    : "text-ink hover:text-ink hover:bg-ink/[0.04]"
+                  "w-4 h-4 flex-shrink-0 stroke-[1.75]",
+                  isActive ? "text-accent" : "text-muted"
                 )}
-              >
-                <div className="flex items-center gap-3">
-                  <Icon className="w-4 h-4 flex-shrink-0" />
-                  <span>{item.label}</span>
-                </div>
-                {item.badge && (
-                  <span
-                    className={clsx(
-                      "text-[10px] px-1.5 py-0.5 rounded-[1px] font-mono",
-                      isActive
-                        ? "bg-paper/20 text-paper"
-                        : "bg-ink/5 text-ink-soft"
-                    )}
-                  >
-                    {item.badge}
-                  </span>
-                )}
-              </Link>
-            );
-          })}
+                aria-hidden="true"
+              />
+              <span>{item.label}</span>
+            </Link>
+          );
+        })}
       </nav>
 
       {/* User Session Footer */}
-      <div className="pt-4 border-t border-rule space-y-3">
+      <div className="p-4 border-t border-border space-y-3 flex-shrink-0">
         <div className="space-y-0.5">
-          <p className="text-sm font-medium text-ink truncate">{user.name || user.email}</p>
-          <div className="flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-[1px] bg-ink-soft" />
-            <p className="text-xs text-ink-soft uppercase tracking-wider font-mono">
-              {formatRole(user.role)}
-            </p>
-          </div>
+          <p className="text-label font-medium text-text truncate" title={user.name || user.email || ""}>
+            {user.name || user.email}
+          </p>
+          <p className="text-caption text-muted">
+            {user.role === Role.FINANCE_SECRETARY
+              ? "Finance Secretary"
+              : user.role === Role.TREASURER
+              ? "Treasurer"
+              : "Reviewer"}
+          </p>
         </div>
 
         <form action="/api/auth/signout" method="POST">
           <Button
             type="submit"
-            variant="quiet"
+            variant="ghost"
             size="sm"
-            className="w-full justify-start text-ink-soft hover:text-variance hover:bg-variance/10 px-2"
+            className="w-full justify-start text-muted hover:text-bad px-0 h-9"
           >
-            <LogOut className="w-4 h-4 mr-2" />
+            <LogOut className="w-4 h-4 mr-2 stroke-[1.75]" />
             Sign out
           </Button>
         </form>
@@ -186,168 +113,132 @@ export function DesktopNav({ user, churchName = "PUCA Finance" }: NavProps) {
   );
 }
 
-export function MobileNav({ user }: NavProps) {
+export function BottomBar({ user, isFocusedFlow }: NavProps) {
   const pathname = usePathname();
   const [isMoreOpen, setIsMoreOpen] = useState(false);
 
-  const isSecretary = user.role === Role.FINANCE_SECRETARY;
+  // Check focused-flow layout flag or route
+  const currentPath = pathname || "";
+  const hideBottomBar = isFocusedFlow || (currentPath ? isFocusedFlowRoute(currentPath) : false);
+  if (hideBottomBar) {
+    return null;
+  }
 
-  const tabs = [
-    {
-      href: "/today",
-      label: "Today",
-      icon: Calendar,
-    },
-    {
-      href: "/reconcile",
-      label: "Reconcile",
-      icon: Scale,
-    },
-    {
-      href: "/money",
-      label: "Money",
-      icon: Landmark,
-    },
-  ];
+  const allNavItems = getNavItemsForRole(user.role);
+
+  // 5 items on bottom bar: Home, Collections, Mobile money, Reports, More
+  // If user is Reviewer, they only have Reports
+  const isReviewer = user.role === Role.PRESBYTERY_VIEWER;
+
+  const primaryKeys = ["home", "collections", "momo", "reports"];
+  const barItems = isReviewer
+    ? allNavItems
+    : allNavItems.filter((item) => primaryKeys.includes(item.key));
+  const moreItems = isReviewer
+    ? []
+    : allNavItems.filter((item) => !primaryKeys.includes(item.key));
 
   return (
     <>
       <nav
-        aria-label="Mobile Navigation"
-        className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-paper border-t border-rule flex items-center justify-around h-16 px-2 select-none"
+        aria-label="Main"
+        className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-surface border-t border-border flex items-center justify-around h-16 px-1 select-none pb-[env(safe-area-inset-bottom,0px)]"
       >
-        {tabs.map((tab) => {
-          const Icon = tab.icon;
-          const isActive = pathname === tab.href;
+        {barItems.map((item) => {
+          const Icon = item.icon;
+          const isActive = currentPath
+            ? currentPath === item.href ||
+              (item.href !== "/today" && currentPath.startsWith(item.href))
+            : false;
 
           return (
             <Link
-              key={tab.href}
-              href={tab.href}
+              key={item.key}
+              href={item.href}
+              aria-current={isActive ? "page" : undefined}
               className={clsx(
-                "flex flex-col items-center justify-center flex-1 h-full min-h-[44px] gap-1 text-xs transition-colors",
+                "flex flex-col items-center justify-center flex-1 h-full min-h-[44px] gap-1 transition-colors duration-120",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent",
                 isActive
-                  ? "text-ink font-semibold"
-                  : "text-ink-soft hover:text-ink"
+                  ? "text-accent-ink font-medium"
+                  : "text-muted hover:text-text font-normal"
               )}
             >
-              <Icon className="w-5 h-5" />
-              <span>{tab.label}</span>
+              <Icon
+                className={clsx(
+                  "w-5 h-5 flex-shrink-0 stroke-[1.75]",
+                  isActive ? "text-accent" : "text-muted"
+                )}
+                aria-hidden="true"
+              />
+              <span className="text-caption leading-tight text-center">{item.label}</span>
             </Link>
           );
         })}
 
-        <button
-          type="button"
-          onClick={() => setIsMoreOpen(true)}
-          className={clsx(
-            "flex flex-col items-center justify-center flex-1 h-full min-h-[44px] gap-1 text-xs transition-colors",
-            isMoreOpen || pathname.startsWith("/settings") || pathname.startsWith("/members")
-              ? "text-ink font-semibold"
-              : "text-ink-soft hover:text-ink"
-          )}
-        >
-          <MoreHorizontal className="w-5 h-5" />
-          <span>More</span>
-        </button>
+        {!isReviewer && (
+          <button
+            type="button"
+            onClick={() => setIsMoreOpen(true)}
+            aria-expanded={isMoreOpen}
+            className="flex flex-col items-center justify-center flex-1 h-full min-h-[44px] gap-1 text-muted hover:text-text font-normal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          >
+            <MoreHorizontal className="w-5 h-5 flex-shrink-0 stroke-[1.75]" aria-hidden="true" />
+            <span className="text-caption leading-tight text-center">More</span>
+          </button>
+        )}
       </nav>
 
-      {/* More Drawer Sheet */}
+      {/* More Bottom Sheet */}
       <Sheet
         isOpen={isMoreOpen}
         onClose={() => setIsMoreOpen(false)}
-        title="Settings & Directory"
-        description={`${user.name || user.email} (${formatRole(user.role)})`}
+        title="More"
       >
-        <div className="space-y-1 py-2">
-          <Link
-            href="/members"
-            onClick={() => setIsMoreOpen(false)}
-            className="flex items-center gap-3 px-3 py-3 rounded-[2px] text-sm text-ink hover:bg-ink/[0.04] border-b border-rule"
-          >
-            <Users className="w-4 h-4 text-ink-soft" />
-            <div>
-              <p className="font-medium">Parish Members</p>
-              <p className="text-xs text-ink-soft">
-                Directory and tithe member registry
+        <div className="space-y-4 py-2">
+          <div className="divide-y divide-border border border-border rounded-panel bg-surface">
+            {moreItems.map((item) => {
+              const Icon = item.icon;
+              return (
+                <Link
+                  key={item.key}
+                  href={item.href}
+                  onClick={() => setIsMoreOpen(false)}
+                  className="flex items-center gap-3 px-4 py-3 text-body font-medium text-text hover:bg-hover transition-colors duration-120"
+                >
+                  <Icon className="w-5 h-5 text-muted stroke-[1.75]" aria-hidden="true" />
+                  <span>{item.label}</span>
+                </Link>
+              );
+            })}
+          </div>
+
+          <div className="p-4 border border-border rounded-panel bg-surface space-y-3">
+            <div className="space-y-0.5">
+              <p className="text-label font-medium text-text">
+                {user.name || user.email}
+              </p>
+              <p className="text-caption text-muted">
+                {user.role === Role.FINANCE_SECRETARY ? "Finance Secretary" : "Treasurer"}
               </p>
             </div>
-          </Link>
-
-          <Link
-            href="/district"
-            onClick={() => setIsMoreOpen(false)}
-            className="flex items-center gap-3 px-3 py-3 rounded-[2px] text-sm text-ink hover:bg-ink/[0.04] border-b border-rule"
-          >
-            <Building2 className="w-4 h-4 text-ink-soft" />
-            <div>
-              <p className="font-medium">District Remittances</p>
-              <p className="text-xs text-ink-soft">
-                Allocation rules and payment records
-              </p>
-            </div>
-          </Link>
-
-          <Link
-            href="/reports/annual"
-            onClick={() => setIsMoreOpen(false)}
-            className="flex items-center gap-3 px-3 py-3 rounded-[2px] text-sm text-ink hover:bg-ink/[0.04] border-b border-rule"
-          >
-            <FileText className="w-4 h-4 text-ink-soft" />
-            <div>
-              <p className="font-medium">Annual Financial Summary</p>
-              <p className="text-xs text-ink-soft">
-                Yearly category revenue and expenditure
-              </p>
-            </div>
-          </Link>
-
-          {isSecretary && (
-            <Link
-              href="/settings/users"
-              onClick={() => setIsMoreOpen(false)}
-              className="flex items-center gap-3 px-3 py-3 rounded-[2px] text-sm text-ink hover:bg-ink/[0.04] border-b border-rule"
-            >
-              <ShieldAlert className="w-4 h-4 text-ink-soft" />
-              <div>
-                <p className="font-medium">Users & Access</p>
-                <p className="text-xs text-ink-soft">
-                  Manage secretary, treasurer and viewer roles
-                </p>
-              </div>
-            </Link>
-          )}
-
-          <Link
-            href="/settings/audit"
-            onClick={() => setIsMoreOpen(false)}
-            className="flex items-center gap-3 px-3 py-3 rounded-[2px] text-sm text-ink hover:bg-ink/[0.04] border-b border-rule"
-          >
-            <History className="w-4 h-4 text-ink-soft" />
-            <div>
-              <p className="font-medium">Audit Log</p>
-              <p className="text-xs text-ink-soft">
-                Inspect immutable system actions and event diffs
-              </p>
-            </div>
-          </Link>
-
-          <form
-            action="/api/auth/signout"
-            method="POST"
-            className="pt-6"
-          >
-            <Button
-              type="submit"
-              variant="secondary"
-              className="w-full text-variance hover:bg-variance/10 border-variance"
-            >
-              <LogOut className="w-4 h-4 mr-2" />
-              Sign out
-            </Button>
-          </form>
+            <form action="/api/auth/signout" method="POST">
+              <Button
+                type="submit"
+                variant="danger"
+                size="sm"
+                className="w-full"
+              >
+                Sign out
+              </Button>
+            </form>
+          </div>
         </div>
       </Sheet>
     </>
   );
 }
+
+export const DesktopNav = Sidebar;
+export const BottomNav = BottomBar;
+export const MobileNav = BottomBar;

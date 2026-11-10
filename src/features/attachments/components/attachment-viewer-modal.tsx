@@ -1,9 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Image from "next/image";
 import { Sheet } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { ExternalLink, Download, FileText, Loader2 } from "lucide-react";
+import { InlineAlert } from "@/components/ui/inline-alert";
+import { ExternalLink, FileText, Loader2 } from "lucide-react";
 import { getAttachmentViewUrlAction } from "../actions";
 
 export interface AttachmentViewerModalProps {
@@ -15,7 +17,7 @@ export interface AttachmentViewerModalProps {
 
 export function AttachmentViewerModal({
   attachmentId,
-  title = "Document Evidence",
+  title = "Document evidence",
   isOpen,
   onClose,
 }: AttachmentViewerModalProps) {
@@ -63,42 +65,43 @@ export function AttachmentViewerModal({
     <Sheet isOpen={isOpen} onClose={onClose} title={title}>
       <div className="space-y-4">
         {isLoading && (
-          <div className="py-12 flex flex-col items-center justify-center gap-3 text-ink-soft">
-            <Loader2 className="w-6 h-6 animate-spin" />
-            <p className="text-xs font-mono">Generating secure viewing link...</p>
+          <div className="py-12 flex flex-col items-center justify-center gap-3 text-muted">
+            <Loader2 className="w-6 h-6 animate-spin" strokeWidth={1.75} />
+            <p className="text-caption text-muted">Generating secure viewing link...</p>
           </div>
         )}
 
         {error && (
-          <div className="p-4 bg-variance/10 border border-variance text-variance rounded-[2px] text-xs font-mono">
-            {error}
-          </div>
+          <InlineAlert variant="danger" title={error} />
         )}
 
         {!isLoading && !error && viewUrl && (
           <div className="space-y-3">
             {isPdf ? (
-              <div className="p-8 border border-rule rounded-[2px] flex flex-col items-center justify-center gap-4 bg-paper">
-                <FileText className="w-12 h-12 text-ink-soft" />
-                <p className="text-xs font-mono text-ink">PDF Document Attached</p>
+              <div className="p-8 border border-border rounded-panel flex flex-col items-center justify-center gap-4 bg-page">
+                <FileText className="w-12 h-12 text-muted" strokeWidth={1.75} />
+                <p className="text-body font-medium text-text">PDF document attached</p>
                 <div className="flex gap-2">
                   <a
                     href={viewUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-ink text-paper rounded-[2px]"
+                    className="inline-flex items-center gap-1.5 px-3 py-2 text-body font-medium bg-accent text-on-accent rounded-control hover:bg-accent-hover transition-colors"
                   >
-                    <ExternalLink className="w-3.5 h-3.5" />
+                    <ExternalLink className="w-3.5 h-3.5" strokeWidth={1.75} />
                     Open PDF in new tab
                   </a>
                 </div>
               </div>
             ) : (
-              <div className="max-h-[65vh] overflow-auto border border-rule rounded-[2px] bg-ink/[0.02] flex items-center justify-center p-2">
-                <img
+              <div className="max-h-[65vh] overflow-auto border border-border rounded-panel bg-surface flex items-center justify-center p-2">
+                <Image
                   src={viewUrl}
-                  alt="Receipt Document"
-                  className="max-h-[60vh] object-contain rounded-[1px]"
+                  alt="Receipt document"
+                  width={600}
+                  height={600}
+                  unoptimized
+                  className="max-h-[60vh] w-auto object-contain rounded-control"
                 />
               </div>
             )}
@@ -108,12 +111,12 @@ export function AttachmentViewerModal({
                 href={viewUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-xs font-mono text-ink-soft hover:text-ink inline-flex items-center gap-1"
+                className="text-caption text-muted hover:text-text inline-flex items-center gap-1 min-h-[44px]"
               >
-                <ExternalLink className="w-3.5 h-3.5" />
+                <ExternalLink className="w-3.5 h-3.5" strokeWidth={1.75} />
                 Open original in full size
               </a>
-              <Button variant="outline" size="sm" onClick={onClose}>
+              <Button variant="secondary" size="sm" onClick={onClose}>
                 Close
               </Button>
             </div>

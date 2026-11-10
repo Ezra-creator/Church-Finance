@@ -75,11 +75,11 @@ export interface StatementFileInspection {
   fileName: string;
   fileType: StatementFileType;
   headers: string[];
-  sampleRows: Record<string, string>[];
+  previewRows: Record<string, string>[];
 }
 
 /**
- * Inspects a statement file to discover columns and sample rows for mapping.
+ * Inspects a statement file to discover columns and preview rows for mapping.
  */
 export async function inspectStatementFile(
   buffer: Buffer,
@@ -88,13 +88,13 @@ export async function inspectStatementFile(
 ): Promise<StatementFileInspection> {
   const fileType = validateAndDetectStatementFile(fileName, buffer.length);
   const parser = getStatementParser(fileType);
-  const { headers, sampleRows } = await parser.inspect(buffer, headerRow);
+  const { headers, previewRows } = await parser.inspect(buffer, headerRow);
 
   return {
     fileName,
     fileType,
     headers,
-    sampleRows,
+    previewRows,
   };
 }
 
@@ -230,7 +230,7 @@ export async function previewImport(
         rowIndex: r.rowIndex,
         occurredAt: r.occurredAt.toISOString(),
         direction: r.direction,
-        amount: r.amount.toFixed(2),
+        amount: r.amount.toString(),
         externalRef: r.externalRef,
         rawDescription: r.rawDescription,
         counterpartyName: r.counterpartyName,

@@ -3,20 +3,41 @@
 @tailwind utilities;
 
 :root {
-  --paper: #F7F4EC;
-  --ink: #1C1B18;
-  --ink-soft: #5E5B52;
-  --rule: #D9D4C7;
-  --rule-strong: #B9B2A0;
+  /* Primary accent */
+  --accent: #3F6F57;
+  --accent-hover: #335C48;
+  --accent-tint: #E9F0EC;
+  --accent-ink: #2F5A44;
+  --on-accent: #FFFFFF;
 
-  --balanced: #2F6B4F;
-  --balanced-bg: #E3EFE7;
+  /* Neutrals & surfaces */
+  --page: #F6F7F5;
+  --surface: #FFFFFF;
+  --hover: #F0F3F1;
+  --border: #E2E6E3;
+  --border-strong: #CBD2CD;
+  --text: #1A201C;
+  --muted: #5E6862;
 
-  --variance: #A33B2E;
-  --variance-bg: #F6E3DF;
+  /* Semantic status colors */
+  --ok: #1E9E57;
+  --ok-tint: #E3F5EA;
+  --ok-ink: #14653D;
 
-  --attention: #8A6212;
-  --attention-bg: #F5EAD0;
+  --bad: #C0392B;
+  --bad-tint: #FBEAE8;
+  --bad-ink: #9A2B20;
+
+  --warn: #B7791F;
+  --warn-tint: #FBF1DC;
+  --warn-ink: #7A4E10;
+
+  /* Backdrop scrim */
+  --scrim: rgba(26,32,28,0.45);
+
+  /* Radii */
+  --r-control: 6px;
+  --r-panel: 8px;
 }
 
 * {
@@ -24,35 +45,39 @@
 }
 
 body {
-  background-color: var(--paper);
-  color: var(--ink);
-  font-family: var(--font-plex-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background-color: var(--page);
+  color: var(--text);
+  font-family: var(--font-inter), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   -webkit-font-smoothing: antialiased;
   min-height: 100vh;
 }
 
-/* Focus indicator specification: 2px ink with 2px offset */
+/* Focus ring: 2px accent outline with 2px offset */
 *:focus-visible {
-  outline: 2px solid var(--ink);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
-/* Exact typography helpers */
-.font-ledger-title {
-  font-family: var(--font-fraunces), Georgia, serif;
-}
-
-.font-ledger-amount {
-  font-family: var(--font-plex-mono), monospace;
+/* Tabular figures for amounts, dates and counts */
+.tnum,
+.tabular-nums {
+  font-feature-settings: "tnum";
   font-variant-numeric: tabular-nums;
-  text-align: right;
 }
 
-/* Hairline borders */
-.rule-hairline {
-  border-color: var(--rule);
+/* Popover & Dialog shadow */
+.shadow-overlay {
+  box-shadow: 0 8px 24px rgba(26,32,28,0.12);
 }
 
-.rule-hairline-strong {
-  border-color: var(--rule-strong);
+/* Reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

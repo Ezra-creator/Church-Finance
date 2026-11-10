@@ -8,7 +8,7 @@ import { formatAccraDate, formatAccraDateTime } from "@/lib/dates";
 import { formatRole } from "@/lib/format";
 
 export const metadata = {
-  title: "Tithe Receipt — PUCA Finance",
+  title: "Official Receipt · PUCA Finance",
 };
 
 export default async function ReceiptPage({
@@ -29,9 +29,9 @@ export default async function ReceiptPage({
     data.givingEntry.payerName ||
     "Church Member";
 
-  const churchName = data.churchSettings?.churchName || "PUCA Parish";
+  const churchName = data.churchSettings?.churchName || "Local Congregation";
   const presbyteryName =
-    data.churchSettings?.presbyteryName || "Presbyterian Church of Ghana";
+    data.churchSettings?.presbyteryName || "District Office";
 
   const words = amountInWords(data.amount);
 
@@ -40,7 +40,7 @@ export default async function ReceiptPage({
       receipt={{
         id: data.id,
         number: data.number,
-        amount: data.amount.toFixed(2),
+        amount: data.amount.toString(),
         amountWords: words,
         issuedAt: formatAccraDateTime(data.issuedAt),
         serviceDate: formatAccraDate(

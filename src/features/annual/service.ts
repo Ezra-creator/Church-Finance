@@ -281,8 +281,8 @@ export async function getAnnualReportData(year: number): Promise<AnnualReportDat
 
   return {
     year,
-    churchName: settings?.churchName || "Presbyterian Church of Ghana",
-    presbyteryName: settings?.presbyteryName || "Local Presbytery",
+    churchName: settings?.churchName || "Local Congregation",
+    presbyteryName: settings?.presbyteryName || "District Office",
     generatedAt: nowUtc().toISOString(),
     income: {
       categories: categoryRows,

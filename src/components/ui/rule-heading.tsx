@@ -18,19 +18,19 @@ export function RuleHeading({
   className,
 }: RuleHeadingProps) {
   return (
-    <header className={twMerge(clsx("pb-4 border-b border-rule", className))}>
-      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+    <header className={twMerge(clsx("pb-6 border-b border-border text-left", className))}>
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div className="space-y-1">
           {eyebrow && (
-            <p className="text-xs uppercase tracking-wider font-medium text-ink-soft">
+            <p className="text-caption font-medium text-muted">
               {eyebrow}
             </p>
           )}
-          <h1 className="text-2xl sm:text-3xl font-serif font-normal text-ink leading-tight">
+          <h1 className="text-heading font-semibold text-text leading-tight">
             {title}
           </h1>
           {description && (
-            <p className="text-sm text-ink-soft max-w-xl pt-0.5">
+            <p className="text-body text-muted max-w-xl">
               {description}
             </p>
           )}

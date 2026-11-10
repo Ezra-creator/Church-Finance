@@ -5,27 +5,34 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Role, ReconciliationStatus } from "@prisma/client";
 import {
-  CheckCircle2,
+  Check,
   AlertTriangle,
   ArrowLeft,
   ArrowRight,
   Download,
   FileText,
-  Lock,
   Unlock,
-  Check,
   RefreshCw,
   ExternalLink,
-  ShieldAlert,
 } from "lucide-react";
-import { RuleHeading } from "@/components/ui/rule-heading";
+import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
 import { AmountInput } from "@/components/ui/amount-input";
-import { StatusMark } from "@/components/ui/status-mark";
+import { Badge } from "@/components/ui/badge";
+import { InlineAlert } from "@/components/ui/inline-alert";
 import { Sheet } from "@/components/ui/sheet";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
-import { formatCedi } from "@/lib/money";
+import { formatCedi, toDecimal } from "@/lib/money";
 import { formatAccraDateTime } from "@/lib/dates";
+import { plural } from "@/lib/plural";
 import {
   setBookTotalAction,
   setVarianceReasonAction,
@@ -87,7 +94,6 @@ export function WeekReconciliationView({
   initialVarianceReason,
   variance,
   varianceStatus,
-  varianceLabel,
   categories,
   blockers,
   canSubmit,
@@ -109,7 +115,9 @@ export function WeekReconciliationView({
     !isSubmitted &&
     (userRole === Role.FINANCE_SECRETARY || userRole === Role.TREASURER);
 
-  // Update book total
+  const isVarianceBalanced = varianceStatus === "BALANCED";
+  const hasVarianceBlocker = parallelRunActive && !isVarianceBalanced;
+
   const handleSaveBookTotal = (val: string) => {
     if (!canEdit) return;
 
@@ -120,16 +128,15 @@ export function WeekReconciliationView({
       });
 
       if (!res.success) {
-        addToast("error", res.error.message);
+        addToast({ type: "error", message: res.error.message });
         return;
       }
 
-      addToast("success", "Paper book total updated.");
+      addToast({ type: "success", message: "Recorded book total updated." });
       router.refresh();
     });
   };
 
-  // Update variance reason
   const handleSaveVarianceReason = () => {
     if (!canEdit) return;
 
@@ -140,32 +147,33 @@ export function WeekReconciliationView({
       });
 
       if (!res.success) {
-        addToast("error", res.error.message);
+        addToast({ type: "error", message: res.error.message });
         return;
       }
 
-      addToast("success", "Variance reason recorded.");
+      addToast({ type: "success", message: "Variance explanation recorded." });
       router.refresh();
     });
   };
 
-  // Submit period
   const handleSubmitPeriod = () => {
-    if (!canEdit || !canSubmit) return;
+    if (!canEdit || !canSubmit || hasVarianceBlocker) return;
 
     startTransition(async () => {
       const res = await submitPeriodAction({ periodId });
       if (!res.success) {
-        addToast("error", res.error.message);
+        addToast({ type: "error", message: res.error.message });
         return;
       }
 
-      addToast("success", `Period submitted successfully (Report v${res.data.version}).`);
+      addToast({
+        type: "success",
+        message: `Period submitted (Report v${res.data.version}).`,
+      });
       router.refresh();
     });
   };
 
-  // Unlock period
   const handleUnlockPeriod = (e: React.FormEvent) => {
     e.preventDefault();
     if (!isTreasurer || !unlockReason.trim()) return;
@@ -177,11 +185,14 @@ export function WeekReconciliationView({
       });
 
       if (!res.success) {
-        addToast("error", res.error.message);
+        addToast({ type: "error", message: res.error.message });
         return;
       }
 
-      addToast("success", "Reconciliation period unlocked for correction.");
+      addToast({
+        type: "success",
+        message: "Reconciliation period unlocked for correction.",
+      });
       setIsUnlockSheetOpen(false);
       setUnlockReason("");
       router.refresh();
@@ -189,36 +200,34 @@ export function WeekReconciliationView({
   };
 
   return (
-    <div className="space-y-8 max-w-4xl mx-auto">
+    <div className="space-y-6">
       {/* Top Header */}
-      <RuleHeading
-        eyebrow="Weekly Reconciliation"
+      <PageHeader
         title={formattedRange}
-        description={`Audit period ending ${weekEnding}. Consolidating Sunday services, midweek collections, and verified Mobile Money payments.`}
+        description={`Audit period ending ${weekEnding}. Consolidating physical service collections and verified Mobile money payments.`}
         action={
           <div className="flex items-center gap-2 flex-wrap">
             <Link href="/reconcile">
-              <Button variant="quiet" size="sm">
-                <ArrowLeft className="w-4 h-4 mr-1.5" />
+              <Button variant="ghost" size="sm">
+                <ArrowLeft className="w-4 h-4 mr-1.5" strokeWidth={1.75} />
                 All weeks
               </Button>
             </Link>
 
             <Link href={`/reconcile/${weekEnding}/preview`}>
               <Button variant="secondary" size="sm">
-                <FileText className="w-4 h-4 mr-1.5" />
-                Preview return
+                <FileText className="w-4 h-4 mr-1.5" strokeWidth={1.75} />
+                Preview report
               </Button>
             </Link>
 
             {isSubmitted && isTreasurer && (
               <Button
-                variant="secondary"
+                variant="danger"
                 size="sm"
                 onClick={() => setIsUnlockSheetOpen(true)}
-                className="text-variance border-variance/40 hover:bg-variance/5"
               >
-                <Unlock className="w-4 h-4 mr-1.5" />
+                <Unlock className="w-4 h-4 mr-1.5" strokeWidth={1.75} />
                 Unlock for correction
               </Button>
             )}
@@ -226,31 +235,31 @@ export function WeekReconciliationView({
         }
       />
 
-      {/* SUBMITTED CONFIRMATION BANNER */}
+      {/* Submitted Confirmation Banner */}
       {isSubmitted && (
-        <div className="p-4 bg-balanced/10 border border-balanced rounded-[2px] space-y-3">
+        <div className="p-4 bg-surface border border-ok rounded-panel space-y-3">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <div className="flex items-center gap-2 text-balanced font-medium text-sm">
-              <CheckCircle2 className="w-5 h-5 flex-shrink-0" />
+            <div className="flex items-center gap-2 text-ok-ink font-medium text-body">
+              <Check className="w-5 h-5 flex-shrink-0" strokeWidth={1.75} />
               <span>
-                Submitted to Presbytery • Report Version {reportVersion}
+                Report submitted • Version {reportVersion}
               </span>
             </div>
 
-            <div className="text-xs font-mono text-ink-soft">
+            <div className="text-caption text-muted">
               {submittedAt ? formatAccraDateTime(submittedAt) : ""}{" "}
               {submittedByName ? `by ${submittedByName}` : ""}
             </div>
           </div>
 
-          <div className="pt-2 flex items-center gap-3 border-t border-balanced/20 flex-wrap">
+          <div className="pt-2 flex items-center gap-3 border-t border-border flex-wrap">
             <a
               href={`/api/reports/reconciliation/${periodId}/docx`}
               download
               className="inline-block"
             >
               <Button variant="secondary" size="sm">
-                <Download className="w-4 h-4 mr-1.5" />
+                <Download className="w-4 h-4 mr-1.5" strokeWidth={1.75} />
                 Download Word (.docx)
               </Button>
             </a>
@@ -261,56 +270,56 @@ export function WeekReconciliationView({
               className="inline-block"
             >
               <Button variant="secondary" size="sm">
-                <Download className="w-4 h-4 mr-1.5" />
+                <Download className="w-4 h-4 mr-1.5" strokeWidth={1.75} />
                 Download PDF (.pdf)
               </Button>
             </a>
 
-            <span className="text-xs text-ink-soft">
+            <span className="text-caption text-muted">
               Snapshot figures are immutable and match generated exports.
             </span>
           </div>
         </div>
       )}
 
-      {/* THE RECONCILIATION LEDGER */}
-      <div className="p-6 bg-paper border border-rule rounded-[2px] space-y-4">
-        <h3 className="text-xs uppercase tracking-wider font-mono font-semibold text-ink-soft pb-2 border-b border-rule">
-          Weekly Balance Ledger
+      {/* Expected / Banked / Difference strip */}
+      <div className="p-6 bg-surface border border-border rounded-panel space-y-4">
+        <h3 className="text-body font-medium text-text pb-2 border-b border-border">
+          Weekly balance
         </h3>
 
-        <div className="space-y-3 text-sm">
+        <div className="space-y-3 text-body">
           {/* Row 1: Cash counted */}
           <div className="flex items-center justify-between py-1">
-            <span className="text-ink">Cash counted (verified physical service sheets)</span>
-            <span className="font-mono tabular-nums font-medium text-ink">
+            <span className="text-text">Cash counted (verified physical service sheets)</span>
+            <span className="tabular-nums font-medium text-text tnum">
               {formatCedi(cashTotal)}
             </span>
           </div>
 
           {/* Row 2: MoMo received */}
           <div className="flex items-center justify-between py-1">
-            <span className="text-ink">Mobile Money received (classified statement payments)</span>
-            <span className="font-mono tabular-nums font-medium text-ink">
+            <span className="text-text">Mobile money received (statement payments)</span>
+            <span className="tabular-nums font-medium text-text tnum">
               {formatCedi(momoTotal)}
             </span>
           </div>
 
-          {/* Row 3: Expected (Bold) */}
-          <div className="flex items-center justify-between py-2 border-t border-rule font-semibold">
-            <span className="text-ink">Expected System Total</span>
-            <span className="font-mono tabular-nums text-base text-ink">
+          {/* Row 3: Expected */}
+          <div className="flex items-center justify-between py-2 border-t border-border font-medium">
+            <span className="text-text">Expected total</span>
+            <span className="tabular-nums text-lead text-text tnum">
               {formatCedi(expectedTotal)}
             </span>
           </div>
 
           {/* Row 4: Recorded in books (Parallel run) */}
           {parallelRunActive && (
-            <div className="pt-2 pb-1 border-t border-rule flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="pt-2 pb-1 border-t border-border flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="space-y-0.5">
-                <span className="text-ink font-medium">Recorded in physical books</span>
-                <p className="text-xs text-ink-soft">
-                  Entered from paper ledger books during the parallel-run period.
+                <span className="text-text font-medium">Recorded in books</span>
+                <p className="text-caption text-muted">
+                  Entered during parallel run comparison.
                 </p>
               </div>
 
@@ -320,55 +329,42 @@ export function WeekReconciliationView({
                     value={bookTotal}
                     onChange={(val) => setBookTotal(val)}
                     onBlur={() => handleSaveBookTotal(bookTotal)}
-                    placeholder="GH₵ 0.00"
-                    className="w-40 text-right font-mono text-sm"
+                    placeholder="0.00"
+                    className="w-40 text-right"
                   />
                 ) : (
-                  <span className="font-mono tabular-nums font-medium text-ink text-sm">
+                  <span className="tabular-nums font-medium text-text text-body tnum">
                     {bookTotal ? formatCedi(bookTotal) : "—"}
                   </span>
                 )}
               </div>
             </div>
           )}
-        </div>
 
-        {/* STATE BAND: Balanced at 0.00 or Short / Over with amount */}
-        {parallelRunActive && varianceStatus !== "NO_BOOK_TOTAL" && (
-          <div className="pt-2">
-            {varianceStatus === "BALANCED" ? (
-              <div className="p-4 bg-balanced/10 border border-balanced rounded-[2px] text-balanced flex items-center justify-between">
-                <div className="flex items-center gap-2 font-medium text-sm">
-                  <CheckCircle2 className="w-5 h-5" />
-                  <span>Balanced with physical record books</span>
-                </div>
-                <span className="font-mono tabular-nums font-bold text-sm">
-                  GH₵ 0.00
-                </span>
+          {/* Row 5: Difference */}
+          {parallelRunActive && varianceStatus !== "NO_BOOK_TOTAL" && (
+            <div className="pt-3 pb-1 border-t border-border flex items-center justify-between">
+              <span className="text-text font-medium">Difference</span>
+              <div>
+                {isVarianceBalanced ? (
+                  <Badge variant="balanced" label="Balanced" />
+                ) : (
+                  <Badge variant="mismatch" amount={variance} />
+                )}
               </div>
-            ) : (
-              <div className="p-4 bg-variance/10 border border-variance rounded-[2px] text-variance flex items-center justify-between">
-                <div className="flex items-center gap-2 font-medium text-sm">
-                  <AlertTriangle className="w-5 h-5" />
-                  <span>{varianceStatus === "SHORT" ? "Short by" : "Over by"}</span>
-                </div>
-                <span className="font-mono tabular-nums font-bold text-sm">
-                  {variance ? (varianceStatus === "SHORT" ? formatCedi(variance.replace("-", "")) : formatCedi(variance)) : "—"}
-                </span>
-              </div>
-            )}
-          </div>
-        )}
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* VARIANCE REASON FIELD (when variance is non-zero) */}
-      {parallelRunActive && varianceStatus !== "BALANCED" && varianceStatus !== "NO_BOOK_TOTAL" && (
-        <div className="p-5 bg-paper border border-rule rounded-[2px] space-y-3">
-          <label className="text-xs font-mono uppercase tracking-wider text-ink font-semibold block">
-            Explanation for Book Variance <span className="text-variance">*</span>
+      {/* Variance Explanation Field */}
+      {parallelRunActive && !isVarianceBalanced && varianceStatus !== "NO_BOOK_TOTAL" && (
+        <div className="p-5 bg-surface border border-border rounded-panel space-y-3">
+          <label className="text-caption font-medium text-text block">
+            Explanation for book variance <span className="text-bad-ink">*</span>
           </label>
-          <p className="text-xs text-ink-soft">
-            Explain the difference between the physical paper book count and the audited system total for the presbytery return.
+          <p className="text-caption text-muted">
+            Explain the difference between the physical book entry and the audited system total.
           </p>
 
           <textarea
@@ -376,8 +372,8 @@ export function WeekReconciliationView({
             disabled={!canEdit || isPending}
             value={varianceReason}
             onChange={(e) => setVarianceReason(e.target.value)}
-            placeholder="e.g. Counter arithmetic correction on physical collection sheet page 12..."
-            className="w-full text-sm bg-paper border border-rule rounded-[2px] p-2.5 text-ink font-mono focus:outline-none focus:border-ink"
+            placeholder="e.g. Counter arithmetic correction on physical collection sheet..."
+            className="w-full text-body bg-page border border-border rounded-control p-2.5 text-text focus:outline-none focus:border-accent resize-none"
           />
 
           {canEdit && (
@@ -395,80 +391,80 @@ export function WeekReconciliationView({
         </div>
       )}
 
-      {/* CATEGORY BREAKDOWN TABLE */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between pb-2 border-b-2 border-rule-strong">
-          <h3 className="text-xs uppercase tracking-wider font-semibold font-mono text-ink-soft">
-            Income Breakdown by Fund ({categories.length})
+      {/* Income Breakdown */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lead font-semibold text-text">
+            Income breakdown ({categories.length})
           </h3>
-          <span className="text-xs font-mono text-ink-soft">
-            Aggregated Cash & MoMo
+          <span className="text-caption text-muted">
+            Aggregated cash and Mobile money
           </span>
         </div>
 
-        <div className="border border-rule rounded-[2px] overflow-x-auto bg-paper">
-          <table className="w-full text-left text-xs font-mono">
-            <thead className="bg-ink/[0.02] border-b border-rule">
-              <tr>
-                <th className="py-2.5 px-3 text-ink-soft font-normal">Giving Category</th>
-                <th className="py-2.5 px-3 text-ink-soft font-normal text-right">Cash Counted</th>
-                <th className="py-2.5 px-3 text-ink-soft font-normal text-right">Mobile Money</th>
-                <th className="py-2.5 px-3 text-ink-soft font-normal text-right">Total Received</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-rule">
+        <div className="border border-border rounded-panel overflow-hidden bg-surface">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Giving category</TableHead>
+                <TableHead className="text-right">Cash counted</TableHead>
+                <TableHead className="text-right">Mobile money</TableHead>
+                <TableHead className="text-right">Total received</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {categories.map((c) => (
-                <tr key={c.id} className="hover:bg-ink/[0.01]">
-                  <td className="py-2.5 px-3 text-ink font-medium">
+                <TableRow key={c.id}>
+                  <TableCell className="font-medium text-text">
                     {c.name}{" "}
-                    <span className="text-[10px] text-ink-soft uppercase">({c.code})</span>
-                  </td>
-                  <td className="py-2.5 px-3 text-right tabular-nums text-ink">
+                    <span className="text-caption text-muted">({c.code})</span>
+                  </TableCell>
+                  <TableCell className="text-right text-text tnum">
                     {formatCedi(c.cash)}
-                  </td>
-                  <td className="py-2.5 px-3 text-right tabular-nums text-ink">
+                  </TableCell>
+                  <TableCell className="text-right text-text tnum">
                     {formatCedi(c.momo)}
-                  </td>
-                  <td className="py-2.5 px-3 text-right tabular-nums font-semibold text-ink">
+                  </TableCell>
+                  <TableCell className="text-right font-medium text-text tnum">
                     {formatCedi(c.total)}
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))}
-            </tbody>
-            <tfoot className="border-t-2 border-rule-strong bg-ink/[0.02] font-semibold text-ink">
-              <tr>
-                <td className="py-2.5 px-3">TOTAL INCOME</td>
-                <td className="py-2.5 px-3 text-right tabular-nums">{formatCedi(cashTotal)}</td>
-                <td className="py-2.5 px-3 text-right tabular-nums">{formatCedi(momoTotal)}</td>
-                <td className="py-2.5 px-3 text-right tabular-nums font-bold">{formatCedi(expectedTotal)}</td>
-              </tr>
-            </tfoot>
-          </table>
+            </TableBody>
+          </Table>
+          <div className="border-t border-border bg-page px-4 py-3 flex items-center justify-between text-body font-medium text-text">
+            <span>Total income</span>
+            <div className="flex items-center gap-6 text-right">
+              <span className="tnum hidden sm:inline">{formatCedi(cashTotal)}</span>
+              <span className="tnum hidden sm:inline">{formatCedi(momoTotal)}</span>
+              <span className="tnum font-medium text-lead">{formatCedi(expectedTotal)}</span>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* "BEFORE YOU SUBMIT" BLOCKERS LIST */}
+      {/* Before You Submit Blockers List */}
       {!isSubmitted && (
-        <div className="space-y-4 pt-2">
-          <div className="flex items-center justify-between pb-2 border-b border-rule">
-            <h3 className="text-xs uppercase tracking-wider font-semibold font-mono text-ink">
-              Before You Submit
+        <div className="space-y-3 pt-2">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lead font-semibold text-text">
+              Before you submit
             </h3>
             <span
-              className={`text-xs font-mono font-semibold ${
-                blockers.length === 0 ? "text-balanced" : "text-attention"
+              className={`text-caption font-medium ${
+                blockers.length === 0 && !hasVarianceBlocker ? "text-ok-ink" : "text-warn-ink"
               }`}
             >
-              {blockers.length === 0
+              {blockers.length === 0 && !hasVarianceBlocker
                 ? "All requirements fulfilled"
-                : `${blockers.length} blocker${blockers.length === 1 ? "" : "s"} remaining`}
+                : `${plural(blockers.length + (hasVarianceBlocker ? 1 : 0), "blocker", "blockers")} remaining`}
             </span>
           </div>
 
-          {blockers.length === 0 ? (
-            <div className="p-4 bg-balanced/5 border border-balanced/30 rounded-[2px] flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2.5 text-balanced text-sm">
-                <CheckCircle2 className="w-5 h-5 flex-shrink-0" />
+          {blockers.length === 0 && !hasVarianceBlocker ? (
+            <div className="p-4 bg-surface border border-ok rounded-panel flex items-center justify-between gap-3 flex-wrap">
+              <div className="flex items-center gap-2.5 text-ok-ink text-body">
+                <Check className="w-5 h-5 flex-shrink-0" strokeWidth={1.75} />
                 <span>
                   No blockers remain. Physical counts are finalized and all statement payments are classified.
                 </span>
@@ -482,37 +478,47 @@ export function WeekReconciliationView({
                 >
                   {isPending ? (
                     <>
-                      <RefreshCw className="w-4 h-4 mr-1.5 animate-spin" />
+                      <RefreshCw className="w-4 h-4 mr-1.5 animate-spin" strokeWidth={1.75} />
                       Submitting...
                     </>
                   ) : (
                     <>
-                      Submit to presbytery
-                      <ArrowRight className="w-4 h-4 ml-1.5" />
+                      Submit report
+                      <ArrowRight className="w-4 h-4 ml-1.5" strokeWidth={1.75} />
                     </>
                   )}
                 </Button>
               )}
             </div>
           ) : (
-            <div className="divide-y divide-rule border border-rule rounded-[2px] bg-paper">
+            <div className="divide-y divide-border border border-border rounded-panel bg-surface">
+              {hasVarianceBlocker && (
+                <div className="p-3.5 flex items-center justify-between gap-3 text-caption">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <AlertTriangle className="w-4 h-4 text-warn-ink flex-shrink-0" strokeWidth={1.75} />
+                    <span className="text-text font-medium leading-relaxed">
+                      Audited system total does not match recorded book total. Reconcile difference before submitting.
+                    </span>
+                  </div>
+                </div>
+              )}
               {blockers.map((b, idx) => (
                 <div
                   key={idx}
-                  className="p-3.5 flex items-center justify-between gap-3 text-xs"
+                  className="p-3.5 flex items-center justify-between gap-3 text-caption"
                 >
                   <div className="flex items-center gap-2.5 min-w-0">
-                    <AlertTriangle className="w-4 h-4 text-attention flex-shrink-0" />
-                    <span className="text-ink font-medium leading-relaxed">
+                    <AlertTriangle className="w-4 h-4 text-warn-ink flex-shrink-0" strokeWidth={1.75} />
+                    <span className="text-text font-medium leading-relaxed">
                       {b.message}
                     </span>
                   </div>
 
                   {b.link && (
                     <Link href={b.link}>
-                      <Button variant="quiet" size="sm" className="text-ink hover:text-ink">
+                      <Button variant="ghost" size="sm">
                         Resolve
-                        <ExternalLink className="w-3.5 h-3.5 ml-1" />
+                        <ExternalLink className="w-3.5 h-3.5 ml-1" strokeWidth={1.75} />
                       </Button>
                     </Link>
                   )}
@@ -523,51 +529,48 @@ export function WeekReconciliationView({
         </div>
       )}
 
-      {/* TREASURER UNLOCK SHEET */}
+      {/* Treasurer Unlock Sheet */}
       <Sheet
         isOpen={isUnlockSheetOpen}
         onClose={() => setIsUnlockSheetOpen(false)}
-        title="Unlock Period for Correction"
-        description="Treasurer authorization required. Unlocking resets the period to DRAFT and unlocks included service count sheets and MoMo transactions for amendment."
+        title="Unlock period for correction"
+        description="Treasurer authorization required. Unlocking resets the period to draft and unlocks included service count sheets and Mobile money transactions for amendment."
       >
         <form onSubmit={handleUnlockPeriod} className="space-y-4 pt-3">
-          <div className="p-3 bg-attention/10 border border-attention text-attention text-xs rounded-[2px] flex items-start gap-2">
-            <ShieldAlert className="w-4 h-4 flex-shrink-0 mt-0.5" />
-            <p className="leading-relaxed">
-              When corrections are finished, resubmitting this period will increment the report to Version {reportVersion + 1} with an updated immutable snapshot.
-            </p>
-          </div>
+          <InlineAlert
+            variant="warn"
+            title={`When corrections are finished, resubmitting this period will increment the report to Version ${reportVersion + 1} with an updated immutable snapshot.`}
+          />
 
           <div>
-            <label className="text-xs font-mono uppercase tracking-wider text-ink-soft block mb-1.5">
-              Reason for Correction <span className="text-variance">*</span>
+            <label className="text-caption font-medium text-muted block mb-1.5">
+              Reason for correction <span className="text-bad-ink">*</span>
             </label>
             <textarea
               required
               rows={3}
               value={unlockReason}
               onChange={(e) => setUnlockReason(e.target.value)}
-              placeholder="e.g. Correcting physical cash denomination entry for Sunday 18 Oct service..."
-              className="w-full text-sm bg-paper border border-rule rounded-[2px] p-2 text-ink font-mono focus:outline-none focus:border-ink"
+              placeholder="e.g. Correcting physical cash denomination entry..."
+              className="w-full text-body bg-page border border-border rounded-control p-2.5 text-text focus:outline-none focus:border-accent resize-none"
             />
-            <p className="text-[11px] text-ink-soft mt-1">
-              Minimum 5 characters. This explanation will be permanently recorded in the immutable audit log.
+            <p className="text-caption text-muted mt-1">
+              Minimum 5 characters. This explanation will be permanently recorded in the audit log.
             </p>
           </div>
 
-          <div className="pt-4 flex justify-end gap-3 border-t border-rule">
+          <div className="pt-4 flex justify-end gap-3 border-t border-border">
             <Button
               type="button"
-              variant="quiet"
+              variant="secondary"
               onClick={() => setIsUnlockSheetOpen(false)}
             >
               Cancel
             </Button>
             <Button
               type="submit"
-              variant="secondary"
+              variant="danger"
               disabled={isPending || unlockReason.trim().length < 5}
-              className="text-variance border-variance"
             >
               Authorize unlock
             </Button>

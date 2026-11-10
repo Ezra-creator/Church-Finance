@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import { clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
 import { X } from "lucide-react";
@@ -25,23 +25,61 @@ export function Sheet({
   footer,
   className,
 }: SheetProps) {
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const previousActiveElement = useRef<HTMLElement | null>(null);
+
   useEffect(() => {
+    if (!isOpen) return;
+
+    previousActiveElement.current = document.activeElement as HTMLElement | null;
+    document.body.style.overflow = "hidden";
+
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && isOpen) {
+      if (e.key === "Escape") {
         onClose();
+        return;
+      }
+
+      if (e.key === "Tab" && sheetRef.current) {
+        const focusableElements = sheetRef.current.querySelectorAll<HTMLElement>(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        );
+        if (focusableElements.length === 0) return;
+
+        const first = focusableElements[0];
+        const last = focusableElements[focusableElements.length - 1];
+
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
       }
     };
 
-    if (isOpen) {
-      document.body.style.overflow = "hidden";
-      window.addEventListener("keydown", handleKeyDown);
-    } else {
-      document.body.style.overflow = "";
-    }
+    window.addEventListener("keydown", handleKeyDown);
+
+    requestAnimationFrame(() => {
+      if (sheetRef.current) {
+        const firstFocusable = sheetRef.current.querySelector<HTMLElement>(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        );
+        if (firstFocusable) {
+          firstFocusable.focus();
+        } else {
+          sheetRef.current.focus();
+        }
+      }
+    });
 
     return () => {
       document.body.style.overflow = "";
       window.removeEventListener("keydown", handleKeyDown);
+      if (previousActiveElement.current) {
+        previousActiveElement.current.focus();
+      }
     };
   }, [isOpen, onClose]);
 
@@ -49,56 +87,61 @@ export function Sheet({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end lg:items-stretch lg:justify-end">
-      {/* Backdrop */}
+      {/* Opaque scrim backdrop */}
       <div
-        className="fixed inset-0 bg-ink/25 backdrop-blur-[1px] transition-opacity"
+        className="fixed inset-0 bg-scrim"
         onClick={onClose}
         aria-hidden="true"
       />
 
-      {/* Sheet panel: bottom sheet on mobile, right side panel on desktop */}
+      {/* Sheet panel: bottom sheet on mobile (12px top corners), 480px right panel on desktop with shadow */}
       <div
+        ref={sheetRef}
         role="dialog"
+        tabIndex={-1}
         aria-modal="true"
         aria-labelledby="sheet-title"
         className={twMerge(
           clsx(
-            "relative z-10 w-full bg-paper flex flex-col border-t lg:border-t-0 lg:border-l border-rule shadow-none",
-            "max-h-[90vh] lg:max-h-full lg:w-[440px] transition-transform",
+            "relative z-10 w-full bg-surface flex flex-col border-t lg:border-t-0 lg:border-l border-border shadow-overlay outline-none text-left",
+            "rounded-t-sheet lg:rounded-none max-h-[90vh] lg:max-h-full lg:w-[480px] lg:max-w-[480px]",
             className
           )
         )}
       >
+        {/* Mobile Drag Indicator */}
+        <div className="lg:hidden mx-auto my-2.5 h-1 w-12 rounded-full bg-border-strong flex-shrink-0" />
+
         {/* Header */}
-        <div className="flex items-start justify-between p-5 border-b border-rule">
-          <div>
+        <div className="flex items-start justify-between px-5 py-4 border-b border-border">
+          <div className="space-y-0.5">
             <h2
               id="sheet-title"
-              className="text-lg font-serif font-normal text-ink leading-tight"
+              className="text-title font-medium text-text leading-tight"
             >
               {title}
             </h2>
             {description && (
-              <p className="text-xs text-ink-soft mt-1">{description}</p>
+              <p className="text-caption text-muted">{description}</p>
             )}
           </div>
           <Button
-            variant="quiet"
+            variant="ghost"
             size="sm"
             onClick={onClose}
-            className="p-1 min-h-[36px] min-w-[36px] -mr-2 -mt-1 text-ink-soft hover:text-ink"
-            aria-label="Close"
+            className="p-1 h-8 w-8 min-h-0 -mr-2 -mt-1 text-muted hover:text-text"
+            aria-label="Close sheet"
           >
-            <X className="w-4 h-4" />
+            <X className="w-4 h-4 stroke-[1.75]" />
           </Button>
         </div>
 
-        {/* Content body */}
+        {/* Content body with internal scrolling */}
         <div className="flex-1 overflow-y-auto p-5">{children}</div>
 
         {/* Footer */}
         {footer && (
-          <div className="p-4 border-t border-rule bg-paper flex items-center justify-end gap-2">
+          <div className="p-4 border-t border-border bg-surface flex items-center justify-end gap-3 flex-shrink-0">
             {footer}
           </div>
         )}

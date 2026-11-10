@@ -17,7 +17,7 @@ export async function generateMetadata({
   });
 
   return {
-    title: member ? `${member.fullName} — Giving Ledger` : "Member Not Found",
+    title: member ? `${member.fullName} — Member` : "Member Not Found",
   };
 }
 

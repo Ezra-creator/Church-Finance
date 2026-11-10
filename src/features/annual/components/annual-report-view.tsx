@@ -1,11 +1,19 @@
 "use client";
 
 import React, { useState } from "react";
-import Link from "next/link";
-import { Download, FileText, Calendar, ArrowRight, Printer } from "lucide-react";
-import { RuleHeading } from "@/components/ui/rule-heading";
+import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
-import { formatCedi } from "@/lib/money";
+import { StatBlock } from "@/components/ui/stat-block";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from "@/components/ui/table";
+import { formatMoney, toDecimal } from "@/lib/money";
+import { plural } from "@/lib/plural";
 import { AnnualReportData, MONTH_NAMES_SHORT } from "../service";
 
 interface AnnualReportViewProps {
@@ -17,7 +25,7 @@ export function AnnualReportView({
   initialData,
   availableYears,
 }: AnnualReportViewProps) {
-  const [data, setData] = useState<AnnualReportData>(initialData);
+  const [data] = useState<AnnualReportData>(initialData);
   const [selectedYear, setSelectedYear] = useState(initialData.year);
 
   const handleYearChange = (year: number) => {
@@ -25,278 +33,248 @@ export function AnnualReportView({
     window.location.search = `?year=${year}`;
   };
 
-  const isSurplus = parseFloat(data.netOperatingSurplus.toString()) >= 0;
+  const isSurplus = !toDecimal(data.netOperatingSurplus.toString()).isNegative();
 
   return (
     <div className="space-y-8">
       {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-rule">
-        <div>
-          <p className="text-[10px] uppercase font-mono tracking-widest text-ink-soft">
-            {data.presbyteryName}
-          </p>
-          <h1 className="text-3xl font-serif font-normal text-ink mt-0.5">
-            Annual Financial Summary — {data.year}
-          </h1>
-          <p className="text-xs text-ink-soft mt-1">
-            Complete reconciliation of category revenues, operating expenses, and banking deposits.
-          </p>
+      <PageHeader
+        title="Annual summary"
+        description={`Financial performance and category breakdown for ${data.year}.`}
+        action={
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              aria-label="Select report year"
+              value={selectedYear}
+              onChange={(e) => handleYearChange(parseInt(e.target.value, 10))}
+              className="h-9 px-3 text-caption bg-surface border border-border rounded-control text-text focus:outline-none focus:border-border-strong"
+            >
+              {availableYears.map((y) => (
+                <option key={y} value={y}>
+                  Year {y}
+                </option>
+              ))}
+            </select>
+
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => window.open(`/api/reports/annual/${data.year}/docx`, "_blank")}
+            >
+              Download Word (.docx)
+            </Button>
+
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => window.open(`/api/reports/annual/${data.year}/pdf`, "_blank")}
+            >
+              Download PDF
+            </Button>
+          </div>
+        }
+      />
+
+      {/* Overview stat blocks */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-border py-2">
+        <div className="pb-4 sm:pb-0 sm:pr-4">
+          <StatBlock
+            label="Total annual revenue"
+            value={formatMoney(data.income.grandTotal.toString())}
+            hint={`Across ${plural(data.income.categories.length, "category", "categories")}`}
+          />
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Year Selector */}
-          <select
-            value={selectedYear}
-            onChange={(e) => handleYearChange(parseInt(e.target.value, 10))}
-            className="h-9 px-3 text-xs font-mono bg-paper border border-rule rounded-[2px] text-ink focus:outline-none focus:border-ink"
-          >
-            {availableYears.map((y) => (
-              <option key={y} value={y}>
-                Tax Year {y}
-              </option>
-            ))}
-          </select>
-
-          <Button
-            variant="secondary"
-            onClick={() => window.open(`/api/reports/annual/${data.year}/pdf`, "_blank")}
-          >
-            <Printer className="w-4 h-4 mr-1.5" />
-            Download PDF
-          </Button>
-
-          <Button
-            variant="primary"
-            onClick={() => window.open(`/api/reports/annual/${data.year}/docx`, "_blank")}
-          >
-            <Download className="w-4 h-4 mr-1.5" />
-            Download Word (.docx)
-          </Button>
-        </div>
-      </div>
-
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="p-4 border border-rule bg-paper rounded-[2px] space-y-1">
-          <p className="text-[10px] uppercase font-mono tracking-wider text-ink-soft">
-            Total Annual Revenue
-          </p>
-          <p className="text-2xl font-mono font-bold text-ink tabular-nums">
-            {formatCedi(data.income.grandTotal)}
-          </p>
-          <p className="text-[11px] font-mono text-ink-soft">
-            Across {data.income.categories.length} giving categories
-          </p>
+        <div className="py-4 sm:py-0 sm:px-4">
+          <StatBlock
+            label="Operating expenses"
+            value={formatMoney(data.expenses.grandTotal.toString())}
+            hint={`Across ${plural(data.expenses.categories.length, "category", "categories")}`}
+          />
         </div>
 
-        <div className="p-4 border border-rule bg-paper rounded-[2px] space-y-1">
-          <p className="text-[10px] uppercase font-mono tracking-wider text-ink-soft">
-            Operating Disbursements
-          </p>
-          <p className="text-2xl font-mono font-bold text-ink tabular-nums">
-            {formatCedi(data.expenses.grandTotal)}
-          </p>
-          <p className="text-[11px] font-mono text-ink-soft">
-            Across {data.expenses.categories.length} expense categories
-          </p>
+        <div className="py-4 sm:py-0 sm:px-4">
+          <StatBlock
+            label="Bank deposits"
+            value={formatMoney(data.deposits.totalDeposited.toString())}
+            hint={`${plural(data.deposits.countDeposits, "verified deposit", "verified deposits")}`}
+          />
         </div>
 
-        <div className="p-4 border border-rule bg-paper rounded-[2px] space-y-1">
-          <p className="text-[10px] uppercase font-mono tracking-wider text-ink-soft">
-            Bank Deposits & Transfers
-          </p>
-          <p className="text-2xl font-mono font-bold text-ink tabular-nums">
-            {formatCedi(data.deposits.totalDeposited)}
-          </p>
-          <p className="text-[11px] font-mono text-ink-soft">
-            {data.deposits.countDeposits} verified deposits
-          </p>
-        </div>
-
-        <div className="p-4 border border-rule bg-paper rounded-[2px] space-y-1">
-          <p className="text-[10px] uppercase font-mono tracking-wider text-ink-soft">
-            Net Operating Position
-          </p>
-          <p
-            className={`text-2xl font-mono font-bold tabular-nums ${
-              isSurplus ? "text-emerald-700" : "text-variance"
-            }`}
-          >
-            {formatCedi(data.netOperatingSurplus)}
-          </p>
-          <p className="text-[11px] font-mono text-ink-soft">
-            {isSurplus ? "Net Operating Surplus" : "Operating Deficit"}
-          </p>
+        <div className="pt-4 sm:pt-0 sm:pl-4">
+          <StatBlock
+            label="Net operating position"
+            value={
+              <span className={isSurplus ? "text-ok-ink" : "text-bad-ink"}>
+                {formatMoney(data.netOperatingSurplus.toString())}
+              </span>
+            }
+            hint={isSurplus ? "Net operating surplus" : "Operating deficit"}
+          />
         </div>
       </div>
 
       {/* 1. Monthly Income Breakdown Table */}
-      <div className="space-y-3 pt-4 border-t border-rule">
-        <h2 className="text-lg font-serif font-normal text-ink">
-          1. Monthly Category Incomes ({data.year})
+      <div className="space-y-3 pt-4 border-t border-border">
+        <h2 className="text-lead font-normal text-text">
+          1. Monthly category incomes ({data.year})
         </h2>
-        <div className="overflow-x-auto border border-rule rounded-[2px] bg-paper">
-          <table className="w-full text-left border-collapse text-xs">
-            <thead>
-              <tr className="border-b border-rule font-mono uppercase tracking-wider text-[10px] text-ink-soft bg-ink/[0.01]">
-                <th className="py-2.5 px-3 font-normal min-w-[140px]">Category</th>
-                {MONTH_NAMES_SHORT.map((m) => (
-                  <th key={m} className="py-2.5 px-1.5 text-right font-normal min-w-[50px]">
-                    {m}
-                  </th>
-                ))}
-                <th className="py-2.5 px-3 text-right font-normal min-w-[80px]">Total</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-rule font-mono text-[11px]">
-              {data.income.categories.map((cat) => (
-                <tr key={cat.categoryId} className="hover:bg-ink/[0.02]">
-                  <td className="py-2 px-3 text-ink font-sans font-medium">
-                    {cat.categoryName}
-                  </td>
-                  {cat.monthlyAmounts.map((amt, idx) => {
-                    const num = parseFloat(String(amt ?? 0));
-                    return (
-                      <td key={idx} className="py-2 px-1.5 text-right tabular-nums text-ink">
-                        {num === 0 ? (
-                          <span className="text-ink-soft/40">-</span>
-                        ) : (
-                          num.toFixed(0)
-                        )}
-                      </td>
-                    );
-                  })}
-                  <td className="py-2 px-3 text-right tabular-nums font-semibold text-ink">
-                    {formatCedi(cat.rowTotal)}
-                  </td>
-                </tr>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-36">Category</TableHead>
+              {MONTH_NAMES_SHORT.map((m) => (
+                <TableHead key={m} className="text-right w-12">
+                  {m}
+                </TableHead>
               ))}
-            </tbody>
-            <tfoot className="border-t-2 border-rule font-mono font-bold text-ink text-xs bg-ink/[0.02]">
-              <tr>
-                <td className="py-3 px-3 font-sans">TOTAL INCOME</td>
-                {data.income.monthlyTotals.map((amt, idx) => {
-                  const num = parseFloat(String(amt ?? 0));
+              <TableHead className="text-right w-20">Total</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {data.income.categories.map((cat) => (
+              <TableRow key={cat.categoryId}>
+                <TableCell className="font-medium text-text">
+                  {cat.categoryName}
+                </TableCell>
+                {cat.monthlyAmounts.map((amt, idx) => {
+                  const dec = toDecimal(String(amt ?? 0));
                   return (
-                    <td key={idx} className="py-3 px-1.5 text-right tabular-nums">
-                      {num === 0 ? "-" : num.toFixed(0)}
-                    </td>
+                    <TableCell key={idx} className="text-right tnum text-muted">
+                      {dec.isZero() ? "—" : dec.round().toString()}
+                    </TableCell>
                   );
                 })}
-                <td className="py-3 px-3 text-right tabular-nums text-sm">
-                  {formatCedi(data.income.grandTotal)}
-                </td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
+                <TableCell className="text-right tnum font-medium text-text">
+                  {formatMoney(cat.rowTotal.toString())}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+          <tfoot>
+            <tr className="border-t border-border font-medium text-text bg-hover">
+              <td className="py-3 px-3 text-caption">Total income</td>
+              {data.income.monthlyTotals.map((amt, idx) => {
+                const dec = toDecimal(String(amt ?? 0));
+                return (
+                  <td key={idx} className="py-3 px-1.5 text-right tnum text-caption">
+                    {dec.isZero() ? "—" : dec.round().toString()}
+                  </td>
+                );
+              })}
+              <td className="py-3 px-3 text-right tnum text-body font-medium">
+                {formatMoney(data.income.grandTotal.toString())}
+              </td>
+            </tr>
+          </tfoot>
+        </Table>
       </div>
 
       {/* 2. Expenses Section */}
-      <div className="space-y-3 pt-6 border-t border-rule">
-        <h2 className="text-lg font-serif font-normal text-ink">
-          2. Operating Disbursements by Category
+      <div className="space-y-3 pt-6 border-t border-border">
+        <h2 className="text-lead font-normal text-text">
+          2. Operating expenses by category
         </h2>
         {data.expenses.categories.length === 0 ? (
-          <p className="text-xs text-ink-soft font-mono">
-            No expense disbursements recorded for {data.year}.
+          <p className="text-caption text-muted">
+            No expenses recorded for {data.year}.
           </p>
         ) : (
-          <div className="overflow-x-auto border border-rule rounded-[2px] bg-paper">
-            <table className="w-full text-left border-collapse text-xs">
-              <thead>
-                <tr className="border-b border-rule font-mono uppercase tracking-wider text-[11px] text-ink-soft">
-                  <th className="py-2.5 px-3 font-normal">Category</th>
-                  <th className="py-2.5 px-3 text-right font-normal">Cash Spent</th>
-                  <th className="py-2.5 px-3 text-right font-normal">MoMo Spent</th>
-                  <th className="py-2.5 px-3 text-right font-normal">Bank Spent</th>
-                  <th className="py-2.5 px-3 text-right font-normal">Total Disbursed</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-rule font-mono">
-                {data.expenses.categories.map((exp) => (
-                  <tr key={exp.categoryId} className="hover:bg-ink/[0.02]">
-                    <td className="py-2.5 px-3 text-ink font-sans">{exp.categoryName}</td>
-                    <td className="py-2.5 px-3 text-right tabular-nums text-ink">
-                      {formatCedi(exp.cashAmount)}
-                    </td>
-                    <td className="py-2.5 px-3 text-right tabular-nums text-ink">
-                      {formatCedi(exp.momoAmount)}
-                    </td>
-                    <td className="py-2.5 px-3 text-right tabular-nums text-ink">
-                      {formatCedi(exp.bankAmount)}
-                    </td>
-                    <td className="py-2.5 px-3 text-right tabular-nums font-semibold text-ink">
-                      {formatCedi(exp.totalAmount)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot className="border-t-2 border-rule font-mono font-bold text-ink">
-                <tr>
-                  <td className="py-3 px-3 font-sans">TOTAL DISBURSEMENTS</td>
-                  <td className="py-3 px-3 text-right tabular-nums">
-                    {formatCedi(data.expenses.cashTotal)}
-                  </td>
-                  <td className="py-3 px-3 text-right tabular-nums">
-                    {formatCedi(data.expenses.momoTotal)}
-                  </td>
-                  <td className="py-3 px-3 text-right tabular-nums">
-                    {formatCedi(data.expenses.bankTotal)}
-                  </td>
-                  <td className="py-3 px-3 text-right tabular-nums text-sm">
-                    {formatCedi(data.expenses.grandTotal)}
-                  </td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Category</TableHead>
+                <TableHead className="text-right">Cash</TableHead>
+                <TableHead className="text-right">Mobile Money</TableHead>
+                <TableHead className="text-right">Bank</TableHead>
+                <TableHead className="text-right">Total</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {data.expenses.categories.map((exp) => (
+                <TableRow key={exp.categoryId}>
+                  <TableCell className="font-medium text-text">
+                    {exp.categoryName}
+                  </TableCell>
+                  <TableCell className="text-right tnum text-muted">
+                    {formatMoney(exp.cashAmount.toString())}
+                  </TableCell>
+                  <TableCell className="text-right tnum text-muted">
+                    {formatMoney(exp.momoAmount.toString())}
+                  </TableCell>
+                  <TableCell className="text-right tnum text-muted">
+                    {formatMoney(exp.bankAmount.toString())}
+                  </TableCell>
+                  <TableCell className="text-right tnum font-medium text-text">
+                    {formatMoney(exp.totalAmount.toString())}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+            <tfoot>
+              <tr className="border-t border-border font-medium text-text bg-hover">
+                <td className="py-3 px-3 text-caption">Total expenses</td>
+                <td className="py-3 px-3 text-right tnum text-caption">
+                  {formatMoney(data.expenses.cashTotal.toString())}
+                </td>
+                <td className="py-3 px-3 text-right tnum text-caption">
+                  {formatMoney(data.expenses.momoTotal.toString())}
+                </td>
+                <td className="py-3 px-3 text-right tnum text-caption">
+                  {formatMoney(data.expenses.bankTotal.toString())}
+                </td>
+                <td className="py-3 px-3 text-right tnum text-body font-medium">
+                  {formatMoney(data.expenses.grandTotal.toString())}
+                </td>
+              </tr>
+            </tfoot>
+          </Table>
         )}
       </div>
 
       {/* 3. Banking & District Obligations */}
-      <div className="space-y-4 pt-6 border-t border-rule">
-        <h2 className="text-lg font-serif font-normal text-ink">
-          3. Banking & District Obligations Summary
+      <div className="space-y-4 pt-6 border-t border-border">
+        <h2 className="text-lead font-normal text-text">
+          3. Banking and district summary
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="p-4 border border-rule bg-paper rounded-[2px] space-y-2 text-xs font-mono">
-            <p className="font-semibold uppercase tracking-wider text-ink-soft">
-              Banking Deposits Ledger
+          <div className="p-4 border border-border bg-surface rounded-panel space-y-2 text-caption">
+            <p className="font-medium text-text">
+              Banking deposits
             </p>
-            <div className="space-y-1">
+            <div className="space-y-1.5 text-muted">
               <div className="flex justify-between">
-                <span>Physical Cash Banked:</span>
-                <strong className="text-ink">{formatCedi(data.deposits.cashDepositsTotal)}</strong>
+                <span>Physical cash banked:</span>
+                <strong className="text-text tnum">{formatMoney(data.deposits.cashDepositsTotal.toString())}</strong>
               </div>
               <div className="flex justify-between">
-                <span>Mobile Money Swept to Bank:</span>
-                <strong className="text-ink">{formatCedi(data.deposits.momoTransfersTotal)}</strong>
+                <span>Mobile Money swept to bank:</span>
+                <strong className="text-text tnum">{formatMoney(data.deposits.momoTransfersTotal.toString())}</strong>
               </div>
-              <div className="flex justify-between pt-1 border-t border-rule font-bold text-ink">
-                <span>Total Funds Banked:</span>
-                <span>{formatCedi(data.deposits.totalDeposited)}</span>
+              <div className="flex justify-between pt-1 border-t border-border font-medium text-text">
+                <span>Total funds banked:</span>
+                <span className="tnum">{formatMoney(data.deposits.totalDeposited.toString())}</span>
               </div>
             </div>
           </div>
 
-          <div className="p-4 border border-rule bg-paper rounded-[2px] space-y-2 text-xs font-mono">
-            <p className="font-semibold uppercase tracking-wider text-ink-soft">
-              Headquarters / District Assessment
+          <div className="p-4 border border-border bg-surface rounded-panel space-y-2 text-caption">
+            <p className="font-medium text-text">
+              District assessment
             </p>
-            <div className="space-y-1">
+            <div className="space-y-1.5 text-muted">
               <div className="flex justify-between">
-                <span>Total Remittance Due:</span>
-                <strong className="text-ink">{formatCedi(data.districtRemittance.totalDue)}</strong>
+                <span>Total remittance due:</span>
+                <strong className="text-text tnum">{formatMoney(data.districtRemittance.totalDue.toString())}</strong>
               </div>
               <div className="flex justify-between">
-                <span>Total Remittance Disbursed:</span>
-                <strong className="text-emerald-700">{formatCedi(data.districtRemittance.totalPaid)}</strong>
+                <span>Total remittance paid:</span>
+                <strong className="text-ok-ink tnum">{formatMoney(data.districtRemittance.totalPaid.toString())}</strong>
               </div>
-              <div className="flex justify-between pt-1 border-t border-rule font-bold text-ink">
-                <span>Outstanding Balance:</span>
-                <span className="text-variance">
-                  {formatCedi(data.districtRemittance.totalOutstanding)}
+              <div className="flex justify-between pt-1 border-t border-border font-medium text-text">
+                <span>Outstanding balance:</span>
+                <span className="text-bad-ink tnum">
+                  {formatMoney(data.districtRemittance.totalOutstanding.toString())}
                 </span>
               </div>
             </div>

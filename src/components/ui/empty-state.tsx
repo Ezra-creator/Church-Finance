@@ -19,18 +19,18 @@ export function EmptyState({
     <div
       className={twMerge(
         clsx(
-          "flex flex-col items-center justify-center text-center p-8 sm:p-12 border border-dashed border-rule rounded-[2px] bg-ink/[0.01]",
+          "flex flex-col items-start justify-start text-left p-6 border border-border rounded-panel bg-surface",
           className
         )
       )}
     >
-      <h3 className="text-xl font-serif font-normal text-ink mb-2">
+      <h3 className="text-body font-medium text-text leading-tight">
         {title}
       </h3>
-      <p className="text-sm text-ink-soft max-w-md mb-6 leading-relaxed">
+      <p className="text-caption text-muted mt-1 leading-normal max-w-md">
         {description}
       </p>
-      {action && <div>{action}</div>}
+      {action && <div className="mt-4">{action}</div>}
     </div>
   );
 }

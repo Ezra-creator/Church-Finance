@@ -28,7 +28,6 @@ export const AmountInput = React.forwardRef<HTMLInputElement, AmountInputProps>(
 
     const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
       setIsFocused(true);
-      // Strip formatting and prefix when typing
       const raw = displayValue.replace(/^(GH[₵c]|GHS)\s*/i, "").replace(/,/g, "").trim();
       setDisplayValue(raw);
       onFocus?.(e);
@@ -42,9 +41,12 @@ export const AmountInput = React.forwardRef<HTMLInputElement, AmountInputProps>(
           const dec = parseCedi(raw);
           const formatted = formatCedi(dec);
           setDisplayValue(formatted);
-          onChange?.(dec.toFixed(2));
+          const rawStr = dec.toString();
+          const parts = rawStr.split(".");
+          const frac = parts[1] || "";
+          const paddedFrac = frac.length === 0 ? "00" : frac.length === 1 ? `${frac}0` : frac.slice(0, 2);
+          onChange?.(`${parts[0] || "0"}.${paddedFrac}`);
         } catch {
-          // If invalid, preserve raw input so validation error can display
           setDisplayValue(raw);
           onChange?.(raw);
         }
@@ -62,11 +64,11 @@ export const AmountInput = React.forwardRef<HTMLInputElement, AmountInputProps>(
     };
 
     return (
-      <div className="flex flex-col gap-1.5 w-full">
+      <div className="flex flex-col gap-1 w-full text-left">
         {label && (
           <label
             htmlFor={inputId}
-            className="text-xs uppercase tracking-wider font-medium text-ink-soft"
+            className="text-label font-medium text-text"
           >
             {label}
           </label>
@@ -74,14 +76,14 @@ export const AmountInput = React.forwardRef<HTMLInputElement, AmountInputProps>(
         <div
           className={twMerge(
             clsx(
-              "relative flex items-center w-full min-h-[44px] bg-transparent border rounded-[2px] transition-colors",
-              "border-rule focus-within:border-ink",
-              error && "border-variance focus-within:border-variance",
+              "relative flex items-center w-full h-11 sm:h-10 bg-surface border border-border rounded-control transition-colors duration-120",
+              "focus-within:border-accent focus-within:ring-2 focus-within:ring-accent",
+              error && "border-bad focus-within:border-bad focus-within:ring-bad",
               className
             )
           )}
         >
-          <span className="pl-3 pr-2 text-xs font-mono font-medium text-ink-soft select-none pointer-events-none">
+          <span className="pl-3 pr-2 text-body font-medium text-muted select-none pointer-events-none">
             GH₵
           </span>
           <input
@@ -94,16 +96,16 @@ export const AmountInput = React.forwardRef<HTMLInputElement, AmountInputProps>(
             onChange={handleChange}
             onFocus={handleFocus}
             onBlur={handleBlur}
-            className="w-full h-full pr-3 py-2 bg-transparent text-sm font-mono tabular-nums text-right text-ink placeholder:text-ink-soft/40 outline-none"
+            className="w-full h-full pr-3 py-2 bg-transparent text-body font-normal tnum tabular-nums text-right text-text placeholder:text-muted outline-none"
             placeholder="0.00"
             {...props}
           />
         </div>
         {hint && !error && (
-          <p className="text-xs text-ink-soft">{hint}</p>
+          <p className="text-caption text-muted">{hint}</p>
         )}
         {error && (
-          <p className="text-xs text-variance font-medium" role="alert">
+          <p className="text-caption text-bad font-medium mt-0.5" role="alert">
             {error}
           </p>
         )}

@@ -5,12 +5,12 @@ import { Sheet } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { TextField } from "@/components/ui/text-field";
 import { AmountInput } from "@/components/ui/amount-input";
+import { InlineAlert } from "@/components/ui/inline-alert";
 import { useToast } from "@/components/ui/toast";
 import { DepositKind, AttachmentEntityType } from "@prisma/client";
-import { formatCedi, parseCedi } from "@/lib/money";
+import { formatCedi, parseCedi, toDecimal } from "@/lib/money";
 import { AttachmentUploader } from "@/features/attachments/components/attachment-uploader";
 import { recordDepositAction } from "../actions";
-import { AlertTriangle, Info } from "lucide-react";
 
 export interface ChurchUserOption {
   id: string;
@@ -22,8 +22,8 @@ export interface DepositEntrySheetProps {
   isOpen: boolean;
   onClose: () => void;
   users: ChurchUserOption[];
-  cashHeld: string; // e.g. "1250.00"
-  momoHeld: string; // e.g. "800.00"
+  cashHeld: string;
+  momoHeld: string;
   onSuccess?: () => void;
 }
 
@@ -47,12 +47,11 @@ export function DepositEntrySheet({
   const [attachmentId, setAttachmentId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Calculate comparison with held money
   const mismatchWarning = useMemo(() => {
-    if (!amount || parseFloat(amount) <= 0) return null;
+    const enteredDec = toDecimal(amount);
+    if (!enteredDec || enteredDec.lte(0)) return null;
 
     try {
-      const enteredDec = parseCedi(amount);
       const heldTarget = kind === DepositKind.CASH_DEPOSIT ? cashHeld : momoHeld;
       const heldDec = parseCedi(heldTarget);
 
@@ -76,13 +75,14 @@ export function DepositEntrySheet({
     e.preventDefault();
     setErrorMessage(null);
 
-    if (!amount || parseFloat(amount) <= 0) {
+    const enteredDec = toDecimal(amount);
+    if (!enteredDec || enteredDec.lte(0)) {
       setErrorMessage("Enter a valid deposit amount.");
       return;
     }
 
     if (!bankReference.trim()) {
-      setErrorMessage("Bank reference / slip number is required.");
+      setErrorMessage("Bank reference or slip number is required.");
       return;
     }
 
@@ -110,7 +110,7 @@ export function DepositEntrySheet({
       if (res.success) {
         addToast({
           type: "success",
-          message: "Bank deposit recorded and submitted to treasurer for confirmation.",
+          message: `Bank deposit of ${formatCedi(amount)} recorded.`,
         });
         setAmount("");
         setBankReference("");
@@ -124,42 +124,39 @@ export function DepositEntrySheet({
     });
   };
 
-  const targetHeldFormatted = kind === DepositKind.CASH_DEPOSIT
-    ? formatCedi(cashHeld)
-    : formatCedi(momoHeld);
+  const targetHeld = kind === DepositKind.CASH_DEPOSIT ? cashHeld : momoHeld;
+  const targetHeldFormatted = formatCedi(targetHeld);
 
   return (
     <Sheet
       isOpen={isOpen}
       onClose={onClose}
-      title="Record Bank Deposit"
-      description="Record a cash bank deposit or Mobile Money bank transfer with slip verification."
+      title="Record bank deposit"
+      description="Record physical cash or Mobile Money funds deposited into the church bank account."
     >
-      <form onSubmit={handleSubmit} className="space-y-5 py-2">
+      <form onSubmit={handleSubmit} className="space-y-4 py-2">
         {errorMessage && (
-          <div className="p-3 bg-variance/10 border border-variance text-variance rounded-[2px] text-xs font-mono">
-            {errorMessage}
-          </div>
+          <InlineAlert variant="danger" title={errorMessage} />
         )}
 
         {/* Kind Toggle */}
         <div className="space-y-1.5">
-          <label className="text-xs font-mono uppercase tracking-wider text-ink-soft">
-            Deposit Kind <span className="text-variance">*</span>
+          <label className="text-caption font-medium text-muted">
+            Deposit type <span className="text-bad-ink">*</span>
           </label>
           <div className="grid grid-cols-2 gap-2">
             {[
-              { id: DepositKind.CASH_DEPOSIT, label: "Cash Bank Deposit" },
-              { id: DepositKind.MOMO_TRANSFER, label: "MoMo Bank Transfer" },
+              { id: DepositKind.CASH_DEPOSIT, label: "Cash bank deposit" },
+              { id: DepositKind.MOMO_TRANSFER, label: "MoMo to bank transfer" },
             ].map((item) => (
               <button
                 key={item.id}
                 type="button"
                 onClick={() => setKind(item.id)}
-                className={`py-2 px-3 text-xs font-medium rounded-[2px] border text-center transition-colors ${
+                className={`py-2 px-3 text-caption font-medium rounded-control border text-center transition-colors min-h-[44px] ${
                   kind === item.id
-                    ? "border-ink bg-ink text-paper"
-                    : "border-rule bg-paper text-ink hover:border-ink-soft"
+                    ? "border-accent bg-accent text-on-accent"
+                    : "border-border bg-page text-muted hover:border-border-strong"
                 }`}
               >
                 {item.label}
@@ -168,9 +165,9 @@ export function DepositEntrySheet({
           </div>
         </div>
 
-        {/* Date */}
+        {/* Date Input */}
         <TextField
-          label="Deposit Date"
+          label="Deposit date"
           type="date"
           value={depositDate}
           onChange={(e) => setDepositDate(e.target.value)}
@@ -180,7 +177,7 @@ export function DepositEntrySheet({
         {/* Amount Input */}
         <div>
           <AmountInput
-            label="Deposit Amount (GH₵)"
+            label="Deposit amount"
             value={amount}
             onChange={(val) => setAmount(val)}
             placeholder="0.00"
@@ -188,30 +185,26 @@ export function DepositEntrySheet({
           />
 
           {/* Pre-submit comparison line */}
-          <div className="mt-1.5 flex items-center gap-1.5 text-xs font-mono text-ink-soft">
-            <Info className="w-3.5 h-3.5" />
+          <div className="mt-1.5 flex items-center gap-1.5 text-caption text-muted">
             <span>
-              Held in the system: <strong className="text-ink">{targetHeldFormatted}</strong>
+              Held in the system: <strong className="text-text tnum">{targetHeldFormatted}</strong>
             </span>
           </div>
 
           {/* Mismatch warning banner */}
           {mismatchWarning && (
-            <div className="mt-2.5 p-3 bg-attention/10 border border-attention text-attention rounded-[2px] text-xs space-y-1">
-              <div className="flex items-center gap-1.5 font-semibold">
-                <AlertTriangle className="w-3.5 h-3.5" />
-                <span>Deposit Amount Differs from Held Balance</span>
-              </div>
-              <p className="leading-relaxed font-mono">
-                The entered deposit of {formatCedi(amount)} is {mismatchWarning.diffFormatted} {mismatchWarning.direction} than the {mismatchWarning.heldFormatted} currently recorded as held.
-              </p>
+            <div className="mt-2.5">
+              <InlineAlert
+                variant="warn"
+                title="Deposit amount differs from held balance"
+              />
             </div>
           )}
         </div>
 
         {/* Bank Reference */}
         <TextField
-          label="Bank Reference / Slip Number"
+          label="Bank reference / slip number"
           placeholder="e.g. SLIP-892341 or Transfer Ref"
           value={bankReference}
           onChange={(e) => setBankReference(e.target.value)}
@@ -220,13 +213,14 @@ export function DepositEntrySheet({
 
         {/* Who carried it */}
         <div className="space-y-1.5">
-          <label className="text-xs font-mono uppercase tracking-wider text-ink-soft">
-            Carried By (Church Officer / Member) <span className="text-variance">*</span>
+          <label htmlFor="deposit-carried-by" className="text-caption font-medium text-muted">
+            Carried by (church officer or member) <span className="text-bad-ink">*</span>
           </label>
           <select
+            id="deposit-carried-by"
             value={carriedById}
             onChange={(e) => setCarriedById(e.target.value)}
-            className="w-full h-10 px-3 border border-rule rounded-[2px] bg-paper text-ink text-sm focus:outline-none focus:border-ink"
+            className="w-full h-10 px-3 border border-border rounded-control bg-page text-text text-body focus:outline-none focus:border-accent"
             required
           >
             {users.map((u) => (
@@ -240,32 +234,32 @@ export function DepositEntrySheet({
         {/* Slip Photo Uploader */}
         <AttachmentUploader
           entityType={AttachmentEntityType.DEPOSIT}
-          label="Bank Deposit Slip Photo"
+          label="Bank deposit slip photo"
           required={kind === DepositKind.CASH_DEPOSIT}
           onAttachmentUploaded={(id) => setAttachmentId(id)}
         />
 
         {/* Notes */}
         <div className="space-y-1">
-          <label className="text-xs font-mono uppercase tracking-wider text-ink-soft">
-            Notes / Bank Branch (Optional)
+          <label className="text-caption font-medium text-muted">
+            Notes / bank branch (optional)
           </label>
           <textarea
             rows={2}
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             placeholder="e.g. GCB Bank High Street Branch"
-            className="w-full p-2.5 border border-rule rounded-[2px] bg-paper text-ink text-sm focus:outline-none focus:border-ink resize-none"
+            className="w-full p-2.5 border border-border rounded-control bg-page text-text text-body focus:outline-none focus:border-accent resize-none"
           />
         </div>
 
         {/* Actions */}
-        <div className="pt-4 border-t border-rule flex items-center justify-end gap-3">
-          <Button type="button" variant="outline" onClick={onClose}>
+        <div className="pt-4 border-t border-border flex items-center justify-end gap-3">
+          <Button type="button" variant="secondary" onClick={onClose}>
             Cancel
           </Button>
           <Button type="submit" variant="primary" isLoading={isPending}>
-            Record Deposit
+            Record deposit
           </Button>
         </div>
       </form>
