@@ -7,6 +7,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "postinstall": "prisma generate",
     "start": "next start",
     "electron:start": "electron electron/main.cjs",
     "electron:build": "electron-builder --win --dir && node scripts/prepare-desktop.cjs",
